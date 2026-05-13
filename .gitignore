@@ -1,0 +1,9 @@
+.agent/
+.codebase-memory/
+node_modules/
+.next/
+dist/
+build/
+.env
+.env.*
+*.log
