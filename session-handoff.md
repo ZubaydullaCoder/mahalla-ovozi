@@ -4,13 +4,13 @@ _Last updated: 2026-05-17_
 
 ## Purpose
 
-This file is rewritten only when explicitly requested by the user at the end of a chat session. It is a compact factual handoff for the next sequential AI chat session.
+This file is updated only when explicitly requested by the user at the end of a chat session. It provides a compact, factual handoff for the next AI chat session.
 
 Rules:
 
 - Overwrite this file completely when updating it.
 - Do not append old session history.
-- Keep only implemented discussions, completed decisions, actual implementation details, changed files, current behavior/state, and concrete facts discovered during the session.
+- Keep only completed discussions, confirmed decisions, actual implementation details, changed files, current project state, and concrete facts discovered during the session.
 - Do not include future implementation plans, next-step recommendations, roadmap suggestions, speculative improvements, or unimplemented ideas.
 - Do not duplicate full PRD, architecture, research, stories, commits, or source code details.
 - Treat this as temporary session continuity, not as the permanent source of truth.
