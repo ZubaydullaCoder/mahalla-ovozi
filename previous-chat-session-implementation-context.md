@@ -4,17 +4,62 @@
 
 ---
 
+## Session: 2026-05-17
+
+### What Was Accomplished
+
+#### 1. Technical Research Validation Patch Applied
+File: `_bmad-output/planning-artifacts/research/technical-telegram-ai-pipeline-research-2026-05-13.md`
+
+The technical research was reviewed for correctness and overconfidence. It remains directionally useful, but several claims were corrected from “final/verified” to “must validate during Architecture/Implementation.”
+
+Key corrections:
+
+- **AI model choice softened:** Gemini-family fast/low-cost models remain the leading candidate, but **Gemini 2.5 Flash is no longer frozen as the final model**. Exact model must be chosen after checking current pricing, SDK support, latency, and Uzbek benchmark results.
+- **Pricing softened:** Exact AI cost estimates are no longer treated as stable. Recalculate from current official pricing and measured token usage before implementation.
+- **Pre-filter risk corrected:** Removed “zero false-negative risk” language. Short civic messages like `gaz?`, `suv?`, `tok?`, and `свет?` must not be dropped by a naive `<5 chars` rule.
+- **Telegram setup marked for real test:** Privacy mode/admin behavior, captions, forwarded messages, anonymous admins, edited messages, and bot removal events must be tested in a real Telegram test group.
+- **BullMQ/API syntax marked for verification:** Use BullMQ for scheduling, but confirm exact current API/version during architecture/package selection.
+- **Structured output marked for verification:** Continue preferring `@google/genai`, but verify current TypeScript syntax for `responseSchema`, `responseMimeType`, and `thinkingConfig`.
+
+#### 2. User/Client Preferences Log Updated
+File: `user-client-preferences-log.md`
+
+Updated to reflect:
+
+- AI model is provisional until implementation validation.
+- `@google/genai` remains preferred, but syntax must be verified against current docs/types.
+- Non-thinking/low-latency classifier mode remains preferred only where supported cleanly.
+- Pre-filter thresholds are provisional until real-data validation.
+- Bot sender filter remains mandatory but should be counted/logged.
+- Pilot cost target remains low, but exact AI cost must be recalculated.
+
+#### 3. PRD Still Complete, But Needs Light Consistency Patch
+File: `_bmad-output/planning-artifacts/prd.md`
+
+The PRD remains complete and product scope remains valid. However, it still contains some technical wording inherited from the older research, especially:
+
+- Gemini 2.5 Flash as a fixed technical choice.
+- Exact pilot cost ranges tied to prior Gemini pricing.
+- Strong claims about 3-layer pre-filter impact.
+
+Patch the PRD lightly: do not rewrite scope or FR/NFRs. Only soften unstable implementation details.
+
+---
+
 ## Session: 2026-05-16
 
 ### What Was Accomplished
 
-#### 1. Technical Research — SDK and Pricing Corrections Applied
+#### 1. Technical Research — Initial SDK and Pricing Corrections Applied
 File: `_bmad-output/planning-artifacts/research/technical-telegram-ai-pipeline-research-2026-05-13.md`
 
-Two critical corrections applied at the start of this session:
-- **SDK migration:** `@google/generative-ai` → `@google/genai` (deprecated SDK removed; unified SDK required for `thinkingConfig` and `responseSchema`)
-- **Pricing correction:** Gemini 2.5 Flash is ~2.8× more expensive than GPT-4o-mini at standard rates. Revised total pilot cost to **~$9.50–23/month** (vs. previous ~$7–9.50/month). Gemini is still the primary choice due to official Uzbek support and `responseSchema` integration. GPT-4o-mini remains listed as cost fallback.
-- **BullMQ syntax:** `repeat` + `cron` → `upsertJobScheduler` (v5.16.0+ standard for repeatable jobs)
+Earlier corrections applied:
+- **SDK migration:** `@google/generative-ai` → `@google/genai`
+- **Pricing correction:** Gemini 2.5 Flash was estimated as more expensive than GPT-4o-mini at the time
+- **BullMQ syntax:** `repeat` + `cron` → `upsertJobScheduler` recommendation
+
+These are now superseded by the 2026-05-17 validation stance: keep the direction, but revalidate current details before implementation.
 
 #### 2. PRD — Fully Completed (12-step bmad-create-prd workflow)
 File: `_bmad-output/planning-artifacts/prd.md`
@@ -23,7 +68,7 @@ All 12 workflow steps completed. Final document contains:
 
 | Section | Key Decisions |
 |---|---|
-| **Executive Summary** | Signal legibility for leadership; not a complaint portal; 20-min batch; ~40–50% pre-filter discard |
+| **Executive Summary** | Signal legibility for leadership; not a complaint portal; 20-min batch; pre-filtering before AI as an implementation strategy |
 | **Project Classification** | GovTech, High Complexity, Greenfield, Private Internal Tool |
 | **Success Criteria** | Behavioral (hokim trusts the lanes); AI accuracy targets directional until pilot data exists; 2–4 week pilot review |
 | **Product Scope** | Single MVP release; no additions until pilot proven; Growth/Vision deferred entirely |
@@ -36,66 +81,71 @@ All 12 workflow steps completed. Final document contains:
 
 #### 3. Key Clarifications Locked During PRD
 
-- **"Morning briefing" framing rejected:** Domain research mentioned hokim's current verbal morning briefing as background context. This was incorrectly bleeding into journey narratives. Corrected: the dashboard is on-demand, time-agnostic. Never assume usage is tied to a specific time or schedule.
-- **No AI accuracy hard targets in MVP:** Developer has not yet tested classifier on real groups. Hard accuracy thresholds will be set after real-group pilot data. PRD records directional targets only.
-- **No vanity metrics in success criteria:** Signal counts, user activity charts, and similar analytics are not success criteria. Success is behavioral: hokim can reliably scan signals faster than reading raw chats.
-- **Scope discipline:** MVP is exactly `project-raw-idea.md §6`. No additions regardless of how "small" they seem. Prove the concept first.
+- **“Morning briefing” framing rejected:** The dashboard is on-demand, time-agnostic. Never assume usage is tied to a specific time or schedule.
+- **No AI accuracy hard targets in MVP:** Hard thresholds will be set only after real-group pilot/labeled data. PRD records directional targets only.
+- **No vanity metrics in success criteria:** Success is behavioral: hokim can reliably scan signals faster than reading raw chats.
+- **Scope discipline:** MVP is exactly `project-raw-idea.md §6`. No additions regardless of how “small” they seem. Prove the concept first.
 
 ---
 
-### Current Project State
+## Current Project State
 
 | Artifact | Status |
 |---|---|
 | `project-raw-idea.md` | ✅ Source document — do not modify |
-| Technical Research | ✅ Complete, reviewed, updated (SDK + pricing + BullMQ fixes applied) |
+| Technical Research | ✅ Corrected 2026-05-17; direction valid, unstable implementation details flagged for validation |
 | Domain Research | ✅ Complete |
-| User-Client Preferences Log | ✅ Updated (2026-05-16) |
-| **PRD** | ✅ **Complete** — all 12 workflow steps done |
+| User-Client Preferences Log | ✅ Updated 2026-05-17 |
+| PRD | ✅ Complete; needs light consistency patch after research validation |
 | UX Design | ❌ Not started |
 | Architecture Document | ❌ Not started |
 | Epics & Stories | ❌ Not started |
+| App Implementation | ❌ Not started / no confirmed app code |
 
 ---
 
-### Current Technical Decisions
+## Current Technical Decisions
 
-> Research-grounded decisions are technically stable. Rows marked **⚙️** are preference-based — check `user-client-preferences-log.md` for the latest.
+> Stable means safe to carry into architecture. Provisional means architecture must validate before freezing.
 
-| Decision | Value |
+| Decision | Current Status |
 |---|---|
-| Architecture | Modular Monolith |
-| Bot framework | grammY (Node.js/TypeScript) + webhooks |
-| Queue | Redis + BullMQ v5.16.0+ (`upsertJobScheduler`) |
-| AI Classifier ⚙️ | Google Gemini 2.5 Flash, `thinkingBudget: 0`, `temperature: 0` |
-| Gemini SDK | `@google/genai` (NOT deprecated `@google/generative-ai`) |
-| Database | PostgreSQL |
-| Backend API | Fastify (Node.js/TypeScript) |
-| Frontend | SPA (React or Next.js), REST + 60s polling, no WebSocket |
-| Auth ⚙️ | Session-based (not JWT), `httpOnly` + `secure` cookies |
-| Infra | Single VPS + Docker Compose + Nginx + Let's Encrypt |
-| Batch strategy | Real-time API calls every 20 min via BullMQ job scheduler |
-| Pre-filter stack | F1 (bot sender) → F2 (non-text) → F3 (trivial) — centralized in Architecture phase |
-| `hokim_related` | Boolean flag only, never a category enum value |
-| Signal retention ⚙️ | 90 days |
-| Raw message retention | Delete after successful classification in same batch run |
-| Pilot monthly cost | **~$9.50–23/month** (revised; Gemini standard pricing) |
-| Display target | Large desktop (1920×1080+); minimum laptop (1366×768); no mobile |
-| Browser support | Chrome, Firefox, Edge — latest stable only |
+| Architecture | Stable: Modular Monolith |
+| Bot framework | Stable direction: grammY (Node.js/TypeScript) + webhooks |
+| Queue | Stable direction: Redis + BullMQ; exact scheduler API/version must be verified |
+| AI Classifier | Provisional: Gemini-family fast/low-cost model preferred, exact model TBD after current pricing + Uzbek benchmark |
+| Gemini SDK | Stable preference: `@google/genai`; exact syntax must be verified against current docs/types |
+| Database | Stable: PostgreSQL |
+| Backend API | Stable: Fastify (Node.js/TypeScript) |
+| Frontend | Stable: SPA (React or Next.js), REST + 60s polling, no WebSocket for MVP |
+| Auth | Stable: Session-based, not JWT |
+| Infra | Stable direction: Single VPS + Docker Compose + Nginx + Let's Encrypt |
+| Batch strategy | Stable: synchronous classifier calls in 20-min scheduled worker; exact provider/model TBD |
+| Pre-filter stack | Stable concept, provisional thresholds: centralized F1/F2/F3 filters; avoid aggressive short-text discard until tested |
+| `hokim_related` | Stable: Boolean flag only, never category enum |
+| Signal retention | Stable product decision: 90 days |
+| Raw message retention | Stable product decision: delete after successful classification; optional controlled debug strategy may be designed for tuning |
+| Pilot monthly cost | Provisional: target remains low, exact AI cost must be recalculated |
+| Display target | Stable: desktop/large monitor; no mobile MVP |
+| Browser support | Stable: latest Chrome, Firefox, Edge |
 
 ---
 
-### Immediate Next Steps (Start of Next Session)
+## Immediate Next Steps
 
-The PRD is complete. The recommended next actions in order:
+Recommended order from here:
 
-1. **Option A — Validate:** Run `bmad-check-implementation-readiness` to confirm PRD is implementation-ready before architecture/UX work begins.
-2. **Option B — UX Design:** Run `bmad-create-ux-design` (agent: Sally) — dashboard interaction patterns and component specs from FR1–FR34 and the 4 user journeys.
-3. **Option C — Architecture:** Run `bmad-create-architecture` (agent: Winston) — system design from FR/NFR list and tech research.
-4. **Option D — Epics & Stories:** Run `bmad-create-epics-and-stories` to break FRs into sprint-ready units.
-
-Recommended order: Validate → UX → Architecture → Epics.
+1. **Patch PRD consistency wording** to align with corrected technical research. Keep scope and FR/NFRs intact.
+2. **Run `bmad-check-implementation-readiness`** after the PRD patch.
+3. **Run `bmad-create-ux-design`** for dashboard interaction patterns and component specs.
+4. **Run `bmad-create-architecture`** with explicit validation tasks for:
+   - current AI model/pricing/SDK syntax
+   - Telegram test group setup
+   - centralized pre-filter pipeline
+   - short civic text handling
+   - classifier benchmark plan
+5. **Run `bmad-create-epics-and-stories`** after architecture/UX decisions are stable.
 
 ---
 
-_Last updated: 2026-05-16_
+_Last updated: 2026-05-17_
