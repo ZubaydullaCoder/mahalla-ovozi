@@ -19,12 +19,14 @@ briefCount: 0
 researchCount: 2
 brainstormingCount: 0
 projectDocsCount: 0
+lastConsistencyPatch: '2026-05-17 technical validation alignment'
 ---
 
 # Product Requirements Document - mahalla-ovozi
 
-**Author:** Zubaydulla
-**Date:** 2026-05-16
+**Author:** Zubaydulla  
+**Date:** 2026-05-16  
+**Consistency Patch:** 2026-05-17 — aligned with corrected technical research validation
 
 ---
 
@@ -42,7 +44,7 @@ The core insight is that Telegram groups are where civic signals surface earlies
 
 Mahalla Ovozi's differentiation is its discipline: it solves exactly one problem and refuses all scope creep. No issue cards. No resolution workflow. No confidence scores. No automated truth claims. The product's value is a clean, evidence-backed signal stream that lets a busy non-technical leader scan what residents are saying in 60 seconds, not 60 minutes.
 
-The 20-minute AI batch pipeline with a 3-layer pre-filter stack (eliminating ~40–50% of raw traffic before AI) makes this operationally cheap (~$3.47–9.50/month total at pilot scale) while remaining fast enough for a live monitoring use case.
+The 20-minute AI batch pipeline with a conservative centralized pre-filter stack keeps the system fast enough for live monitoring while controlling unnecessary AI cost. Exact AI model and cost estimates are implementation-time decisions and must be revalidated against current provider pricing, SDK support, latency, and Uzbek-language benchmark quality.
 
 ---
 
@@ -77,11 +79,11 @@ The pilot is considered a success if the hokim finds the dashboard useful enough
 Secondary business success indicators:
 - No critical data loss or integrity issues during the pilot
 - Bot connectivity maintained reliably across all monitored groups
-- Operational cost stays within the projected pilot budget (~$9.50–23/month)
+- Operational cost stays within the low-cost pilot budget target after current AI pricing is revalidated
 
 ### Technical Success
 
-- Telegram bot captures all text messages from monitored groups reliably
+- Telegram bot captures all in-scope text messages from monitored groups reliably
 - 20-minute batch processing runs without failure in normal operating conditions
 - Ignored messages are deleted after classification; signal messages are retained correctly
 - System recovers from temporary AI API failures without data loss
@@ -95,7 +97,7 @@ AI accuracy targets are directional for the pilot — hard thresholds will be se
 - Hokim-related flag is useful as a cross-cutting filter
 - Tone labels are plausible enough to aid scanning
 
-If classification quality is insufficient, the pilot will extend prompt engineering and few-shot examples before declaring go/no-go.
+If classification quality is insufficient, the pilot will extend prompt engineering, few-shot examples, and/or model selection before declaring go/no-go.
 
 ### Measurable Outcomes
 
@@ -161,7 +163,7 @@ She never joins or reads the actual Telegram groups. She sees the filtered signa
 
 ### Journey 4: Operator — Bot Setup and Health Check (Admin/Operations)
 
-Rustam is the developer/operator who set up Mahalla Ovozi. Before the pilot launch, he adds the bot to each of the 3 selected mahalla Telegram groups, confirms privacy mode is disabled in BotFather, and verifies the bot is receiving messages by checking the admin health endpoint. On day 3 of the pilot, the dashboard shows a "⚠️ Signals may be delayed" indicator. Rustam checks the health endpoint — the last batch ran 45 minutes ago. He inspects the logs, finds the Gemini API returned a 503, and sees BullMQ has already retried successfully. The indicator clears on the next batch run. The hokim never saw a technical error.
+Rustam is the developer/operator who set up Mahalla Ovozi. Before the pilot launch, he adds the bot to each of the 3 selected mahalla Telegram groups, confirms the required Telegram group/bot setup in a real test group, and verifies the bot is receiving messages by checking the admin health endpoint. On day 3 of the pilot, the dashboard shows a "⚠️ Signals may be delayed" indicator. Rustam checks the health endpoint — the last batch ran 45 minutes ago. He inspects the logs, finds the AI provider returned a temporary error, and sees BullMQ has already retried successfully. The indicator clears on the next batch run. The hokim never saw a technical error.
 
 **Capabilities revealed:** admin health endpoint (last batch time, queue depth, errors), bot connectivity monitoring (my_chat_member events), "signals may be delayed" UI indicator for hokim (no raw errors shown), BullMQ retry handling, operator-only health view vs. hokim-facing dashboard.
 
@@ -220,9 +222,11 @@ The developer's responsibility is to implement specified technical requirements 
 |---|---|
 | Bot token exposed | Env var only; rotate immediately if leaked |
 | Webhook spoofed | Validate secret token header on every request |
-| Data loss on VPS failure | Daily `pg_dump` backups to Backblaze B2; RTO <4h, RPO <24h |
+| Data loss on VPS failure | Daily `pg_dump` backups to external object storage; RTO <4h, RPO <24h |
 | Bot removed from group | `my_chat_member` event detection; operator alert |
 | AI API downtime | BullMQ retry; show "Signals may be delayed" to hokim on next batch |
+| AI model/pricing assumptions stale | Revalidate current provider/model/pricing before implementation; keep model configurable |
+| Pre-filter false negatives | Use conservative centralized filters; validate thresholds with real mahalla data before hardening |
 
 ---
 
@@ -286,7 +290,7 @@ Semantic HTML structure; keyboard-navigable primary interactions. No formal WCAG
 - Context drawer: same mahalla + same category + selected time range; clicked message auto-highlighted
 - Filters: time range (1h / 3h / 6h / Today / custom up to 7 days), mahalla, keyword search
 - Telegram bot: text message capture from monitored supergroups via webhook
-- 20-minute AI batch pipeline: 3-layer pre-filter + Gemini 2.5 Flash classification
+- 20-minute AI batch pipeline: conservative centralized pre-filter + configurable AI classification model selected after implementation-time validation
 - Signal-only storage: raw messages deleted post-classification, signals retained 90 days
 - "Signals may be delayed" dashboard indicator (non-technical, hokim-visible)
 - Admin health endpoint: last batch time, queue status, bot connectivity (operator-only)
@@ -297,9 +301,9 @@ Semantic HTML structure; keyboard-navigable primary interactions. No formal WCAG
 
 ### Risk Mitigation Strategy
 
-**Technical risks:** AI classification quality is the highest-risk assumption. Mitigation: 2–4 week pilot with real group data; prompt engineering iteration before go/no-go decision. GPT-4o-mini available as cost fallback if Gemini quality is insufficient.
+**Technical risks:** AI classification quality is the highest-risk assumption. Mitigation: 2–4 week pilot with real group data; prompt engineering and model selection iteration before go/no-go decision. Exact model/provider must remain configurable until validated.
 
-**Operational risks:** Bot setup requires group admin access. Mitigation: documented setup checklist; operator walkthrough with client before pilot launch.
+**Operational risks:** Bot setup requires confirmed Telegram group/bot configuration. Mitigation: documented setup checklist, real test group validation, and operator walkthrough with client before pilot launch.
 
 **Resource risks:** Single developer. Mitigation: modular monolith architecture limits blast radius of any component; no microservices complexity.
 
@@ -333,17 +337,17 @@ Semantic HTML structure; keyboard-navigable primary interactions. No formal WCAG
 
 ### Message Intake
 
-- **FR16:** The system captures text messages sent to monitored Telegram supergroups via an official Telegram bot
+- **FR16:** The system captures in-scope text messages sent to monitored Telegram supergroups via an official Telegram bot
 - **FR17:** The system captures message metadata: Telegram message ID, chat/group ID, sender reference, sender display name snapshot, and timestamp
 - **FR18:** The system detects when the bot is removed from or loses access to a monitored group and alerts the operator
-- **FR19:** The system ignores non-text Telegram updates (photos, videos, voice, stickers, polls) without processing or storing them
+- **FR19:** The system ignores non-text Telegram updates (photos, videos, voice, stickers, polls) for MVP unless Architecture explicitly decides to include text captions as in-scope text
 
 ### AI Classification Pipeline
 
 - **FR20:** The system processes captured messages in batches at a configurable interval (default: every 20 minutes)
-- **FR21:** The system applies a pre-filter to discard short, non-Uzbek, and URL-only messages before AI classification
+- **FR21:** The system applies a centralized conservative pre-filter before AI classification to remove structural noise such as bot-originated messages, unsupported non-text updates, empty text, pure emoji/reactions, and bot commands; exact thresholds must be validated with real mahalla data
 - **FR22:** The system classifies each remaining message as signal or ignore using AI
-- **FR23:** For signal messages, the system assigns: category (water/electricity/gas/waste/hokim-related), hokim-related flag, tone (complaint/announcement/praise/question), and optional short label
+- **FR23:** For signal messages, the system assigns: category (water/electricity/gas/waste), hokim-related flag, tone (complaint/announcement/praise/question), and optional short label
 - **FR24:** The system deletes raw captured messages after successful classification in the same batch run
 - **FR25:** The system retries failed AI classification batches automatically and surfaces a delay indicator to the dashboard
 
@@ -362,7 +366,7 @@ Semantic HTML structure; keyboard-navigable primary interactions. No formal WCAG
 
 ### Operational Health
 
-- **FR33:** Operators can access an admin health endpoint showing: last successful batch time, current queue depth, bot connectivity status per monitored group, and recent processing errors
+- **FR33:** Operators can access an admin health endpoint showing: last successful batch time, current queue depth, bot connectivity status per monitored group, recent processing errors, and basic pre-filter discard counts useful for debugging
 - **FR34:** The system exposes a health status to the dashboard that indicates whether signal data is current or delayed, without exposing technical details to non-operator users
 
 ---
@@ -380,7 +384,7 @@ Semantic HTML structure; keyboard-navigable primary interactions. No formal WCAG
 
 - **NFR5:** All dashboard traffic is served exclusively over HTTPS; HTTP requests are redirected
 - **NFR6:** Session cookies are issued with `httpOnly` and `secure` flags; session data is never exposed to client-side JavaScript
-- **NFR7:** Bot token, Gemini API key, and database credentials are stored in environment variables only — never in source code, logs, or version control
+- **NFR7:** Bot token, AI provider API key, and database credentials are stored in environment variables only — never in source code, logs, or version control
 - **NFR8:** Incoming webhook requests are validated against a secret token header before processing; invalid requests are rejected without processing
 - **NFR9:** All database data is stored with disk encryption at rest on the VPS
 - **NFR10:** Session tokens are invalidated immediately on logout
@@ -395,3 +399,17 @@ Semantic HTML structure; keyboard-navigable primary interactions. No formal WCAG
 ### Scalability
 
 - **NFR15:** The system supports pilot load of up to 5 monitored groups and 1,000 messages/day with no architectural changes required; growth beyond this is a post-pilot concern
+
+---
+
+## Implementation Validation Notes Added After Technical Research Review
+
+Before Architecture is finalized, explicitly validate:
+
+1. Current AI model/provider choice, pricing, latency, SDK syntax, and structured output support.
+2. A small classifier benchmark using real or realistic Uzbek/Russian mixed mahalla messages, including very short civic texts.
+3. Telegram test group behavior: privacy mode/admin requirements, captions, forwarded messages, edited messages, anonymous admins, and bot removal events.
+4. Centralized pre-filter module design and unit tests.
+5. Hokim lane query behavior: `hokim_related = true` is a boolean cross-cutting view, not a category enum.
+
+These validation notes do not expand MVP scope; they prevent architecture and stories from inheriting stale or overconfident technical assumptions.
