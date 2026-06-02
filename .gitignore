@@ -7,4 +7,4 @@ build/
 .env
 .env.*
 *.log
-
+AGENTS.md
