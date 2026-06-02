@@ -20,8 +20,9 @@ It helps a tuman hokimi and authorized staff quickly see relevant resident-repor
 from selected mahalla Telegram groups without manually reading noisy group chats.
 
 The product captures text messages and textual captions through an official Telegram bot, applies
-conservative structural pre-filters, classifies remaining human text with AI, stores only relevant
-signal messages, and displays them in a web dashboard.
+conservative structural pre-filters, classifies eligible human text with AI, stores only relevant
+signal messages, and displays them in a web dashboard. Phase 1 also validates developer/operator-side
+filtering modes (`ai_full`, `keyword_gate`, `shadow_compare`) before the pilot default is locked.
 
 The dashboard uses five lanes:
 
@@ -40,6 +41,8 @@ and the Hokim-related lane.
 - Official Telegram bot intake
 - Text and textual-caption intake only
 - AI-based signal/ignore classification
+- Developer/operator-side filtering mode validation
+- Centralized manual keyword registry for keyword-gated validation
 - Category assignment: water, electricity, gas, waste
 - Hokim-related boolean flag
 - Optional short label for display/debugging

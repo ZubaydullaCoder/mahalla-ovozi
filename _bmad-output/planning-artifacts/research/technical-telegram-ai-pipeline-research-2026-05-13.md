@@ -12,7 +12,7 @@ research_goals: |
   4. Identify any hard constraints that would change the MVP scope
 user_name: 'Zubaydulla'
 date: '2026-05-13'
-last_validation_update: '2026-05-17'
+last_validation_update: '2026-06-02'
 web_research_enabled: true
 source_verification: partial-revalidation-required
 ---
@@ -26,6 +26,19 @@ source_verification: partial-revalidation-required
 **Project:** Mahalla Ovozi
 
 ---
+
+> [!CAUTION]
+> **Superseded for implementation by 2026-06-01/2026-06-02 planning updates.**
+> This research remains useful historical feasibility context, but it is not an implementation source of truth.
+> Current implementation decisions live in:
+>
+> - `_bmad-output/planning-artifacts/architecture.md`
+> - `_bmad-output/planning-artifacts/architecture-ops-console.md`
+> - `_bmad-output/planning-artifacts/prd.md`
+> - `stakeholder-decisions-log.md`
+>
+> Do not implement old references to tone classification, Fastify, Redis/BullMQ, separate workers, or stale `@google/genai` syntax from this file.
+> Current Phase 1 uses Express v4, Prisma, PostgreSQL, `node-cron`, no Redis/BullMQ, no tone field, and Gemini structured output via `responseJsonSchema`.
 
 ## 2026-05-17 Validation Patch — Important Correction
 

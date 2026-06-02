@@ -13,7 +13,7 @@ inputDocuments:
   - '_bmad-output/planning-artifacts/research/technical-telegram-ai-pipeline-research-2026-05-13.md'
   - '_bmad-output/planning-artifacts/research/domain-mahalla-governance-research-2026-05-13.md'
   - 'session-handoff.md'
-  - 'user-client-preferences-log.md'
+  - 'stakeholder-decisions-log.md'
 workflowType: 'prd'
 briefCount: 0
 researchCount: 2
@@ -44,7 +44,7 @@ The core insight is that Telegram groups are where civic signals surface earlies
 
 Mahalla Ovozi's differentiation is its discipline: it solves exactly one problem and refuses all scope creep. No issue cards. No resolution workflow. No confidence scores. No automated truth claims. The product's value is a clean, evidence-backed signal stream that lets a busy non-technical leader scan what residents are saying in 60 seconds, not 60 minutes.
 
-The 20-minute AI batch pipeline with a conservative centralized pre-filter stack keeps the system fast enough for live monitoring while controlling unnecessary AI cost. Exact AI model and cost estimates are implementation-time decisions and must be revalidated against current provider pricing, SDK support, latency, and Uzbek-language benchmark quality.
+The 20-minute AI batch pipeline keeps the system fast enough for live monitoring while controlling unnecessary AI cost. Phase 1 validates three developer/operator-side filtering modes: full AI classification after structural pre-filtering, keyword-gated AI classification, and shadow comparison between the two. Exact AI model, filtering default, and cost estimates are implementation-time decisions and must be revalidated against current provider pricing, SDK support, latency, Uzbek-language benchmark quality, and real mahalla message coverage.
 
 ---
 
@@ -79,7 +79,7 @@ The pilot is considered a success if the hokim finds the dashboard useful enough
 Secondary business success indicators:
 - No critical data loss or integrity issues during the pilot
 - Bot connectivity maintained reliably across all monitored groups
-- Operational cost stays within the low-cost pilot budget target after current AI pricing is revalidated
+- Operational cost stays within the low-cost pilot budget target after current AI pricing and filtering mode are revalidated
 
 ### Technical Success
 
@@ -97,6 +97,8 @@ AI accuracy targets are directional for the pilot — hard thresholds will be se
 - Hokim-related flag is useful as a cross-cutting filter
 
 If classification quality is insufficient, the pilot will extend prompt engineering, few-shot examples, and/or model selection before declaring go/no-go.
+
+Filtering-mode quality is also validated during Phase 1. Keyword-gated filtering is acceptable for pilot only if real/test data shows the missed non-keyword signal risk is acceptable to the owner/client. Until that is proven, full AI classification remains the safest baseline.
 
 ### Measurable Outcomes
 
@@ -129,6 +131,17 @@ Exactly what is defined in `project-raw-idea.md` §6: one district, 3–5 mahall
 For MVP intake, “text/caption-only” means Telegram `message.text` and textual `caption` content are in scope when Telegram provides them. Media binaries themselves — photos, videos, voice, stickers, polls, files, and similar non-text payloads — remain out of scope and are not stored or analyzed.
 
 No additions. Prove the concept first.
+
+### Delivery Phase Interpretation
+
+The MVP product scope above is fixed, but implementation is delivered in two phases:
+
+- **Phase 1 - validation build:** Implements the MVP behavior locally with production-quality schema, API contracts, module boundaries, authentication, bot intake, AI pipeline, dashboard, health state, Developer Ops Console, developer-side filtering mode selection, and centralized manual keyword management for validation. Infrastructure is intentionally simplified for fast human-in-the-loop validation.
+- **Phase 2 - pilot deployment hardening:** Adds the production deployment layer required for the real district pilot: Docker Compose, Nginx, HTTPS, secure cookies, external backups, production monitoring posture, and any queue/worker split approved after Phase 1 validation.
+
+Therefore, deployment-hardening items are part of the pilot-ready MVP, but they are not blockers for Phase 1 local validation stories.
+
+Filtering mode selection is not a hokim/staff dashboard feature. It is a developer/operator validation control used to compare cost, coverage, and missed-signal risk before choosing the pilot default.
 
 ### Growth Features (Post-MVP)
 
@@ -208,15 +221,15 @@ Mahalla Ovozi is a private internal tool commissioned and operated by an authori
 
 The developer's responsibility is to implement specified technical requirements correctly. No regulatory approval, external audit, or compliance certification is required for this product.
 
-This client-owned policy stance does not reduce developer-owned security and data-handling responsibilities. The implementation must still enforce the PRD's technical safeguards: HTTPS, secure session cookies, webhook secret validation, environment-only secrets, district-scoped access, retention behavior, backup protection, and operator-visible health/debug information.
+This client-owned policy stance does not reduce developer-owned security and data-handling responsibilities. The implementation must still enforce the PRD's technical safeguards at the appropriate delivery phase: pilot HTTPS, secure session cookies, webhook secret validation, environment-only secrets, district-scoped access, retention behavior, backup protection, and operator-visible health/debug information.
 
 ### Technical Constraints
 
 **Data security (developer-owned):**
 - Bot token and API keys in environment variables only — never in code or logs
 - Webhook requests validated via `X-Telegram-Bot-Api-Secret-Token` header
-- Dashboard served over HTTPS only; session cookies with `httpOnly` and `secure` flags
-- PostgreSQL on a single VPS with disk encryption; sufficient for pilot scale
+- Phase 1 local validation may use HTTP with `httpOnly` session cookies; pilot deployment must use HTTPS with `httpOnly` and `secure` session cookies
+- Phase 2 pilot deployment uses PostgreSQL on a single VPS with disk encryption; sufficient for pilot scale
 
 **Data retention (developer-owned):**
 - Raw messages: deleted after successful classification in the same batch run
@@ -234,7 +247,7 @@ This client-owned policy stance does not reduce developer-owned security and dat
 |---|---|
 | Bot token exposed | Env var only; rotate immediately if leaked |
 | Webhook spoofed | Validate secret token header on every request |
-| Data loss on VPS failure | Daily `pg_dump` backups to external object storage; RTO <4h, RPO <24h |
+| Data loss on VPS failure | Phase 2 pilot deployment: daily `pg_dump` backups to external object storage; RTO <4h, RPO <24h |
 | Bot removed from group | `my_chat_member` event detection; expose operator-visible health alert state |
 | AI API downtime | Retry logic in batch processor (up to 3 attempts); show "Signals may be delayed" to hokim on next batch; expose technical details only in operator health/logs |
 | AI model/pricing assumptions stale | Revalidate current provider/model/pricing before implementation; keep model configurable |
@@ -264,9 +277,9 @@ Mahalla Ovozi's frontend is a **single-page application (SPA)** — a React (or 
 
 **State management:** Local component state + React Query (or SWR) for server-state caching. No global state manager needed at MVP scale.
 
-**API communication:** REST over HTTPS. Dashboard auto-refresh polling interval: 60 seconds (sufficient given 20-min batch cadence). No WebSocket for MVP.
+**API communication:** REST. Phase 1 local validation may use HTTP; Phase 2 pilot deployment must use HTTPS. Dashboard auto-refresh polling interval: 60 seconds (sufficient given 20-min batch cadence). No WebSocket for MVP.
 
-**Auth flow:** Session cookie (`httpOnly`, `secure`) issued on login. Protected routes redirect to login if no valid session.
+**Auth flow:** Session cookie issued on login. `httpOnly` is always required; `secure` is required for Phase 2 pilot deployment. Protected routes redirect to login if no valid session.
 
 ### Browser & Display Requirements
 
@@ -281,6 +294,8 @@ Mahalla Ovozi's frontend is a **single-page application (SPA)** — a React (or 
 ### Accessibility Level
 
 Semantic HTML structure; keyboard-navigable primary interactions. No formal WCAG compliance target for pilot.
+
+> **Agent note:** "No formal WCAG compliance target" means no external audit is required — not that WCAG should be ignored. Per stakeholder decision (2026-05-22 in `stakeholder-decisions-log.md`), WCAG 2.1 AA is the internal quality target: implement correct contrast, keyboard navigation, focus management, semantic HTML, and core ARIA behavior. Skip only the formal audit paperwork.
 
 ### Implementation Considerations
 
@@ -310,20 +325,21 @@ Semantic HTML structure; keyboard-navigable primary interactions. No formal WCAG
 - Default view: Today, All mahallas, newest-first
 - Signal item display: timestamp, sender reference, mahalla name, raw text snippet, hokim-related indicator
 - Context drawer: same mahalla + same category + selected time range; clicked message auto-highlighted
+- Telegram context action: stored signals can expose a Telegram message link when the viewer has group access
 - Filters: time range (1h / 3h / 6h / Today / custom up to 7 days), mahalla, keyword search
 - Telegram bot: text and text-caption capture from monitored supergroups via webhook; media binaries are ignored for MVP
-- 20-minute AI batch pipeline: conservative centralized pre-filter + configurable AI classification model selected after implementation-time validation
+- 20-minute AI batch pipeline: structural pre-filter + configurable developer-side filtering mode + configurable AI classification model selected after implementation-time validation
 - Signal-only storage: raw messages deleted post-classification, signals retained 90 days
 - "Signals may be delayed" dashboard indicator (non-technical, hokim-visible)
-- Admin health endpoint: last batch time, queue status, bot connectivity, recent processing errors, discard counts (operator-only)
+- Admin health endpoint and Ops Console: last batch time, queue status, bot connectivity, recent processing errors, discard counts, active filtering mode, keyword registry, and comparison metrics (operator-only)
 - Session-based auth: login, protected routes, no public registration
-- VPS deployment: Docker Compose + Nginx + Let's Encrypt + daily pg_dump backups
+- Phase 2 pilot deployment: Docker Compose + Nginx + Let's Encrypt + daily pg_dump backups
 
 **Nice-to-have (defer post-pilot):** None specified — scope is already at minimum.
 
 ### Risk Mitigation Strategy
 
-**Technical risks:** AI classification quality is the highest-risk assumption. Mitigation: 2–4 week pilot with real group data; prompt engineering and model selection iteration before go/no-go decision. Exact model/provider must remain configurable until validated.
+**Technical risks:** AI classification quality and keyword-gated missed-signal risk are the highest-risk assumptions. Mitigation: Phase 1 validation with real/test group data, shadow comparison metrics, prompt engineering, keyword iteration, and model selection before go/no-go decision. Exact model/provider/filtering mode must remain configurable until validated.
 
 **Operational risks:** Bot setup requires confirmed Telegram group/bot configuration. Mitigation: documented setup checklist, real test group validation, and operator walkthrough with client before pilot launch.
 
@@ -341,6 +357,7 @@ Semantic HTML structure; keyboard-navigable primary interactions. No formal WCAG
 - **FR4:** Authorized users can see each signal item displaying: timestamp, sender reference, mahalla/group name, raw message snippet, and hokim-related indicator
 - **FR5:** Authorized users can see the dashboard default to Today's signals across all mahallas, sorted newest-first
 - **FR6:** Authorized users can see a non-technical status indicator when signal data is delayed due to processing issues
+- **FR6a:** Authorized users can open a stored signal's original Telegram message link when Telegram permits access, so they can inspect nearby real chat context outside the dashboard
 
 ### Context Drawer
 
@@ -368,7 +385,9 @@ Semantic HTML structure; keyboard-navigable primary interactions. No formal WCAG
 
 - **FR20:** The system processes captured messages in batches at a configurable interval (default: every 20 minutes)
 - **FR21:** The system applies a centralized conservative pre-filter before AI classification to remove structural noise such as bot-originated messages, unsupported non-text updates, empty text, pure emoji/reactions, and bot commands; exact thresholds must be validated with real mahalla data
-- **FR22:** The system classifies each remaining message as signal or ignore using AI
+- **FR21a:** The system supports developer/operator-only filtering modes: `ai_full`, `keyword_gate`, and `shadow_compare`; the active mode is not visible or controllable in the hokim/staff dashboard
+- **FR21b:** The system stores manually managed keyword phrases in one centralized Ops Console database registry; AI does not auto-generate or modify keywords
+- **FR22:** The system classifies eligible messages as signal or ignore using AI. In `ai_full`, every structurally retained message is AI-classified; in `keyword_gate`, only keyword-matched messages are AI-classified; in `shadow_compare`, every structurally retained message is AI-classified while keyword match status is recorded for comparison
 - **FR23:** For signal messages, the system assigns: category (water/electricity/gas/waste), hokim-related flag, and optional short label
 - **FR24:** The system deletes raw captured messages after successful classification in the same batch run
 - **FR25:** The system retries failed AI classification batches automatically and surfaces a delay indicator to the dashboard
@@ -388,7 +407,7 @@ Semantic HTML structure; keyboard-navigable primary interactions. No formal WCAG
 
 ### Operational Health
 
-- **FR33:** Operators can access an admin health endpoint showing: last successful batch time, current queue depth, bot connectivity status per monitored group, recent processing errors, and basic pre-filter discard counts useful for debugging
+- **FR33:** Operators can access an admin health endpoint and Ops Console showing: last successful batch time, current queue depth, bot connectivity status per monitored group, recent processing errors, active filtering mode, basic pre-filter discard counts, keyword-gate skip counts, and shadow comparison metrics useful for debugging
 - **FR34:** The system exposes a health status to the dashboard that indicates whether signal data is current or delayed, without exposing technical details to non-operator users
 
 ---
@@ -404,18 +423,18 @@ Semantic HTML structure; keyboard-navigable primary interactions. No formal WCAG
 
 ### Security
 
-- **NFR5:** All dashboard traffic is served exclusively over HTTPS; HTTP requests are redirected
-- **NFR6:** Session cookies are issued with `httpOnly` and `secure` flags; session data is never exposed to client-side JavaScript
+- **NFR5:** Phase 2 pilot deployment serves all dashboard traffic over HTTPS; HTTP requests are redirected. Phase 1 local validation may use HTTP.
+- **NFR6:** Session cookies are issued with `httpOnly`; Phase 2 pilot deployment also requires the `secure` flag. Session data is never exposed to client-side JavaScript.
 - **NFR7:** Bot token, AI provider API key, and database credentials are stored in environment variables only — never in source code, logs, or version control
 - **NFR8:** Incoming webhook requests are validated against a secret token header before processing; invalid requests are rejected without processing
-- **NFR9:** All database data is stored with disk encryption at rest on the VPS
+- **NFR9:** Phase 2 pilot deployment stores database data with disk encryption at rest on the VPS
 - **NFR10:** Session tokens are invalidated immediately on logout
 
 ### Reliability
 
-- **NFR11:** The Telegram webhook endpoint maintains 99% availability during pilot operating hours; outages exceeding 15 minutes create an operator-visible health alert state
+- **NFR11:** During Phase 2 pilot operation, the Telegram webhook endpoint maintains 99% availability during pilot operating hours; outages exceeding 15 minutes create an operator-visible health alert state
 - **NFR12:** The batch processing pipeline recovers automatically from transient AI API failures (up to 3 retry attempts) without operator intervention
-- **NFR13:** Daily automated database backups complete successfully; backup failure creates an operator-visible health alert state
+- **NFR13:** During Phase 2 pilot operation, daily automated database backups complete successfully; backup failure creates an operator-visible health alert state
 - **NFR14:** No signal messages are lost due to system restarts or transient failures — the pipeline is idempotent per batch run
 
 ### Scalability

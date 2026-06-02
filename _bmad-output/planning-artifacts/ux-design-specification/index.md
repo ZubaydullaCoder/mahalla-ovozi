@@ -57,7 +57,7 @@
     - [Implementation Approach](./design-direction-decision.md#implementation-approach)
     - [Elements Noted from Other Directions](./design-direction-decision.md#elements-noted-from-other-directions)
   - [User Journey Flows](./user-journey-flows.md)
-    - [Journey 1: Daily Morning Briefing (Primary — Hokim)](./user-journey-flows.md#journey-1-daily-morning-briefing-primary-hokim)
+    - [Journey 1: On-Demand Signal Scan (Primary — Hokim)](./user-journey-flows.md#journey-1-on-demand-signal-scan-primary-hokim)
     - [Journey 2: Mahalla Deep-Dive (Focused Investigation — Hokim or Staff)](./user-journey-flows.md#journey-2-mahalla-deep-dive-focused-investigation-hokim-or-staff)
     - [Journey 3: Time-Range Shift Investigation (Pattern Discovery — Staff)](./user-journey-flows.md#journey-3-time-range-shift-investigation-pattern-discovery-staff)
     - [Journey Patterns](./user-journey-flows.md#journey-patterns)

@@ -26,6 +26,12 @@ source_verification: true
 
 ---
 
+> [!CAUTION]
+> **Historical domain research, not current product scope.**
+> This file may mention tone visibility or complaint tone as part of earlier domain framing.
+> Current MVP scope removes tone classification entirely. Use `prd.md`, `architecture.md`,
+> and `stakeholder-decisions-log.md` for product and implementation decisions.
+
 ## Research Overview
 
 This domain research maps the Uzbek mahalla institution, hokim governance structure, and existing civic communication channels to ground the Mahalla Ovozi PRD in accurate real-world context. The research answers: who the user actually is, what they do today, and what problem Mahalla Ovozi solves in their existing workflow.

@@ -44,26 +44,29 @@ processing, Uzbek NLP, district-scoped multi-user auth, Developer Ops Console.
 ### Technical Constraints & Dependencies (Phase 1)
 
 - grammY (current stable) — `webhookCallback(bot, "express", { secretToken })` for Express integration
-- `@google/genai` SDK — `ai.models.generateContent()` with `responseSchema: z.toJSONSchema(schema)`
+- `@google/genai` SDK — `ai.models.generateContent()` with `responseMimeType: 'application/json'` and `responseJsonSchema`
 - Ant Design v6.x with ConfigProvider tokens; no Tailwind
 - `@tanstack/react-virtual` — lane virtualization (>50 cards threshold)
 - Prisma v7.8.0 — PostgreSQL schema management, migrations, BigInt support; requires `@prisma/adapter-pg`
-- Zod v4 — runtime validation; `z.toJSONSchema(schema)` module-level function for AI schema
+- Zod v4 — runtime validation; converted to Gemini-compatible JSON Schema via `zod-to-json-schema`
 - express-session + connect-pg-simple — PostgreSQL-backed session store (no Redis in Phase 1)
 - node-cron v4.x — in-process scheduler (no BullMQ/Redis in Phase 1)
 - AI model: configurable Gemini model via `AI_MODEL` env var (Google AI only in Phase 1)
-- Pre-filter thresholds: provisional until real-data validation
+- Filtering mode: configurable via `FILTER_MODE` env var (`ai_full` default, `keyword_gate`, `shadow_compare`)
+- Keyword registry: centralized PostgreSQL-backed Ops Console registry; manually edited by developer/operator only
+- Pre-filter thresholds and keyword coverage: provisional until real-data validation
 
 ### Cross-Cutting Concerns
 
 1. **District-scoped data isolation** — middleware guard on all API routes
-2. **Pre-filter pipeline centralization** — `src/bot/filters/pipeline.ts` only
+2. **Filtering centralization** — structural pre-filtering, keyword matching, and mode routing stay in one intake/classification path
 3. **Uzbek Cyrillic string enforcement** — typed `strings.ts` dictionary + Vitest check
 4. **Health state propagation** — `batch_health` → `/api/health` → 60s poll → amber banner
 5. **Idempotency** — `telegram_update_id` unique constraint; `$transaction([signalCreate, rawDelete])` per message
 6. **Security secrets** — five env-only secrets (DATABASE_URL included); webhook validated via grammY `secretToken` option
 7. **AI output validation** — Zod discriminated union before every write; invalid = retry or log, never silently accepted
 8. **Gemini model selection** — `AI_MODEL` env var selects the Gemini model; Google AI is the only implemented provider in Phase 1
+9. **Filtering mode isolation** — active mode is visible to Ops only; no hokim/staff dashboard control or mode language
 
 ---
 
@@ -75,6 +78,9 @@ The goal of Phase 1 is to validate the core hypothesis — that AI classificatio
 can reliably surface civic signals useful to district leadership — before investing in production
 infrastructure. Client feedback will drive Phase 2 scope.
 
+MVP product scope stays the same across phases. Phase 1 validates the MVP behavior locally; Phase 2
+hardens the same product for the real pilot deployment.
+
 **Phase 1 characteristics:**
 - Local PostgreSQL (no Docker Compose required for the server itself)
 - In-process `node-cron` scheduler (no Redis or BullMQ)
@@ -82,6 +88,8 @@ infrastructure. Client feedback will drive Phase 2 scope.
 - Express.js server (simpler middleware chain, more LLM-assisted examples, clean grammY integration)
 - Prisma ORM (fast schema iteration, guided migration, auto-generated TypeScript types)
 - Developer Ops Console at `/ops` — full pipeline visibility for HITL validation
+- Developer-side filtering modes: full AI, keyword-gated AI, and shadow comparison
+- Manual keyword registry in Ops Console; keywords are not AI-generated
 - Message simulator in Ops Console — inject test messages without real Telegram groups
 - Real bot integration with test groups in parallel — both paths feed the same pipeline
 - Simplified hokim dashboard — full features but no lane virtualization (deferred until >50 cards)
@@ -89,8 +97,18 @@ infrastructure. Client feedback will drive Phase 2 scope.
 **Phase 1 is NOT a prototype.** Database schema, API contracts, module boundaries, and security
 patterns are production-quality. Only infrastructure and queue management are simplified.
 
-**Phase 1 → Phase 2 boundary:** Phase 2 begins after client validation confirms the pipeline is
-useful. See Section 16 for the Phase 2 roadmap.
+**Phase 1 exit gates:**
+- Real Telegram test group intake works for text and textual captions.
+- Ops Console can simulate messages, trigger classification, and show pipeline decisions.
+- Ops Console can show active filtering mode, manage keywords, and compare keyword coverage against AI outcomes.
+- Classifier behavior is benchmarked on realistic or real labeled mahalla messages.
+- Keyword-gated missed-signal risk is measured before `keyword_gate` is selected for pilot.
+- Dashboard scan flow, filters, context drawer, auth, and delayed-signal health state are demo-ready.
+- Bot removal/connectivity health state is validated in a test group.
+- Retry/restart checks show no raw/signal data loss for normal Phase 1 failure cases.
+
+**Phase 1 → Phase 2 boundary:** Phase 2 begins after owner/client validation confirms the pipeline is
+useful enough for pilot deployment. See Section 16 for the Phase 2 roadmap.
 
 ---
 
@@ -109,6 +127,7 @@ useful. See Section 16 for the Phase 2 roadmap.
 - `argon2` — password hashing
 - `@google/genai` (current stable) — AI classification
 - `zod` v4.x — runtime validation
+- `zod-to-json-schema` — converts Zod classifier schema to Gemini `responseJsonSchema`
 - `morgan` — HTTP request logging
 - `pino` — structured application logging (pino-pretty for dev)
 
@@ -154,7 +173,10 @@ mahalla-ovozi/
 │   │       │   ├── index.ts          ← grammY Bot instance; registers message + member handlers
 │   │       │   ├── webhook.ts        ← Express route POST /webhook
 │   │       │   └── filters/
-│   │       │       └── pipeline.ts   ← ALL pre-filter logic (F1 bot, F2 type, F3 trivial content)
+│   │       │       └── pipeline.ts   ← structural pre-filter + keyword match + mode routing entry
+│   │       ├── keywords/
+│   │       │   ├── matcher.ts        ← deterministic manual keyword phrase matcher
+│   │       │   └── query.ts          ← active keyword registry queries
 │   │       ├── classifier/
 │   │       │   ├── index.ts          ← classifyBatch() public function
 │   │       │   ├── ai-client.ts      ← @google/genai client factory
@@ -177,7 +199,8 @@ mahalla-ovozi/
 │   │       ├── ops/
 │   │       │   ├── index.ts          ← registerOpsRoutes() Express router (dev-only guard)
 │   │       │   ├── routes.ts         ← GET/POST /api/ops/* endpoints
-│   │       │   └── simulator.ts      ← injectMessage() — writes directly to raw_messages
+│   │       │   ├── simulator.ts      ← injectMessage() — writes directly to raw_messages
+│   │       │   └── keyword-routes.ts ← Ops-only keyword registry CRUD
 │   │       └── web/
 │   │           └── index.ts          ← Express server entry; registers all routers + starts server
 │   └── web/
@@ -221,6 +244,8 @@ mahalla-ovozi/
 │               │   ├── message-simulator.tsx  ← inject test messages form
 │               │   ├── pipeline-event-log.tsx ← live pipeline trace
 │               │   ├── batch-status.tsx       ← last run + manual trigger button
+│               │   ├── keyword-registry.tsx   ← manual keyword management
+│               │   ├── filtering-mode.tsx     ← displays active FILTER_MODE only
 │               │   ├── raw-messages-table.tsx ← pending queue viewer
 │               │   ├── signals-browser.tsx    ← stored signals viewer
 │               │   └── system-health.tsx      ← DB + scheduler + AI API status
@@ -281,6 +306,7 @@ model District {
   rawMessages   RawMessage[]
   signalMessages SignalMessage[]
   batchHealths  BatchHealth[]
+  keywords      Keyword[]
 
   @@map("districts")
 }
@@ -364,6 +390,8 @@ model SignalMessage {
   category             String   @db.VarChar(20)
   // 'water' | 'electricity' | 'gas' | 'waste'
   hokim_related        Boolean  @default(false)
+  keyword_matched      Boolean  @default(false)
+  matched_keyword      String?  @db.VarChar(120)
   // NOTE: No tone field — removed from MVP scope entirely
   short_label          String?  @db.VarChar(100)
   classified_at        DateTime
@@ -377,7 +405,23 @@ model SignalMessage {
   @@index([category])
   @@index([telegram_timestamp])
   @@index([hokim_related])
+  @@index([keyword_matched])
   @@map("signal_messages")
+}
+
+model Keyword {
+  id          Int      @id @default(autoincrement())
+  district_id Int
+  phrase      String   @db.VarChar(120)
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  district District @relation(fields: [district_id], references: [id])
+
+  @@unique([district_id, phrase])
+  @@index([district_id, is_active])
+  @@map("keywords")
 }
 
 model BatchHealth {
@@ -387,11 +431,21 @@ model BatchHealth {
   // 'ok' | 'failed' | 'running'
   started_at          DateTime
   completed_at        DateTime?
+  intake_window_from  DateTime?
+  intake_window_to    DateTime?
   messages_fetched    Int       @default(0)
   signals_written     Int       @default(0)
   ignored_count       Int       @default(0)
   // Stage-1 pre-filter discards (counted at intake, written at batch completion)
   pre_filter_discards Int       @default(0)
+  filter_mode          String    @db.VarChar(20)
+  // 'ai_full' | 'keyword_gate' | 'shadow_compare'
+  keyword_matched_count          Int @default(0)
+  keyword_skipped_count          Int @default(0)
+  keyword_ai_signal_count        Int @default(0)
+  keyword_ai_ignore_count        Int @default(0)
+  no_keyword_ai_signal_count     Int @default(0)
+  no_keyword_ai_ignore_count     Int @default(0)
   error_message       String?
 
   district District @relation(fields: [district_id], references: [id])
@@ -406,7 +460,7 @@ model BatchHealth {
 model PipelineEvent {
   id             Int      @id @default(autoincrement())
   event_type     String   @db.VarChar(30)
-  // 'raw' | 'prefilter_pass' | 'prefilter_discard' | 'ai_call' | 'ai_result' | 'stored' | 'error'
+  // 'raw' | 'prefilter_pass' | 'prefilter_discard' | 'keyword_match' | 'keyword_skip' | 'ai_call' | 'ai_result' | 'stored' | 'error'
   raw_message_id Int?
   signal_id      Int?
   detail         Json     @default("{}")
@@ -462,17 +516,30 @@ if (process.env.NODE_ENV !== 'production') {
 **Note:** `connect-pg-simple` uses its own `pg.Pool` for session storage (not the Prisma client).
 This is correct — sessions are managed separately from Prisma-managed tables.
 
-### Two-Stage Discard Model
+### Three-Outcome Discard Model
 
-Messages are discarded at two distinct stages. Do not conflate them:
+Messages can leave the pipeline in three distinct ways. Do not conflate structural discards, keyword skips, and AI ignores:
 
 - **Stage 1 — Pre-filter discard (at webhook intake, in `pipeline.ts`):** Messages rejected by F1/F2/F3
   filters are never written to `raw_messages`. They are counted in structured pino logs at `info` level
   and summarized in `batch_health.pre_filter_discards` per run.
 
-- **Stage 2 — AI-classified-as-ignore (at batch time):** Messages that pass pre-filtering but are
+- **Stage 2 - Keyword-gate skip (at webhook intake only when `FILTER_MODE=keyword_gate`):** Messages that
+  pass F1/F2/F3 but do not match any active manual keyword are not written to `raw_messages`. They are
+  counted as `keyword_skipped_count` and logged as `keyword_skip`. This is not an AI decision.
+
+- **Stage 3 — AI-classified-as-ignore (at batch time):** Messages that reach AI but are
   classified by AI as non-civic signals. These exist in `raw_messages` and are deleted after
   classification. All ignored messages are deleted — ignored-message sampling is a Phase 2 feature.
+
+In `ai_full`, all structurally retained messages are written to `raw_messages`. In `keyword_gate`, only
+keyword-matched messages are written. In `shadow_compare`, all structurally retained messages are written,
+and keyword match status is stored in `pipeline_events.detail`/batch metrics for comparison.
+
+Keyword skip and structural discard counts happen at intake time, while `batch_health` is written at
+batch time. The implementation must aggregate intake counters from `pipeline_events` created since the
+previous completed batch start time and mark the aggregation window in the new `batch_health` row. Do not
+increment `batch_health` directly at webhook time; that would double-count retries and concurrent batches.
 
 ### Migration Approach
 
@@ -521,7 +588,7 @@ cron.schedule('0 3 * * *', async () => {
 | API versioning | None for Phase 1 | Single internal SPA client, co-deployed |
 | Global UI state | React built-ins only | No Zustand/Redux needed at MVP scale |
 | Routing | React Router v6.30.x — 3 routes: `/login`, `/`, `/ops` | Minimal; `/ops` is developer-only |
-| Ops Console auth | No auth in Phase 1 local dev | Developer tool; ENV guard disables `/ops` in production |
+| Ops Console access | Explicit `OPS_ENABLED` guard plus local-only or `OPS_SECRET` protection | Prevents accidental exposure when local dev is tunneled for Telegram webhook testing |
 | AI provider | Gemini (configurable model via `AI_MODEL` env) | Only Google AI is implemented; `AI_MODEL` selects the model, not the provider |
 
 ---
@@ -568,15 +635,33 @@ header against `TELEGRAM_WEBHOOK_SECRET` env var. Requests failing this check ar
 
 **Ops Console guard:**
 ```typescript
-// ops/index.ts — /ops routes disabled in production
-if (env.NODE_ENV === 'production') {
+// ops/index.ts — /api/ops routes disabled unless explicitly enabled
+if (env.NODE_ENV === 'production' || !env.OPS_ENABLED) {
   router.all('*', (_req, res) => res.status(404).json({ error: 'Not found' }))
   return router
 }
+
+router.use((req, res, next) => {
+  const isLocalhost = req.ip === '127.0.0.1' || req.ip === '::1'
+  const providedSecret = req.header('X-Ops-Secret')
+
+  if (env.OPS_SECRET) {
+    if (providedSecret !== env.OPS_SECRET) {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
+    return next()
+  }
+
+  if (!isLocalhost) {
+    return res.status(403).json({ error: 'Forbidden' })
+  }
+
+  return next()
+})
 ```
 
-**Secrets (five env-only, never logged or committed):**
-`DATABASE_URL`, `BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `AI_API_KEY`, `SESSION_SECRET`
+**Secrets (env-only, never logged or committed):**
+`DATABASE_URL`, `BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `AI_API_KEY`, `SESSION_SECRET`, `OPS_SECRET`
 
 ---
 
@@ -592,12 +677,25 @@ GET  /api/health
 POST /api/auth/login
 POST /api/auth/logout
 
-// Ops Console (dev only, guarded by NODE_ENV check)
+// Ops Console (Phase 1 only; guarded by NODE_ENV + OPS_ENABLED + local/secret check)
 GET  /api/ops/raw-messages
+GET  /api/ops/signals
 GET  /api/ops/pipeline-events
 GET  /api/ops/batch-status
+GET  /api/ops/system-health
+GET  /api/ops/filtering-mode
+GET  /api/ops/keywords
+POST /api/ops/keywords
+PATCH /api/ops/keywords/:id
+DELETE /api/ops/keywords/:id
+POST /api/ops/simulate-webhook
 POST /api/ops/simulate-message
 POST /api/ops/trigger-batch
+DELETE /api/ops/raw-messages/simulated
+DELETE /api/ops/raw-messages?confirm=DELETE_ALL_RAW
+DELETE /api/ops/signals/simulated
+DELETE /api/ops/signals?confirm=DELETE_ALL_SIGNALS
+DELETE /api/ops/pipeline-events
 
 // Bot webhook (not under /api namespace)
 POST /webhook
@@ -611,6 +709,8 @@ POST /webhook
 interface Signal {
   id:                 number
   telegramUpdateId:   number
+  telegramMessageId:  number
+  telegramMessageUrl: string | null
   districtId:         number
   mahallaId:          number
   mahallaName:        string
@@ -622,6 +722,8 @@ interface Signal {
   category:           'water' | 'electricity' | 'gas' | 'waste'
   hokimRelated:       boolean
   // NOTE: No tone field — removed from MVP scope
+  keywordMatched:     boolean
+  matchedKeyword:     string | null
   shortLabel:         string | null
   classifiedAt:       string    // ISO 8601 UTC
 }
@@ -630,6 +732,14 @@ interface Mahalla {
   id:         number
   districtId: number
   name:       string
+}
+
+interface Keyword {
+  id:        number
+  phrase:    string
+  isActive:  boolean
+  createdAt: string
+  updatedAt: string
 }
 
 interface BotConnectivity {
@@ -648,6 +758,13 @@ interface HealthStatus {
   pendingRawMessages: number         // current count in raw_messages pending classification
   preFilterDiscards:  number         // Stage-1 discard count from most recent batch_health row
   ignoredCount:       number         // AI-classified-as-ignore count from most recent batch_health row
+  filterMode:         'ai_full' | 'keyword_gate' | 'shadow_compare'
+  keywordMatchedCount:      number
+  keywordSkippedCount:      number
+  keywordAiSignalCount:     number
+  keywordAiIgnoreCount:     number
+  noKeywordAiSignalCount:   number
+  noKeywordAiIgnoreCount:   number
 }
 ```
 
@@ -667,6 +784,20 @@ interface HealthStatus {
    telegram_timestamp BETWEEN from AND to ORDER BY telegram_timestamp ASC`.
 
 `district_id` always sourced from `req.session.districtId`, never from the request.
+
+### Telegram Message Link Mapping
+
+`signals/mapper.ts` builds `telegramMessageUrl` from `signal_messages.telegram_message_id` plus
+`mahallas.telegram_chat_id`. For private supergroups, use Telegram's `t.me/c/<internal_chat_id>/<message_id>`
+format by stripping the `-100` supergroup prefix from `telegram_chat_id`. Return `null` when the required
+IDs are unavailable. The dashboard exposes the link only as an external context action; access still depends
+on the viewer's Telegram permissions.
+
+### Ops Keyword District Scope
+
+For Phase 1's one-district pilot, Ops keyword routes resolve `district_id` server-side from the single
+active district. Do not accept `districtId` in Ops keyword request bodies. If multi-district support is
+added later, derive keyword district scope from the authenticated operator session, not from request input.
 
 ---
 
@@ -703,7 +834,7 @@ export type ClassifierOutput = z.infer<typeof ClassifierOutputSchema>
 ```typescript
 // apps/server/src/classifier/ai-client.ts
 import { GoogleGenAI } from '@google/genai'
-import { z } from 'zod'
+import { zodToJsonSchema } from 'zod-to-json-schema'
 import { ClassifierOutputSchema } from './schema.ts'
 
 const ai = new GoogleGenAI({ apiKey: env.AI_API_KEY })
@@ -714,8 +845,9 @@ export async function classifyMessage(text: string): Promise<ClassifierOutput> {
     contents: buildPrompt(text),
     config: {
       responseMimeType: 'application/json',
-      // z.toJSONSchema() is the documented Zod v4 module-level function (not instance method)
-      responseSchema: z.toJSONSchema(ClassifierOutputSchema),
+      // Current Gemini JS structured output uses responseJsonSchema.
+      // Validate SDK syntax against official docs/types during implementation.
+      responseJsonSchema: zodToJsonSchema(ClassifierOutputSchema),
       temperature: 0,     // deterministic output
     },
   })
@@ -752,7 +884,7 @@ Failed messages are NOT deleted from `raw_messages` — they are retried in the 
   <Route path="/login" element={<LoginPage />} />
   <Route path="/" element={<AuthGuard><DashboardPage /></AuthGuard>} />
   <Route path="/ops" element={<OpsPage />} />
-  {/* /ops has no auth guard in Phase 1; NODE_ENV guard is on the server */}
+  {/* /api/ops is guarded server-side by NODE_ENV + OPS_ENABLED + local/secret check */}
 </Routes>
 ```
 
@@ -846,9 +978,9 @@ router.post('/webhook', webhookCallback(bot, 'express', { secretToken: env.TELEG
 export default router
 ```
 
-### Pre-Filter Pipeline (F1/F2/F3)
+### Filtering Pipeline (F1/F2/F3 + Keyword Mode)
 
-All pre-filter logic lives exclusively in `src/bot/filters/pipeline.ts`:
+All intake filtering and mode routing starts from `src/bot/filters/pipeline.ts`:
 
 - **F1 — Bot sender:** Discard if `update.message.from.is_bot === true`.
 - **F2 — Non-text type:** Discard if both `update.message.text` and `update.message.caption` are undefined.
@@ -857,10 +989,18 @@ All pre-filter logic lives exclusively in `src/bot/filters/pipeline.ts`:
   - Discard if text is pure emoji (regex: `/^[\u{1F000}-\u{1FFFF}\u{2600}-\u{27FF}\s]+$/u` with no alphanumeric chars)
   - Discard if text is empty after trimming
   - **DO NOT** discard based on character count. Short civic texts like `gaz?`, `suv?`, `tok?` MUST reach the AI classifier.
+- **F4 - Manual keyword match:** For messages that pass F1/F2/F3, load active keywords for the district and run a deterministic case-insensitive phrase match. Keywords are manually maintained; AI never creates them.
+- **Mode routing:**
+  - `ai_full`: queue every F1/F2/F3-passing message for AI; record keyword match status only for Ops metrics.
+  - `keyword_gate`: queue only keyword-matched messages for AI; skip non-keyword messages before `raw_messages`.
+  - `shadow_compare`: queue every F1/F2/F3-passing message for AI and record whether each message matched keywords so Ops can compare coverage.
 
 **Edited messages:** Discarded. `update.edited_message` is defined → discard and log.
 **Forwarded messages:** Treated as original. Sender = the forwarder.
 **Anonymous admin posts:** Discarded by F1 (`GroupAnonymousBot` has `is_bot === true`). Known limitation.
+
+`FILTER_MODE=ai_full` is the default. The active mode is read from env at server startup and displayed in
+Ops Console only. Runtime switching from the dashboard is out of scope.
 
 ---
 
@@ -894,11 +1034,11 @@ ngrok http 3001  # or: cloudflared tunnel
 ```typescript
 // apps/server/src/web/index.ts — scheduler registered at server startup
 import cron from 'node-cron'
-import { classifyBatch } from '../classifier/index.ts'
+import { runClassifyBatchWithLock } from '../classifier/index.ts'
 
 // Classification batch — every 20 minutes
 cron.schedule('*/20 * * * *', async () => {
-  await classifyBatch()
+  await runClassifyBatchWithLock('cron')
 })
 
 // Signal retention purge — daily at 03:00 UTC
@@ -917,6 +1057,9 @@ BOT_TOKEN=                   # from @BotFather
 TELEGRAM_WEBHOOK_SECRET=     # random string; set same in Telegram webhook config
 AI_API_KEY=                  # Google AI API key
 AI_MODEL=gemini-2.5-flash    # configurable Gemini model selection
+FILTER_MODE=ai_full          # ai_full | keyword_gate | shadow_compare; developer/operator only
+OPS_ENABLED=false            # true only during Phase 1 local validation
+OPS_SECRET=                  # optional; required if accessing Ops Console over a tunnel/non-localhost
 NODE_ENV=development
 PORT=3001
 # RETAIN_IGNORED_SAMPLE_SIZE removed: ignored-message sampling is a Phase 2 feature.
@@ -1014,6 +1157,17 @@ logger.info({ districtId, messagesProcessed: 5 }, 'Batch complete')
 logger.info(`Batch complete for district ${districtId}`)
 ```
 
+### Filtering Mode Test Cases
+
+Add focused Vitest coverage for:
+
+- Keyword matcher: case-insensitive phrase matching, trimmed phrases, inactive keywords ignored, empty keyword list returns no match.
+- `ai_full`: every F1/F2/F3-passing human text message is queued for AI, regardless of keyword match.
+- `keyword_gate`: keyword-matched messages are queued for AI; non-keyword messages are skipped before `raw_messages` and counted as `keyword_skipped_count`.
+- `shadow_compare`: every F1/F2/F3-passing message is queued for AI, and keyword/no-keyword AI outcomes update comparison metrics.
+- Ops keyword CRUD: protected by the existing Ops guard and constrained to the authenticated/operator district.
+- Signal mapper: `telegramMessageUrl` is generated only when Telegram chat/message IDs are available.
+
 ### Pre-Commit Checklist
 
 Before any implementation story is marked done:
@@ -1031,12 +1185,13 @@ Before any implementation story is marked done:
 
 | Module | Writes | Reads | Deletes |
 |---|---|---|---|
-| `bot/` | `raw_messages` | `mahallas` | — |
-| `classifier/` | `signal_messages`, `batch_health` | `raw_messages` | `raw_messages` (post-classification) |
+| `bot/` | `raw_messages`, `pipeline_events` | `mahallas`, `keywords` | — |
+| `keywords/` | — | `keywords` | — |
+| `classifier/` | `signal_messages`, `batch_health`, `pipeline_events` | `raw_messages` | `raw_messages` (post-classification) |
 | `signals/` | — | `signal_messages`, `mahallas` | — |
 | `health/` | — | `batch_health`, `mahallas` | — |
 | `auth/` | `users`, sessions | `users` | — |
-| `ops/` | `raw_messages` (simulator) | all tables (read-only ops queries) | — |
+| `ops/` | `raw_messages` (simulator), `keywords` | all tables (read-only ops queries) | `keywords` |
 
 ### FR-to-Module Mapping
 
@@ -1046,25 +1201,27 @@ Before any implementation story is marked done:
 | Context Drawer (FR7–10) | `apps/web/src/components/context-drawer/` |
 | Filtering & Search (FR11–15) | `apps/web/src/components/filter-bar/`, `apps/web/src/hooks/use-filters.ts` |
 | Message Intake (FR16–19) | `apps/server/src/bot/`, `apps/server/src/bot/filters/pipeline.ts` |
-| AI Classification (FR20–25) | `apps/server/src/classifier/` |
+| AI Classification (FR20–25) | `apps/server/src/classifier/`, `apps/server/src/keywords/` |
 | Signal Storage (FR26–28) | `apps/server/src/signals/`, `prisma/schema.prisma` |
 | Auth & Access (FR29–32) | `apps/server/src/auth/` |
-| Operational Health (FR33–34) | `apps/server/src/health/`, `apps/web/src/components/delay-banner.tsx` |
+| Operational Health (FR33–34) | `apps/server/src/health/`, `apps/server/src/ops/`, `apps/web/src/components/delay-banner.tsx` |
 
 ### End-to-End Data Flow
 
 ```
 [Real Telegram group]
         ↓
-POST /webhook → grammY → pipeline.ts pre-filter
-        ↓                     ↓ (discarded: logged, counted)
-  raw_messages (PostgreSQL)
+POST /webhook → grammY → pipeline.ts structural pre-filter
+        ↓                     ↓ (structural discard: logged, counted)
+  keyword matcher + FILTER_MODE router
+        ↓                     ↓ (keyword_gate no-match: keyword_skip counted, no AI)
+  raw_messages (PostgreSQL; eligible AI messages only)
         ↓
   node-cron (every 20 min) → classifyBatch()
         ↓
   ai-client.ts → @google/genai → ClassifierOutputSchema.safeParse()
         ↓
-  signal_messages written | raw_messages deleted | batch_health updated
+  signal_messages written | raw_messages deleted | batch_health/filter metrics updated
         ↓
 SPA GET /api/signals (60s poll) ← signals/query.ts reads signal_messages
 SPA GET /api/health  (60s poll) ← health/query.ts reads batch_health
@@ -1108,7 +1265,7 @@ Express v4 + grammY `webhookCallback(bot, 'express', { secretToken })` — confi
 Prisma v7.8.0 + `@prisma/adapter-pg` driver adapter — confirmed ✅
 AntD v6.x + React Router v6.30.x + TanStack Query v5 — compatible ✅
 node-cron v4.x + `*/20 * * * *` syntax — confirmed ✅
-`@google/genai` + `z.toJSONSchema(schema)` (Zod v4 module-level function) — confirmed ✅
+`@google/genai` + `responseJsonSchema` + `zod-to-json-schema` — official structured-output pattern verified 2026-06-02 ✅
 
 ---
 

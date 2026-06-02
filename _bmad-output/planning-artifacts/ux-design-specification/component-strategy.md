@@ -1,6 +1,6 @@
 # Component Strategy
 
-## Design System Components (AntD v5 — Used As-Is)
+## Design System Components (AntD v6 — Used As-Is)
 
 | Component | AntD v5 | Usage in Mahalla Ovozi |
 |---|---|---|
