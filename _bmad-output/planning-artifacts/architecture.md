@@ -130,10 +130,11 @@ useful enough for pilot deployment. See Section 16 for the Phase 2 roadmap.
 - `@tanstack/react-query` v5.x — server state caching
 - `@tanstack/react-virtual` — lane virtualization (deferred until >50 cards)
 - `react-router-dom` v6.30.x (pinned — v7 is a major rewrite; v6 is stable and well-documented)
-- `vite` ^8.x — dev server + production build (Node >=20.19 or >=22.12 required; `npm create vite@latest` installs Vite 8)
+- `vite` ^8.x — dev server + production build (Node >=20.19 or >=22.12 required; `pnpm create vite@latest` installs Vite 8)
 - `typescript` — strict mode throughout
 
 **Tooling:**
+- `pnpm` v10.34.1 via Corepack — exact version pinned in root `package.json`
 - `tsx` — development server watch mode
 - `eslint` — linting
 - `vitest` — unit tests
@@ -145,7 +146,8 @@ mahalla-ovozi/
 ├── .env                              ← secrets (gitignored)
 ├── .env.example                      ← template with all required keys
 ├── .gitignore
-├── package.json                      ← npm workspaces root
+├── package.json                      ← pnpm workspaces root
+├── pnpm-workspace.yaml               ← workspace package glob declarations
 ├── tsconfig.json                     ← root strict TypeScript config
 ├── prisma/
 │   ├── schema.prisma                 ← single source of truth for all DB tables
@@ -545,16 +547,16 @@ increment `batch_health` directly at webhook time; that would double-count retri
 
 ```bash
 # Development iteration (fast, guided, creates migration files)
-npx prisma migrate dev --name <description>
+pnpm exec prisma migrate dev --name <description>
 
 # Very early prototyping (no migration file, direct push)
-npx prisma db push
+pnpm exec prisma db push
 
 # Reset entire DB during Phase 1 experiments
-npx prisma migrate reset
+pnpm exec prisma migrate reset
 
 # Production (Phase 2)
-npx prisma migrate deploy
+pnpm exec prisma migrate deploy
 ```
 
 ### Data Retention
@@ -1016,13 +1018,13 @@ docker run -d --name mahalla-pg \
   -p 5432:5432 postgres:16-alpine
 
 # Run schema migrations
-npm run db:migrate
+pnpm db:migrate
 
 # Start server (includes node-cron scheduler in same process)
-npm run dev:server
+pnpm dev:server
 
 # Start SPA dev server (separate terminal)
-npm run dev:web
+pnpm dev:web
 
 # Expose webhook for real Telegram bot testing
 ngrok http 3001  # or: cloudflared tunnel
@@ -1170,8 +1172,8 @@ Add focused Vitest coverage for:
 ### Pre-Commit Checklist
 
 Before any implementation story is marked done:
-1. `npm run lint` passes
-2. `npm run test` passes (includes check-uz-strings.ts)
+1. `pnpm lint` passes
+2. `pnpm test` passes (includes check-uz-strings.ts)
 3. No snake_case field names in Express route return values
 4. No `districtId` sourced from request body or query params
 5. No Latin Uzbek strings visible in the dashboard UI
@@ -1302,20 +1304,21 @@ document will be written after Phase 1 pilot review, informed by real usage data
 
 ### First Implementation Story — Workspace Scaffold
 
-1. Root `package.json` with npm workspaces config (`"workspaces": ["apps/*"]`)
-2. `npm create vite@latest apps/web -- --template react-ts`
-3. `mkdir apps/server && cd apps/server && npm init -y`
-4. Root `tsconfig.json` (strict mode base config)
-5. `prisma/schema.prisma` with all 8 models
-6. Run `npx prisma migrate dev --name init`
-7. `.env.example` with all required variables documented
-8. Local PostgreSQL container or install (instructions in README)
+1. Verify Corepack, run `corepack enable pnpm`, and create root `package.json` with exact `"packageManager": "pnpm@10.34.1"`
+2. Confirm `pnpm --version` reports `10.34.1`, then create `pnpm-workspace.yaml` with `packages: ['apps/*']`
+3. `pnpm create vite@latest apps/web --template react-ts`
+4. Create `apps/server/package.json` directly
+5. Root `tsconfig.json` (strict mode base config)
+6. `prisma/schema.prisma` with all 8 models
+7. Run `pnpm db:migrate -- --name init`
+8. `.env.example` with all required variables documented
+9. Local PostgreSQL container or install (instructions in README)
 
 ---
 
 ### Seed Data Strategy
 
-All seed data lives in `prisma/seed.ts` and runs via `npm run db:seed`
+All seed data lives in `prisma/seed.ts` and runs via `pnpm db:seed`
 (registered as `"prisma": { "seed": "tsx prisma/seed.ts" }` in `package.json`).
 
 Seed data is **required** before any story can be validated end-to-end.

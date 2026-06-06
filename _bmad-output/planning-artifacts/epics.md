@@ -96,7 +96,7 @@ NFR16: The dashboard UI meets WCAG 2.1 Level AA compliance for contrast ratios, 
 
 From Architecture — technical decisions that directly affect story scope and implementation:
 
-- **AR1 — Workspace scaffold:** npm workspaces monorepo with `apps/server` (Express + TypeScript) and `apps/web` (React + Vite + TypeScript). Root `tsconfig.json` strict mode. All packages must be pinned to documented versions.
+- **AR1 — Workspace scaffold:** pnpm `10.34.1` workspaces monorepo, enabled through Corepack, with `apps/server` (Express + TypeScript) and `apps/web` (React + Vite + TypeScript). Root `tsconfig.json` strict mode. All packages must be pinned to documented versions.
 - **AR2 — Database schema:** Prisma v7.8.0 with PostgreSQL. Eight models: District, Mahalla, User, RawMessage, SignalMessage, Keyword, BatchHealth, PipelineEvent. All timestamps UTC. BigInt for Telegram chat IDs.
 - **AR3 — Prisma 7 runtime pattern:** `prisma.config.ts` for CLI; `@prisma/adapter-pg` for runtime. `connect-pg-simple` for session store (separate pg.Pool — not Prisma client).
 - **AR4 — Three-outcome discard model:** Stage 1 = structural pre-filter discard (at webhook, not written to raw_messages); Stage 2 = keyword-gate skip (at webhook, keyword_gate mode only); Stage 3 = AI-classified-as-ignore (at batch time, deleted after classification). Must not conflate these three.
@@ -114,7 +114,7 @@ From Architecture — technical decisions that directly affect story scope and i
 - **AR16 — API shape:** Unwrapped arrays, camelCase JSON, null (not undefined) for absent optionals. Error shape: `{ statusCode, error, message }`. Query params: snake_case. No API versioning in Phase 1.
 - **AR17 — Telegram message link:** `telegramMessageUrl` built in `signals/mapper.ts` using `t.me/c/<internal_chat_id>/<message_id>` format (strip `-100` prefix from supergroup chat_id). Return null when IDs unavailable.
 - **AR18 — Batch health aggregation:** Intake counters aggregated from `pipeline_events` since previous batch start. `batch_health` written at batch completion only. Never increment `batch_health` at webhook time.
-- **AR19 — Pre-commit checklist for every story:** `npm run lint` passes; `npm run test` passes (includes check-uz-strings); no snake_case in Express responses; no districtId from request body; no Latin Uzbek in UI.
+- **AR19 — Pre-commit checklist for every story:** `pnpm lint` passes; `pnpm test` passes (includes check-uz-strings); no snake_case in Express responses; no districtId from request body; no Latin Uzbek in UI.
 - **AR20 — Phase 1 Ops Console spec:** Fully documented in `architecture-ops-console.md`. Includes: message simulator (inject test messages), pipeline event log, batch status + manual trigger, keyword registry CRUD, filtering mode display, raw messages viewer, signals browser, system health dashboard.
 
 ---
@@ -236,13 +236,13 @@ So that the development environment is ready and all database models exist as th
 
 **Acceptance Criteria:**
 
-**Given** a fresh project directory with Node.js and PostgreSQL available
-**When** the developer runs `npm install` and `npm run db:migrate`
-**Then** the npm workspaces monorepo is initialized (`apps/server`, `apps/web`), root `tsconfig.json` is in strict mode, and all Prisma models (District, Mahalla, User, RawMessage, SignalMessage, Keyword, BatchHealth, PipelineEvent) exist in the database with correct field types — including BigInt for Telegram chat IDs
+**Given** a fresh project directory with Node.js, Corepack, and PostgreSQL available
+**When** the developer enables pnpm with `corepack enable pnpm`, verifies pnpm `10.34.1`, then runs `pnpm install` and `pnpm db:migrate`
+**Then** the pnpm workspaces monorepo is initialized (`apps/server`, `apps/web`), root `tsconfig.json` is in strict mode, and all Prisma models (District, Mahalla, User, RawMessage, SignalMessage, Keyword, BatchHealth, PipelineEvent) exist in the database with correct field types — including BigInt for Telegram chat IDs
 **And** `.env.example` documents all required environment variables: DATABASE_URL, BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, AI_API_KEY, AI_MODEL, FILTER_MODE, OPS_ENABLED, OPS_SECRET, SESSION_SECRET, PORT
 **And** `prisma.config.ts` is present at project root using `defineConfig` with datasource URL; `apps/server/src/shared/db.ts` uses `PrismaPg` adapter for runtime connection
 **And** `check-uz-strings.ts` Vitest test file exists in `scripts/` and passes (empty `strings.ts` is acceptable at this stage)
-**And** `npm run lint` and `npm run test` both pass
+**And** `pnpm lint` and `pnpm test` both pass
 
 ---
 
@@ -254,7 +254,7 @@ So that resident messages start flowing into the database with full metadata for
 
 **Acceptance Criteria:**
 
-**Given** the server is started with `npm run dev:server` and the bot is registered in a test Telegram supergroup
+**Given** the server is started with `pnpm dev:server` and the bot is registered in a test Telegram supergroup
 **When** a resident sends a plain text message in the monitored group
 **Then** the webhook validates the `X-Telegram-Bot-Api-Secret-Token` header against `TELEGRAM_WEBHOOK_SECRET` and writes a row to `raw_messages` with: `telegram_update_id`, `telegram_message_id`, `chat_id` (BigInt), `district_id`, `mahalla_id`, `sender_display_name`, `sender_username`, `text`, `text_source='text'`, `telegram_timestamp`
 **And** when a resident sends a photo with a caption, the caption text is captured with `text_source='caption'`; the photo binary is not stored
@@ -263,7 +263,7 @@ So that resident messages start flowing into the database with full metadata for
 **And** when a message starts with `/`, consists of only emoji, or is empty after trimming (F3), it is discarded; short civic texts like `gaz?`, `suv?`, `tok?` are NOT discarded by length
 **And** intake is idempotent: a duplicate `telegram_update_id` (upsert with empty update) does not create a second row
 **And** invalid or missing secret token headers return HTTP 401 with no processing
-**And** `npm run lint` and `npm run test` pass; pre-filter unit tests cover F1, F2, F3 and short-text edge cases
+**And** `pnpm lint` and `pnpm test` pass; pre-filter unit tests cover F1, F2, F3 and short-text edge cases
 
 ---
 
@@ -280,7 +280,7 @@ So that I have accurate visibility into which mahalla groups are actively monito
 **Then** `mahallas.bot_status` is updated to `'removed'` and `bot_last_seen_at` is set to the event timestamp
 **And** when the bot rejoins (member or administrator status), `bot_status` is updated to `'active'`
 **And** the `my_chat_member` grammY handler processes both status transitions correctly
-**And** `npm run lint` and `npm run test` pass
+**And** `pnpm lint` and `pnpm test` pass
 
 ---
 
@@ -318,7 +318,7 @@ So that civic signals are stored in `signal_messages` and the core pipeline outp
 **And** if the AI response fails Zod discriminated-union schema validation, the message retries up to 3 times with exponential backoff; after 3 failures the batch is marked failed and the message stays in `raw_messages` for the next batch run
 **And** `batch_health` row is written at batch completion with: status, started_at, completed_at, messages_fetched, signals_written, ignored_count, pre_filter_discards, filter_mode, and all keyword comparison metric fields
 **And** the pipeline is idempotent: restarting mid-batch does not duplicate signals due to UNIQUE constraint on `telegram_update_id`
-**And** `npm run lint` and `npm run test` pass; unit tests cover: Zod schema validation, retry logic, atomic `$transaction` write/delete, idempotency on restart
+**And** `pnpm lint` and `pnpm test` pass; unit tests cover: Zod schema validation, retry logic, atomic `$transaction` write/delete, idempotency on restart
 
 ---
 
@@ -336,7 +336,7 @@ So that database growth stays bounded throughout and after the pilot period with
 **And** the purge result is logged at `info` level with structured pino format: `{ deleted: N, event: 'retention_purge' }` — no string interpolation
 **And** retention is based on `created_at` (system storage time), not `telegram_timestamp`
 **And** the retention cron runs independently from the classification batch cron as a separate `cron.schedule` call
-**And** `npm run lint` and `npm run test` pass
+**And** `pnpm lint` and `pnpm test` pass
 
 ---
 
@@ -358,7 +358,7 @@ So that I can access the dashboard and my session persists for up to 8 hours wit
 **And** the session stores `userId` and `districtId` (never exposed to client JavaScript)
 **And** when invalid credentials are submitted, the server returns HTTP 401 with `{ statusCode: 401, error: 'Unauthorized', message: 'Invalid credentials' }` — no information about which field was wrong
 **And** after 5 failed login attempts per username within a 60-second window, subsequent attempts return HTTP 429 (rate limit); the counter resets after 60 seconds
-**And** `npm run lint` and `npm run test` pass; unit tests cover: successful login, wrong password, rate limit trigger and reset
+**And** `pnpm lint` and `pnpm test` pass; unit tests cover: successful login, wrong password, rate limit trigger and reset
 
 ---
 
@@ -375,7 +375,7 @@ So that unauthenticated users are rejected and no cross-district data leakage is
 **Then** the server returns HTTP 401 and no data is returned
 **And** when a valid session exists, `req.session.districtId` is injected into every downstream query — no endpoint reads `districtId` from the request body or query params
 **And** all Prisma queries that read signals, mahallas, health data, or keywords include `WHERE district_id = req.session.districtId`
-**And** `npm run lint` and `npm run test` pass; unit tests cover: missing session → 401, valid session → data scoped to correct district, districtId from body is ignored
+**And** `pnpm lint` and `pnpm test` pass; unit tests cover: missing session → 401, valid session → data scoped to correct district, districtId from body is ignored
 
 ---
 
@@ -392,7 +392,7 @@ So that my access is revoked and no one can reuse my session cookie after I leav
 **Then** the server destroys the session in the PostgreSQL session store and returns HTTP 200
 **And** subsequent requests using the same session cookie return HTTP 401
 **And** the `Set-Cookie` response header clears the session cookie (maxAge=0 or expires in the past)
-**And** `npm run lint` and `npm run test` pass
+**And** `pnpm lint` and `pnpm test` pass
 
 ---
 
@@ -410,7 +410,7 @@ So that the dashboard is only accessible after successful authentication.
 **And** when the user submits valid credentials on the login page, the `POST /api/auth/login` mutation succeeds, the session cookie is stored by the browser, and the user is redirected to `/`
 **And** when the user submits invalid credentials, an inline error message is shown on the login page in Uzbek Cyrillic — no page reload, no alert dialog
 **And** the login form has no public registration link or password-reset link
-**And** all login page UI strings are in `strings.ts` in Uzbek Cyrillic; `npm run lint` and `npm run test` pass including `check-uz-strings`
+**And** all login page UI strings are in `strings.ts` in Uzbek Cyrillic; `pnpm lint` and `pnpm test` pass including `check-uz-strings`
 
 ---
 
@@ -440,7 +440,7 @@ So that all subsequent UI components use consistent design tokens and the struct
 **And** the app-level layout renders: a 56px sticky filter bar zone at the top and a lane grid zone taking `calc(100vh - 56px)` below it
 **And** at viewport < 1024px: `.app-shell` is hidden via CSS `@media` only and a centered Uzbek Cyrillic message "Маҳалла Овози фақат компьютер экранида ишлайди" is shown — no JavaScript required
 **And** no ad-hoc color literals exist in any component file — all colors reference `useToken()` or the category token map from `theme.ts`
-**And** `npm run lint` and `npm run test` pass including `check-uz-strings`
+**And** `pnpm lint` and `pnpm test` pass including `check-uz-strings`
 
 ---
 
@@ -459,7 +459,7 @@ So that the frontend can fetch and display current signals with all required fie
 **And** `telegramMessageUrl` is built in `signals/mapper.ts` using `t.me/c/<internalChatId>/<messageId>` (strip `-100` prefix from supergroup chat_id); returns `null` when IDs unavailable
 **And** `GET /api/signals?from=<ISO>&to=<ISO>` accepts explicit date range query params (snake_case) for Yesterday and 7-day preset fetches
 **And** unauthenticated request returns HTTP 401
-**And** `npm run lint` and `npm run test` pass; unit tests cover: today range default (UTC+5 boundary), explicit from/to, districtId scoping, Telegram URL builder (with and without chat/message IDs)
+**And** `pnpm lint` and `pnpm test` pass; unit tests cover: today range default (UTC+5 boundary), explicit from/to, districtId scoping, Telegram URL builder (with and without chat/message IDs)
 
 ---
 
@@ -482,7 +482,7 @@ So that I can scan district civic activity at a glance within 60 seconds.
 **And** lanes scroll independently; `@tanstack/react-virtual` is applied when a lane exceeds 50 cards
 **And** when a lane has zero signals: muted icon (28px, 35% opacity) + "Бугун сигналлар йўқ" (12px, colorTextPlaceholder), vertically centered — no buttons or CTAs
 **And** responsive breakpoints apply: condensed card padding `10px 12px` at 1024–1279px; standard at 1280–1439px; lane `min-width: 220px` at ≥1440px; `LaneGrid` is the sole owner of breakpoint logic
-**And** `npm run lint` and `npm run test` pass including `check-uz-strings`
+**And** `pnpm lint` and `pnpm test` pass including `check-uz-strings`
 
 ---
 
@@ -502,7 +502,7 @@ So that I always have current information and understand processing status witho
 **And** when the next poll returns `status: 'current'`, the banner auto-clears with no user action and no dismiss button
 **And** the last cached signals remain fully visible and scrollable during a delay period
 **And** no spinner is used anywhere; the 60s background refetch produces no visible loading indicator on already-rendered data
-**And** `npm run lint` and `npm run test` pass
+**And** `pnpm lint` and `pnpm test` pass
 
 ---
 
@@ -526,7 +526,7 @@ So that I can focus on a specific time window or mahalla in under one interactio
 **And** the active time range chip and active mahalla selection both show a visually distinct active state (`colorPrimary` border + `#EEF0FD` background)
 **And** filter state persists across drawer open/close cycles; mahalla filter resets only on explicit clear action
 **And** all chip labels use Uzbek Cyrillic: `1 соат`, `3 соат`, `6 соат`, `Бугун`, `Кеча`, `7 кун`; chips are native `<button>` elements (keyboard accessible by default)
-**And** `npm run lint` and `npm run test` pass including `check-uz-strings`
+**And** `pnpm lint` and `pnpm test` pass including `check-uz-strings`
 
 ---
 
@@ -545,7 +545,7 @@ So that I can investigate signals from any specific date range and narrow result
 **And** the search input shows a clear ✕ button when text is present; clicking ✕ restores unfiltered lane content instantly
 **And** when keyword search returns zero results in a lane: muted icon + "Қидирув натижаси топилмади" (12px, colorTextPlaceholder)
 **And** keyword search and mahalla filter are additive (AND logic): both active simultaneously narrows lanes to signals matching both conditions
-**And** `npm run lint` and `npm run test` pass including `check-uz-strings`
+**And** `pnpm lint` and `pnpm test` pass including `check-uz-strings`
 
 ---
 
@@ -565,7 +565,7 @@ So that the frontend can display evidence context for any clicked signal.
 **And** if the signal ID does not belong to the authenticated district, the server returns HTTP 404
 **And** if no `from`/`to` params are provided, the endpoint defaults to the current UTC+5 calendar day
 **And** clicking a card from the Ҳокимга тегишли lane uses the signal's original `category` (not a hokim-specific filter) for the context query — `hokim_related=true` is never used as a filter parameter
-**And** `npm run lint` and `npm run test` pass; unit tests cover: same-district scoping, correct category+mahalla filter, hokim-lane card uses service category not hokim filter, missing signal → 404
+**And** `pnpm lint` and `pnpm test` pass; unit tests cover: same-district scoping, correct category+mahalla filter, hokim-lane card uses service category not hokim filter, missing signal → 404
 
 ---
 
@@ -589,7 +589,7 @@ So that I can read the evidence stream for a civic issue without leaving the das
 **And** all lane scroll positions are frozen while the drawer is open and restored on close
 **And** when the context query returns only the anchor signal (no other signals), drawer shows: anchor card highlighted above message "Бу маҳаллада бошқа сигналлар топилмади" (12px, colorTextPlaceholder)
 **And** drawer width: 380px at ≥1440px viewport; 340px at ≥1024px viewport
-**And** `npm run lint` and `npm run test` pass
+**And** `pnpm lint` and `pnpm test` pass
 
 ---
 
@@ -610,7 +610,7 @@ So that I can efficiently compare signals across mahallas and categories in a si
 **And** active filters persist across drawer close/reopen cycles; mahalla filter resets only on explicit clear; keyword search clears only on ✕ button
 **And** `tabIndex={0}`, Enter and Space on `SignalCard` trigger `onClick` (keyboard navigation for drawer open and card swap)
 **And** AntD Drawer default focus management is preserved — no competing global Escape listeners added
-**And** `npm run lint` and `npm run test` pass
+**And** `pnpm lint` and `pnpm test` pass
 
 ---
 
@@ -632,7 +632,7 @@ So that the frontend can accurately display whether signal data is current or de
 **Then** the server reads the latest `batch_health` row for `req.session.districtId` and returns: `{ status: 'current' | 'delayed' | 'no_data', lastBatchAt: string | null, lastBatchStatus: 'success' | 'failed' | null, messagesProcessed: number | null, signalsWritten: number | null, queueDepth: number }` where `status='delayed'` when `lastBatchAt` is >= 25 minutes ago or null
 **And** all fields are camelCase; absent values are `null` not `undefined`; unauthenticated request returns HTTP 401
 **And** this endpoint does NOT expose operator-only details (errors, filter mode, discard counts) - those are Ops Console only
-**And** `npm run lint` and `npm run test` pass; unit tests: current state, delayed state (>=25 min), no_data state
+**And** `pnpm lint` and `pnpm test` pass; unit tests: current state, delayed state (>=25 min), no_data state
 
 ---
 
@@ -649,7 +649,7 @@ So that I can diagnose pipeline state from the command line or any HTTP client d
 **Then** response includes: `{ schedulerStatus, lastBatchAt, lastBatchDuration, lastBatchResult: { filterMode, messagesFetched, signalsWritten, ignoredCount, preFilterDiscards, keywordMatchedCount, keywordSkippedCount, ... , errors }, recentErrors: [{ message, occurredAt }] }` where `recentErrors` lists the last 10 pipeline errors newest-first
 **And** `GET /api/ops/system-health` returns: `{ database, scheduler, aiApi, bot, botConnectivity: [{ mahallaId, mahallaName, botStatus, botLastSeenAt }] }` — the combined pair covers all fields previously proposed for `/api/ops/health`
 **And** both return HTTP 404 if `OPS_ENABLED !== 'true'` or `NODE_ENV === 'production'`; non-localhost without correct `OPS_SECRET` returns 403
-**And** `npm run lint` and `npm run test` pass; tests: blocked in production, passes locally, passes with correct OPS_SECRET
+**And** `pnpm lint` and `pnpm test` pass; tests: blocked in production, passes locally, passes with correct OPS_SECRET
 
 ---
 
@@ -666,7 +666,7 @@ So that I can confidently restart the server during a batch run without data int
 **Then** messages already in `signal_messages` (UNIQUE on `telegram_update_id`) are not duplicated; batch skips them without error
 **And** messages whose `$transaction([signalCreate, rawDelete])` did not commit are reprocessed safely: UNIQUE rejects duplicate, raw message is then deleted
 **And** a module-level in-memory lock prevents two concurrent batch runs (acceptable for Phase 1 single-process)
-**And** `npm run lint` and `npm run test` pass; Vitest tests: duplicate rejected, concurrent lock, crash-recovery via simulated transaction failure
+**And** `pnpm lint` and `pnpm test` pass; Vitest tests: duplicate rejected, concurrent lock, crash-recovery via simulated transaction failure
 
 ---
 
@@ -688,7 +688,7 @@ So that the developer console is never accessible in production and has a stable
 **And** when `OPS_ENABLED=false` OR `NODE_ENV=production`: all `/api/ops/*` return HTTP 404; frontend shows "Ops Console disabled"
 **And** non-localhost access requires matching `OPS_SECRET` header; missing/wrong returns HTTP 403
 **And** `OpsPage` uses independent TanStack Query instances - never shares state with `DashboardPage`
-**And** `npm run lint` and `npm run test` pass
+**And** `pnpm lint` and `pnpm test` pass
 
 ---
 
@@ -705,7 +705,7 @@ So that I can test the full intake pipeline locally with controlled data.
 **Then** `POST /api/ops/simulate-message` creates a `raw_messages` row with: unique negative `telegram_update_id` (`-Date.now()`), selected `mahalla_id`, `district_id` from session, text, `text_source` from caption toggle, synthetic sender
 **And** the message enters the same pipeline as real webhook messages (keyword matching, batch classification)
 **And** success shows AntD `message.success` toast; failure shows inline error; text field resets but mahalla selection is retained
-**And** `npm run lint` and `npm run test` pass; test: negative update ID unique, correct fields written
+**And** `pnpm lint` and `pnpm test` pass; test: negative update ID unique, correct fields written
 
 ---
 
@@ -722,7 +722,7 @@ So that I can trace each message through the pipeline and validate classifier be
 **Then** `GET /api/ops/pipeline-events` returns the most recent 100 `pipeline_events` for the district, newest-first, with fields: `id`, `eventType`, `districtId`, `mahallaId`, `telegramUpdateId`, `rawMessageId`, `signalId`, `detail` (JSON), `createdAt` (ISO 8601 UTC); UI derives display outcome from `eventType` (e.g. `prefilter_discard` → structural discard, `keyword_skip` → keyword skip)
 **And** Run Batch Now calls `POST /api/ops/trigger-batch`; server calls `runClassifyBatchWithLock('manual')` and responds `{ status: 'started' | 'locked' }`
 **And** batch status panel shows: `lastBatchAt`, `status`, `messagesProcessed`, `signalsWritten`, `ignoredCount`, `queueDepth` - auto-refreshes every 5 seconds
-**And** `npm run lint` and `npm run test` pass
+**And** `pnpm lint` and `pnpm test` pass
 
 ---
 
@@ -741,7 +741,7 @@ So that I can manage the keyword registry for `keyword_gate` and `shadow_compare
 **And** `PATCH /api/ops/keywords/:id` with `{ isActive: boolean }` toggles active/inactive
 **And** `DELETE /api/ops/keywords/:id` deletes; only district-owned keywords can be modified; cross-district returns 404
 **And** `districtId` always from session, never from request body; all routes behind Ops Console guard
-**And** `npm run lint` and `npm run test` pass; tests: CRUD scoped to district, cross-district 404
+**And** `pnpm lint` and `pnpm test` pass; tests: CRUD scoped to district, cross-district 404
 
 ---
 
@@ -758,4 +758,4 @@ So that I can verify classifier output quality and pipeline state during HITL va
 **Then** `GET /api/ops/signals` returns 50 most recent `signal_messages` for the district: `category`, `hokimRelated`, `shortLabel`, `textSource`, `telegramTimestamp`
 **And** `GET /api/ops/raw-messages` returns all pending `raw_messages`: `id`, `text`, `mahallaId`, `telegramTimestamp`, `textSource`
 **And** Health Dashboard panel shows two sections: (1) **Infrastructure** — DB status, scheduler status, AI API status, bot connectivity per mahalla — sourced from `GET /api/ops/system-health`; (2) **Pipeline Metrics** — active `FILTER_MODE`, `lastBatchAt`, `queueDepth`, `preFilterDiscardCount`, `keywordSkipCount`, `shadowCompareMetrics` if FILTER_MODE=shadow_compare — sourced from `GET /api/ops/batch-status`; both auto-refresh every 10 seconds
-**And** `npm run lint` and `npm run test` pass
+**And** `pnpm lint` and `pnpm test` pass

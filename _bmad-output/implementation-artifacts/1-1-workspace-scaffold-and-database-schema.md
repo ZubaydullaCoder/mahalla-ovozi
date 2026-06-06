@@ -18,25 +18,25 @@ So that the development environment is ready and all database models exist as th
 
 ## Acceptance Criteria
 
-**Prerequisites:** Node.js `^20.19.0 || >=22.12.0` (required by Vite 8 ESM-only build). Verify with `node -v` before starting. Current dev machine: Node v24.14.1 ✅
+**Prerequisites:** Node.js `^20.19.0 || >=22.12.0` (required by Vite 8 ESM-only build) and Corepack. Verify with `node -v` and `corepack --version` before starting. Current dev machine: Node v24.14.1 with Corepack v0.34.6 ✅
 
-**Given** a fresh project directory with Node.js (≥20.19 or ≥22.12) and PostgreSQL available
-**When** the developer runs `npm install` and `npm run db:migrate`
-**Then** the npm workspaces monorepo is initialized (`apps/server`, `apps/web`), root `tsconfig.json` is in strict mode, and all Prisma models (District, Mahalla, User, RawMessage, SignalMessage, Keyword, BatchHealth, PipelineEvent) exist in the database with correct field types — including BigInt for Telegram chat IDs
+**Given** a fresh project directory with Node.js (≥20.19 or ≥22.12), Corepack, and PostgreSQL available
+**When** the developer enables pnpm with `corepack enable pnpm`, verifies pnpm `10.34.1`, then runs `pnpm install` and `pnpm db:migrate`
+**Then** the pnpm workspaces monorepo is initialized (`apps/server`, `apps/web`), root `tsconfig.json` is in strict mode, and all Prisma models (District, Mahalla, User, RawMessage, SignalMessage, Keyword, BatchHealth, PipelineEvent) exist in the database with correct field types — including BigInt for Telegram chat IDs
 **And** `.env.example` documents all required environment variables: DATABASE_URL, BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, AI_API_KEY, AI_MODEL, FILTER_MODE, OPS_ENABLED, OPS_SECRET, SESSION_SECRET, PORT
 **And** `prisma.config.ts` is present at project root using `defineConfig` with datasource URL; `apps/server/src/shared/db.ts` uses `PrismaPg` adapter for runtime connection
 **And** `check-uz-strings.ts` Vitest test file exists in `scripts/` and passes (empty `strings.ts` is acceptable at this stage)
-**And** `npm run lint` and `npm run test` both pass
+**And** `pnpm lint` and `pnpm test` both pass
 
 ---
 
 ## Scope Boundaries
 
 **IN scope:**
-- Root `package.json` with npm workspaces
+- Root `package.json` + `pnpm-workspace.yaml` with pnpm workspaces
 - Root `tsconfig.json` (strict base)
 - `apps/server/` — skeleton: `package.json`, `tsconfig.json`, `src/shared/db.ts`, `src/shared/env.ts`, `src/shared/types.ts`
-- `apps/web/` — Vite React-TS scaffold (via `npm create vite`)
+- `apps/web/` — Vite React-TS scaffold (via `pnpm create vite`)
 - `prisma/schema.prisma` — all 8 models, exact schema as defined in architecture
 - `prisma.config.ts` at project root
 - `prisma/seed.ts` — idempotent seed with 1 district, 2 mahallas, 1 operator user
@@ -44,10 +44,10 @@ So that the development environment is ready and all database models exist as th
 - `apps/web/src/strings.ts` — empty typed dict (placeholder for later stories)
 - `.env.example` — all 10 env vars documented
 - `.gitignore` — `.env`, `node_modules`, `apps/server/src/generated/`
-- `npm run db:migrate` runs successfully
-- `npm run db:seed` runs successfully (idempotent)
-- `npm run lint` passes
-- `npm run test` passes
+- `pnpm db:migrate` runs successfully
+- `pnpm db:seed` runs successfully (idempotent)
+- `pnpm lint` passes
+- `pnpm test` passes
 
 **OUT of scope (zero scope creep):**
 - No Express server entry point
@@ -67,7 +67,8 @@ So that the development environment is ready and all database models exist as th
 mahalla-ovozi/                         ← project root (already exists as git repo)
 ├── .env.example
 ├── .gitignore
-├── package.json                       ← root: workspaces + scripts
+├── package.json                       ← root: packageManager field + scripts
+├── pnpm-workspace.yaml                ← workspace package declarations
 ├── tsconfig.json                      ← strict base; referenced by apps
 ├── prisma.config.ts                   ← Prisma 7 CLI config
 ├── prisma/
@@ -105,7 +106,7 @@ mahalla-ovozi/                         ← project root (already exists as git r
   "name": "mahalla-ovozi",
   "version": "1.0.0",
   "private": true,
-  "workspaces": ["apps/*"],
+  "packageManager": "pnpm@10.34.1",
   "scripts": {
     "dev:server": "tsx watch apps/server/src/web/index.ts",
     "dev:web":    "vite --config apps/web/vite.config.ts",
@@ -130,6 +131,13 @@ mahalla-ovozi/                         ← project root (already exists as git r
     "seed": "tsx prisma/seed.ts"
   }
 }
+```
+
+### 2b. `pnpm-workspace.yaml`
+
+```yaml
+packages:
+  - 'apps/*'
 ```
 
 > **Critical:** `dev:server` script references `apps/server/src/web/index.ts` which does NOT exist yet in this story — that is created in Story 1.2. The script definition is added now so root package.json is complete. Running it will fail until Story 1.2.
@@ -695,11 +703,11 @@ Install required devDeps at root: `@eslint/js`, `typescript-eslint`.
 
 Run from **project root** (not from `apps/web/`):
 ```bash
-npm create vite@latest apps/web -- --template react-ts
+pnpm create vite@latest apps/web --template react-ts
 ```
 This generates `apps/web/package.json`, `vite.config.ts`, `index.html`, `src/main.tsx`, `tsconfig.json`, `tsconfig.app.json`, `tsconfig.node.json`, etc.
 
-⚠️ **Full `apps/web/package.json` override required BEFORE `npm install`:** The scaffold installs React 19, TypeScript 6, ESLint 10, and `@vitejs/plugin-react@6`. Replace the entire `devDependencies` block and pin React 18 to match this project's architecture constraints:
+⚠️ **Full `apps/web/package.json` override required BEFORE `pnpm install`:** The scaffold installs React 19, TypeScript 6, ESLint 10, and `@vitejs/plugin-react@6`. Replace the entire `devDependencies` block and pin React 18 to match this project's architecture constraints:
 
 ```json
 {
@@ -738,39 +746,42 @@ After overriding `package.json`, perform these structural updates:
 - **Add** `apps/web/src/strings.ts` (placeholder above)
 - **Keep** default `App.tsx` — it will be replaced in Story 3.1
 
-> Install all deps now (even those used in later stories) so the workspace lockfile is stable and `npm install` is one-shot from Story 1.1 forward.
+> Install all deps now (even those used in later stories) so the workspace lockfile is stable and `pnpm install` is one-shot from Story 1.1 forward.
 
 ---
 
 ## Implementation Steps (Ordered)
 
-1. Create root `package.json` with workspaces and scripts
-2. Create root `tsconfig.json`
-3. Create `vitest.config.ts` at root
-4. Create `eslint.config.js` at root
-5. Scaffold `apps/web/` via `npm create vite@latest apps/web -- --template react-ts`
-6. Create `apps/server/` directory: `package.json`, `tsconfig.json`, `src/shared/` with `db.ts`, `env.ts`, `types.ts`
-7. Create `apps/web/src/strings.ts` placeholder
-8. Create `prisma/schema.prisma` (exact schema from §10 above)
-9. Create `prisma.config.ts` (§6 above)
-10. Create `prisma/seed.ts` (§11 above)
-11. Create `scripts/check-uz-strings.ts` (§12 above)
-12. Create `.env.example` and `.gitignore`
-13. Run `npm install` from project root
-14. Run `npm run db:migrate -- --name init` (requires PostgreSQL running)
-15. Run `npm run db:seed`
-16. Run `npm run lint` — fix any errors before marking done
-17. Run `npm run test` — must pass
+1. Verify `node -v` and `corepack --version`, then run `corepack enable pnpm`
+2. Create root `package.json` with scripts and exact `"packageManager": "pnpm@10.34.1"`
+3. Run `pnpm --version` and confirm `10.34.1`
+4. Create `pnpm-workspace.yaml` with `packages: ['apps/*']`
+5. Create root `tsconfig.json`
+6. Create `vitest.config.ts` at root
+7. Create `eslint.config.js` at root
+8. Scaffold `apps/web/` via `pnpm create vite@latest apps/web --template react-ts`
+9. Create `apps/server/` directory: `package.json`, `tsconfig.json`, `src/shared/` with `db.ts`, `env.ts`, `types.ts`
+10. Create `apps/web/src/strings.ts` placeholder
+11. Create `prisma/schema.prisma` (exact schema from §10 above)
+12. Create `prisma.config.ts` (§6 above)
+13. Create `prisma/seed.ts` (§11 above)
+14. Create `scripts/check-uz-strings.ts` (§12 above)
+15. Create `.env.example` and `.gitignore`
+16. Run `pnpm install` from project root
+17. Run `pnpm db:migrate -- --name init` (requires PostgreSQL running)
+18. Run `pnpm db:seed`
+19. Run `pnpm lint` — fix any errors before marking done
+20. Run `pnpm test` — must pass
 
 ---
 
 ## Pre-Commit Checklist (AR19)
 
 Before marking this story done:
-- [ ] `npm run lint` passes (zero errors)
-- [ ] `npm run test` passes (check-uz-strings passes)
-- [ ] `npm run db:migrate` ran successfully and `migrations/` folder contains SQL files
-- [ ] `npm run db:seed` ran successfully (idempotent — running twice produces no error)
+- [ ] `pnpm lint` passes (zero errors)
+- [ ] `pnpm test` passes (check-uz-strings passes)
+- [ ] `pnpm db:migrate` ran successfully and `migrations/` folder contains SQL files
+- [ ] `pnpm db:seed` ran successfully (idempotent — running twice produces no error)
 - [ ] No `.env` file committed (only `.env.example`)
 - [ ] No Latin Uzbek in `strings.ts`
 - [ ] `apps/server/src/generated/` is gitignored
@@ -797,13 +808,15 @@ Before marking this story done:
 
 4. **BigInt serialization:** `JSON.stringify` cannot serialize `BigInt`. Never pass raw Prisma rows with BigInt fields directly to Express `res.json()`. Always map in `signals/mapper.ts` (Story 3.2). In this story, BigInt only lives in the DB and seed script — no API exposure.
 
-5. **Vite web tsconfig:** After `npm create vite`, the generated `apps/web/tsconfig.json` has its own `compilerOptions`. Replace it to extend root tsconfig for consistency. Keep `apps/web/tsconfig.node.json` for Vite plugin.
+5. **Vite web tsconfig:** After `pnpm create vite`, the generated `apps/web/tsconfig.json` has its own `compilerOptions`. Replace it to extend root tsconfig for consistency. Keep `apps/web/tsconfig.node.json` for Vite plugin.
 
-6. **`npm install` from root:** Always run from project root, never from within `apps/server/` or `apps/web/`. npm workspaces hoists shared deps to root `node_modules/`.
+6. **`pnpm install` from root:** Always run from project root so pnpm resolves the full workspace and writes one root `pnpm-lock.yaml`. pnpm uses a content-addressable store and a symlinked, isolated dependency layout by default; do not assume npm-style flat hoisting.
 
-7. **PostgreSQL must be running** before `db:migrate`. Provide `.env` with `DATABASE_URL` before running migrate (not committed — `.env` is gitignored).
+7. **Corepack must be available:** Run `corepack enable pnpm` before the first pnpm command. The exact `packageManager` field makes Corepack select pnpm `10.34.1`; a range such as `pnpm@10.x` is invalid.
 
-8. **Node version:** Vite 8 is ESM-only and requires `^20.19.0 || >=22.12.0`. Running on an older Node will fail at `npm run dev:web`. Current dev machine (Node v24.14.1) satisfies this.
+8. **PostgreSQL must be running** before `db:migrate`. Provide `.env` with `DATABASE_URL` before running migrate (not committed — `.env` is gitignored).
+
+9. **Node version:** Vite 8 is ESM-only and requires `^20.19.0 || >=22.12.0`. Running on an older Node will fail at `pnpm dev:web`. Current dev machine (Node v24.14.1) satisfies this.
 
 ---
 
@@ -812,6 +825,6 @@ Before marking this story done:
 - [ ] All acceptance criteria met
 - [ ] Implementation steps completed
 - [ ] Pre-commit checklist passed
-- [ ] `npm run lint` passes
-- [ ] `npm run test` passes
+- [ ] `pnpm lint` passes
+- [ ] `pnpm test` passes
 - [ ] Story ready for Code Review
