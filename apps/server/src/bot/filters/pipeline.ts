@@ -1,6 +1,9 @@
 import type { Update } from 'grammy/types'
 import { logger } from '../../shared/logger.js'
 import { prisma } from '../../shared/db.js'
+import { env } from '../../shared/env.js'
+import { matchesAnyKeyword } from '../../keywords/matcher.js'
+import { getActiveKeywords } from '../../keywords/query.js'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Exported filter predicates — individually testable pure functions
@@ -106,32 +109,140 @@ export async function pipeline(update: Update): Promise<void> {
   const senderDisplayName =
     [from.first_name, from.last_name].filter(Boolean).join(' ') || null
 
-  // Idempotent upsert — duplicate telegram_update_id is a no-op
-  await prisma.rawMessage.upsert({
-    where:  { telegram_update_id: update.update_id },
-    update: {},   // no-op if row already exists (idempotent)
-    create: {
-      telegram_update_id:  update.update_id,
-      telegram_message_id: update.message!.message_id,
-      chat_id:             chatId,
-      district_id:         mahalla.district_id,
-      mahalla_id:          mahalla.id,
-      sender_display_name: senderDisplayName,
-      sender_username:     from.username ?? null,
-      text:                rawText,
-      text_source,
-      telegram_timestamp:  new Date(update.message!.date * 1000),
-    },
-  })
+  // ── Stage 2: Keyword-gate (AR4) ──
+  // Load active keywords for this district, run matcher against message text.
+  // districtId is ALWAYS from mahalla.district_id — never from request body (AC #5).
+  const activeKeywords = await getActiveKeywords(mahalla.district_id)
+  const matchResult = matchesAnyKeyword(rawText, activeKeywords)
 
-  logger.info(
-    {
-      updateId,
-      chatId:    chatId.toString(),
-      mahallaId: mahalla.id,
-      districtId: mahalla.district_id,
-      text_source,
-    },
-    'Message ingested to raw_messages',
-  )
+  const filterMode = env.FILTER_MODE
+
+  // Shared pipeline event detail fields (all three paths)
+  const baseDetail = {
+    telegramUpdateId:  update.update_id,
+    telegramMessageId: update.message!.message_id,
+    mahallaId:         mahalla.id,
+    mahallaName:       mahalla.name,
+    textSnippet:       rawText.slice(0, 160),
+    filterMode,
+    keywordMatched:    matchResult.matched,
+    matchedPhrase:     matchResult.phrase,
+  }
+
+  if (filterMode === 'keyword_gate') {
+    if (matchResult.matched) {
+      // keyword_gate + keyword match → write to raw_messages, record keyword_match event
+      const rawMessage = await prisma.rawMessage.upsert({
+        where:  { telegram_update_id: update.update_id },
+        update: {},
+        create: {
+          telegram_update_id:  update.update_id,
+          telegram_message_id: update.message!.message_id,
+          chat_id:             chatId,
+          district_id:         mahalla.district_id,
+          mahalla_id:          mahalla.id,
+          sender_display_name: senderDisplayName,
+          sender_username:     from.username ?? null,
+          text:                rawText,
+          text_source,
+          telegram_timestamp:  new Date(update.message!.date * 1000),
+        },
+      })
+
+      await prisma.pipelineEvent.create({
+        data: {
+          event_type:         'keyword_match',
+          district_id:        mahalla.district_id,
+          mahalla_id:         mahalla.id,
+          telegram_update_id: update.update_id,
+          raw_message_id:     rawMessage.id,
+          detail:             baseDetail,
+        },
+      })
+
+      logger.info(
+        {
+          updateId,
+          chatId:        chatId.toString(),
+          mahallaId:     mahalla.id,
+          filterMode,
+          keywordMatched: true,
+          matchedPhrase:  matchResult.phrase,
+        },
+        'Keyword match — message written to raw_messages',
+      )
+    } else {
+      // keyword_gate + no match → skip upsert, record keyword_skip event, return
+      await prisma.pipelineEvent.create({
+        data: {
+          event_type:         'keyword_skip',
+          district_id:        mahalla.district_id,
+          mahalla_id:         mahalla.id,
+          telegram_update_id: update.update_id,
+          raw_message_id:     null,
+          detail: {
+            ...baseDetail,
+            reason: 'No keyword match in keyword_gate mode',
+          },
+        },
+      })
+
+      logger.info(
+        {
+          updateId,
+          chatId:    chatId.toString(),
+          mahallaId: mahalla.id,
+          filterMode: 'keyword_gate',
+        },
+        'Keyword skip — message not written (keyword_gate, no match)',
+      )
+      return
+    }
+  } else {
+    // ai_full or shadow_compare → always write to raw_messages
+    const rawMessage = await prisma.rawMessage.upsert({
+      where:  { telegram_update_id: update.update_id },
+      update: {},
+      create: {
+        telegram_update_id:  update.update_id,
+        telegram_message_id: update.message!.message_id,
+        chat_id:             chatId,
+        district_id:         mahalla.district_id,
+        mahalla_id:          mahalla.id,
+        sender_display_name: senderDisplayName,
+        sender_username:     from.username ?? null,
+        text:                rawText,
+        text_source,
+        telegram_timestamp:  new Date(update.message!.date * 1000),
+      },
+    })
+
+    // Determine event type by keyword match status
+    const eventType = matchResult.matched ? 'keyword_match' : 'prefilter_pass'
+
+    await prisma.pipelineEvent.create({
+      data: {
+        event_type:         eventType,
+        district_id:        mahalla.district_id,
+        mahalla_id:         mahalla.id,
+        telegram_update_id: update.update_id,
+        raw_message_id:     rawMessage.id,
+        detail:             baseDetail,
+      },
+    })
+
+    logger.info(
+      {
+        updateId,
+        chatId:         chatId.toString(),
+        mahallaId:      mahalla.id,
+        districtId:     mahalla.district_id,
+        text_source,
+        filterMode,
+        keywordMatched: matchResult.matched,
+        matchedPhrase:  matchResult.phrase,
+      },
+      'Message ingested to raw_messages',
+    )
+  }
 }

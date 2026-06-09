@@ -1,6 +1,6 @@
 # Story 1.4: Keyword Registry & Three-Mode Filtering Pipeline
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -26,47 +26,57 @@ So that the pipeline correctly routes messages based on the active `FILTER_MODE`
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Keyword matcher module (AC: #4)
-  - [ ] 1.1 Create `apps/server/src/keywords/matcher.ts` — `matchesAnyKeyword(text, keywords): { matched: boolean, phrase: string | null }` function
-  - [ ] 1.2 Case-insensitive phrase matching (lowercase normalization)
-  - [ ] 1.3 Create `apps/server/src/keywords/matcher.test.ts` — unit tests for matcher
+- [x] Task 1: Keyword matcher module (AC: #4)
+  - [x] 1.1 Create `apps/server/src/keywords/matcher.ts` — `matchesAnyKeyword(text, keywords): { matched: boolean, phrase: string | null }` function
+  - [x] 1.2 Case-insensitive phrase matching (lowercase normalization)
+  - [x] 1.3 Create `apps/server/src/keywords/matcher.test.ts` — unit tests for matcher
 
-- [ ] Task 2: Keyword query module (AC: #4, #5)
-  - [ ] 2.1 Create `apps/server/src/keywords/query.ts` — `getActiveKeywords(districtId: number): Promise<Keyword[]>` function
-  - [ ] 2.2 Query only `is_active=true` keywords; use the `@@index([district_id, is_active])` index
-  - [ ] 2.3 Create `apps/server/src/keywords/query.test.ts` — verify `getActiveKeywords(districtId)` calls `prisma.keyword.findMany({ where: { district_id: districtId, is_active: true } })` and returns only active phrases
+- [x] Task 2: Keyword query module (AC: #4, #5)
+  - [x] 2.1 Create `apps/server/src/keywords/query.ts` — `getActiveKeywords(districtId: number): Promise<Keyword[]>` function
+  - [x] 2.2 Query only `is_active=true` keywords; use the `@@index([district_id, is_active])` index
+  - [x] 2.3 Create `apps/server/src/keywords/query.test.ts` — verify `getActiveKeywords(districtId)` calls `prisma.keyword.findMany({ where: { district_id: districtId, is_active: true } })` and returns only active phrases
 
-- [ ] Task 3: Pipeline mode routing (AC: #1, #2, #3)
-  - [ ] 3.1 Modify `apps/server/src/bot/filters/pipeline.ts` — import `env.FILTER_MODE`, keyword matcher, keyword query
-  - [ ] 3.2 After mahalla lookup and before upsert: load active keywords for `mahalla.district_id`, run matcher against message text
-  - [ ] 3.3 Implement `ai_full` path: write to `raw_messages` regardless; record `keyword_match` or `prefilter_pass` pipeline event with `keywordMatched`/`matchedPhrase` in detail
-  - [ ] 3.4 Implement `keyword_gate` path: if keyword match → write to `raw_messages`; if no match → skip upsert, write `keyword_skip` pipeline event, log, return
-  - [ ] 3.5 Implement `shadow_compare` path: write to `raw_messages` regardless; record keyword match status in `pipeline_events.detail` for comparison
-  - [ ] 3.6 Ensure pipeline event detail includes: `telegramUpdateId`, `telegramMessageId`, `mahallaId`, `mahallaName`, `textSnippet` (≤160 chars), `filterMode`, `keywordMatched`, `matchedPhrase`; include `reason` only for `keyword_skip`
+- [x] Task 3: Pipeline mode routing (AC: #1, #2, #3)
+  - [x] 3.1 Modify `apps/server/src/bot/filters/pipeline.ts` — import `env.FILTER_MODE`, keyword matcher, keyword query
+  - [x] 3.2 After mahalla lookup and before upsert: load active keywords for `mahalla.district_id`, run matcher against message text
+  - [x] 3.3 Implement `ai_full` path: write to `raw_messages` regardless; record `keyword_match` or `prefilter_pass` pipeline event with `keywordMatched`/`matchedPhrase` in detail
+  - [x] 3.4 Implement `keyword_gate` path: if keyword match → write to `raw_messages`; if no match → skip upsert, write `keyword_skip` pipeline event, log, return
+  - [x] 3.5 Implement `shadow_compare` path: write to `raw_messages` regardless; record keyword match status in `pipeline_events.detail` for comparison
+  - [x] 3.6 Ensure pipeline event detail includes: `telegramUpdateId`, `telegramMessageId`, `mahallaId`, `mahallaName`, `textSnippet` (≤160 chars), `filterMode`, `keywordMatched`, `matchedPhrase`; include `reason` only for `keyword_skip`
 
-- [ ] Task 4: Pipeline event writing (AC: #1, #3)
-  - [ ] 4.1 Write `PipelineEvent` rows using only the story-approved event types: `keyword_match`, `prefilter_pass`, and `keyword_skip`
-  - [ ] 4.2 `keyword_skip` events: `raw_message_id` is null (message never enters `raw_messages`); `telegram_update_id` stored for traceability
+- [x] Task 4: Pipeline event writing (AC: #1, #3)
+  - [x] 4.1 Write `PipelineEvent` rows using only the story-approved event types: `keyword_match`, `prefilter_pass`, and `keyword_skip`
+  - [x] 4.2 `keyword_skip` events: `raw_message_id` is null (message never enters `raw_messages`); `telegram_update_id` stored for traceability
 
-- [ ] Task 5: Pipeline tests (AC: #6)
-  - [ ] 5.1 Update/extend `apps/server/src/bot/filters/pipeline.test.ts` — add mock for keyword query and `pipelineEvent.create`
-  - [ ] 5.2 Test `ai_full` with keyword match: message written + `keyword_match` event with `raw_message_id` set
-  - [ ] 5.3 Test `ai_full` without keyword match: message written + `prefilter_pass` event with `keywordMatched: false`
-  - [ ] 5.4 Test `keyword_gate` with keyword match: message written + `keyword_match` event with `raw_message_id` set
-  - [ ] 5.5 Test `keyword_gate` without keyword match: message NOT written + `keyword_skip` event with `raw_message_id: null`
-  - [ ] 5.6 Test `shadow_compare` with keyword match: message written + `keyword_match` event with `raw_message_id` set
-  - [ ] 5.7 Test `shadow_compare` without keyword match: message written + `prefilter_pass` event with `keywordMatched: false`
-  - [ ] 5.8 Test matcher edge cases in pipeline context: empty keyword list, whitespace-padded phrases
+- [x] Task 5: Pipeline tests (AC: #6)
+  - [x] 5.1 Update/extend `apps/server/src/bot/filters/pipeline.test.ts` — add mock for keyword query and `pipelineEvent.create`
+  - [x] 5.2 Test `ai_full` with keyword match: message written + `keyword_match` event with `raw_message_id` set
+  - [x] 5.3 Test `ai_full` without keyword match: message written + `prefilter_pass` event with `keywordMatched: false`
+  - [x] 5.4 Test `keyword_gate` with keyword match: message written + `keyword_match` event with `raw_message_id` set
+  - [x] 5.5 Test `keyword_gate` without keyword match: message NOT written + `keyword_skip` event with `raw_message_id: null`
+  - [x] 5.6 Test `shadow_compare` with keyword match: message written + `keyword_match` event with `raw_message_id` set
+  - [x] 5.7 Test `shadow_compare` without keyword match: message written + `prefilter_pass` event with `keywordMatched: false`
+  - [x] 5.8 Test matcher edge cases in pipeline context: empty keyword list, whitespace-padded phrases
 
-- [ ] Task 6: Seed data (optional enhancement)
-  - [ ] 6.1 Architecture explicitly states: "Seed does NOT pre-populate keywords — managed via Ops Console during pilot." Follow this. Do NOT add keywords to seed.ts.
+- [x] Task 6: Seed data (optional enhancement)
+  - [x] 6.1 Architecture explicitly states: "Seed does NOT pre-populate keywords — managed via Ops Console during pilot." Follow this. Do NOT add keywords to seed.ts.
 
-- [ ] Task 7: Pre-commit checklist
-  - [ ] 7.1 `pnpm lint` passes
-  - [ ] 7.2 `pnpm test` passes
-  - [ ] 7.3 `pnpm exec tsc --noEmit -p apps/server/tsconfig.json` passes
-  - [ ] 7.4 No snake_case field names in any Express route return values
-  - [ ] 7.5 No `districtId` sourced from request body or query params
+- [x] Task 7: Pre-commit checklist
+  - [x] 7.1 `pnpm lint` passes
+  - [x] 7.2 `pnpm test` passes — 61/61 tests (34 pipeline + 13 matcher + 6 query + 7 connectivity + 1 scripts)
+  - [x] 7.3 `pnpm exec tsc --noEmit -p apps/server/tsconfig.json` passes
+  - [x] 7.4 No snake_case field names in any Express route return values
+  - [x] 7.5 No `districtId` sourced from request body or query params
+
+### Review Findings
+
+- [x] [Review][Patch][DEFERRED→Story 1.5] Pipeline events are not idempotent for duplicate Telegram updates [apps/server/src/bot/filters/pipeline.ts:152]
+  - **Disposition:** Not patched in Story 1.4 — fixing robustly requires either a unique schema constraint on `pipeline_events(telegram_update_id, event_type)` or conditional upsert logic, neither of which is in Story 1.4 scope.
+  - **Story 1.5 requirement:** The batch aggregation query MUST use `COUNT(DISTINCT telegram_update_id)` per event type (not `COUNT(*)`), or an equivalent deduplication strategy, when computing `keyword_matched_count`, `keyword_skipped_count`, etc. for `batch_health`. A plain `COUNT(*)` will double-count retried Telegram updates. This must be stated explicitly in Story 1.5's Dev Notes — do not assume it.
+- [x] [Review][Patch][RESOLVED] Active keyword query has no deterministic order for first-match-wins matching [apps/server/src/keywords/query.ts:16]
+  - Added `orderBy: { id: 'asc' }` to `getActiveKeywords()`. Added 1 new test asserting orderBy shape. (61 tests total)
+- [x] [Review][Patch][RESOLVED] Matcher records whitespace-padded matched phrases instead of the normalized phrase [apps/server/src/keywords/matcher.ts:31]
+  - Changed `return { matched: true, phrase: kw.phrase }` → `return { matched: true, phrase: trimmedPhrase }`. Updated 2 matcher tests to assert trimmed return value.
 
 ## Dev Notes
 
@@ -346,8 +356,34 @@ import { env } from '../../shared/env.js'
 
 ### Agent Model Used
 
+Claude Sonnet 4.6 (Thinking)
+
 ### Debug Log References
+
+- Vitest `vi.hoisted()` required for `mockEnv` to be accessible inside `vi.mock()` factory — top-level `const` declaration is hoisted past before initialization. Fixed by wrapping in `vi.hoisted()`.
+- `Keyword` type import needed `../generated/prisma/client.js` (not `models.js`) — `models.ts` has `@ts-nocheck` which prevents TypeScript from processing its re-exports.
 
 ### Completion Notes List
 
+- ✅ Created `apps/server/src/keywords/matcher.ts` — pure, testable `matchesAnyKeyword()` function with case-insensitive phrase matching, whitespace-trimming, empty-phrase skipping.
+- ✅ Created `apps/server/src/keywords/matcher.test.ts` — 13 unit tests covering case-insensitive match, whitespace-padded phrase, empty phrase/list, first-match-wins, Uzbek apostrophe, substring matching.
+- ✅ Created `apps/server/src/keywords/query.ts` — `getActiveKeywords(districtId)` reads only `is_active=true` keywords using the `@@index([district_id, is_active])` composite index. Read-only per AR15 — no mutation.
+- ✅ Created `apps/server/src/keywords/query.test.ts` — 6 unit tests verifying `findMany` call shape (district_id scope, is_active:true filter, deterministic `orderBy`, empty result, correct districtId).
+- ✅ Updated `apps/server/src/bot/filters/pipeline.ts` — added `FILTER_MODE` branching after mahalla lookup. Three-mode routing fully implemented. All F0-F3 filter predicates and mahalla lookup preserved unchanged. Pipeline events written for all paths (keyword_match, prefilter_pass, keyword_skip). `districtId` always from `mahalla.district_id`.
+- ✅ Updated `apps/server/src/bot/filters/pipeline.test.ts` — extended mock setup to include `keyword.findMany` and `pipelineEvent.create`. Added 10 new Story 1.4 tests (5.2–5.8 + districtId sourcing). All 25 prior tests continue passing. Total: 34 pipeline tests.
+- ✅ Task 6: No seed data added per architecture rule — keywords managed via Ops Console during pilot.
+- ✅ Pre-commit: lint ✓, 61/61 tests ✓, tsc --noEmit ✓
+
 ### File List
+
+- `apps/server/src/keywords/matcher.ts` — NEW
+- `apps/server/src/keywords/matcher.test.ts` — NEW
+- `apps/server/src/keywords/query.ts` — NEW
+- `apps/server/src/keywords/query.test.ts` — NEW
+- `apps/server/src/bot/filters/pipeline.ts` — MODIFIED
+- `apps/server/src/bot/filters/pipeline.test.ts` — MODIFIED
+
+### Change Log
+
+- 2026-06-09: Implemented Story 1.4 — keyword registry and three-mode filtering pipeline. Created keywords/ module (matcher + query), updated pipeline.ts with FILTER_MODE routing, extended pipeline.test.ts with 10 new tests. 60/60 tests pass, lint clean, tsc clean.
+- 2026-06-09: Applied code review patches (findings 2 & 3). `getActiveKeywords()` now orders by `id ASC` for deterministic first-match-wins. Matcher now returns `trimmedPhrase` instead of raw DB value so `pipeline_events.detail.matchedPhrase` is always clean. Finding 1 (pipeline_events idempotency) deferred with explicit Story 1.5 aggregation deduplication requirement documented. 61/61 tests pass.
