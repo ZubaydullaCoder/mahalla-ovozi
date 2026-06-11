@@ -64,11 +64,12 @@ export async function handleMyChatMember(ctx: MyChatMemberContext): Promise<void
   }
 }
 
-bot.on('message', async (ctx) => {
-  await pipeline(ctx.update)
-})
-
-bot.on('edited_message', async (ctx) => {
+export function handleEditedMessage(ctx: {
+  update: {
+    update_id: number
+    edited_message?: { chat: { id: TelegramId }; message_id: number }
+  }
+}): void {
   logger.info(
     {
       updateId:  ctx.update.update_id,
@@ -77,6 +78,14 @@ bot.on('edited_message', async (ctx) => {
     },
     'Pre-filter discard: edited_message ignored',
   )
+}
+
+bot.on('message', async (ctx) => {
+  await pipeline(ctx.update)
+})
+
+bot.on('edited_message', (ctx) => {
+  handleEditedMessage(ctx)
 })
 
 bot.on('my_chat_member', handleMyChatMember)

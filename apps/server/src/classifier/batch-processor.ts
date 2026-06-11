@@ -160,19 +160,29 @@ export async function classifyBatch(
 
     logger.error({ districtId, err }, 'Classify batch failed')
 
-    await writeBatchHealth({
-      districtId,
-      status: 'failed',
-      startedAt,
-      completedAt: new Date(),
-      intakeWindowFrom,
-      intakeWindowTo,
-      messagesFetched,
-      signalsWritten,
-      ignoredCount,
-      intakeMetrics,
-      errorMessage,
-    })
+    // P-1: writeBatchHealth may itself throw when the DB is down (the same
+    // condition that caused the outer error). Wrap it to prevent a secondary
+    // unhandled rejection from shadowing the original failure.
+    try {
+      await writeBatchHealth({
+        districtId,
+        status: 'failed',
+        startedAt,
+        completedAt: new Date(),
+        intakeWindowFrom,
+        intakeWindowTo,
+        messagesFetched,
+        signalsWritten,
+        ignoredCount,
+        intakeMetrics,
+        errorMessage,
+      })
+    } catch (healthErr) {
+      logger.error(
+        { districtId, healthErr },
+        'writeBatchHealth also failed in error path — batch health record not written',
+      )
+    }
 
     return {
       status:           'failed',
@@ -231,6 +241,10 @@ async function persistSignal(
     text_source:         rawMessage.text_source,
     category:            aiResult.category,
     hokim_related:       aiResult.hokim_related ?? false,
+    // DN-2 Phase 1 limitation: keyword match data from the pipeline intake is
+    // not available at classification time (raw_messages does not carry it).
+    // TODO: propagate keyword_matched/matched_keyword in a later story (Story 6+)
+    // when shadow_compare keyword-vs-AI analysis is needed by the Ops Console.
     keyword_matched:     false,
     matched_keyword:     null,
     short_label:         aiResult.short_label ?? null,
@@ -249,7 +263,21 @@ async function persistSignal(
         { rawMessageId: rawMessage.id, updateId: rawMessage.telegram_update_id },
         'Signal already exists; deleting raw_message only',
       )
-      await prisma.rawMessage.delete({ where: { id: rawMessage.id } })
+      // P-5: The raw message may already be deleted by a concurrent batch run.
+      // Swallow P2025 (record not found) to avoid marking this as a failed
+      // message and entering an infinite retry loop on subsequent batches.
+      try {
+        await prisma.rawMessage.delete({ where: { id: rawMessage.id } })
+      } catch (deleteErr) {
+        if (isPrismaRecordNotFoundError(deleteErr)) {
+          logger.info(
+            { rawMessageId: rawMessage.id },
+            'Raw message already deleted by concurrent process — idempotent',
+          )
+        } else {
+          throw deleteErr
+        }
+      }
       return false
     }
 
@@ -296,6 +324,10 @@ async function writeBatchHealth(params: {
 
 function isPrismaUniqueConstraintError(err: unknown): boolean {
   return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002'
+}
+
+function isPrismaRecordNotFoundError(err: unknown): boolean {
+  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025'
 }
 
 function getErrorMessage(err: unknown): string {

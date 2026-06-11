@@ -17,7 +17,17 @@ export async function classifyMessage(text: string): Promise<ClassifierOutput> {
     },
   })
 
-  const rawJson: unknown = JSON.parse(response.text ?? '{}')
+  // P-2: `??` only catches null/undefined — an empty string from a safety-blocked
+  // or quota-exhausted response would reach JSON.parse('') and throw a bare
+  // SyntaxError with no diagnostic context.
+  const rawText = response.text
+  if (!rawText) {
+    throw new Error(
+      'AI returned empty or null response (possible safety block or quota exhaustion)',
+    )
+  }
+  const rawJson: unknown = JSON.parse(rawText)
+
   const result = ClassifierOutputSchema.safeParse(rawJson)
 
   if (!result.success) {
