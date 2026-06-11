@@ -49,9 +49,9 @@ FR18: The system detects when the bot is removed from or loses access to a monit
 FR19: The system ignores non-text Telegram updates (photos, videos, voice, stickers, polls, files) except textual caption content which is processed as text.
 FR20: The system processes captured messages in batches at a configurable interval (default: every 20 minutes).
 FR21: The system applies a centralized conservative pre-filter (F1: bot sender, F2: non-text type, F3: trivial content) before AI classification. Short civic texts (gaz?, suv?, tok?) must NOT be discarded by length alone.
-FR21a: The system supports developer/operator-only filtering modes: ai_full, keyword_gate, and shadow_compare. Active mode is not visible in hokim/staff dashboard.
+FR21a: The system uses developer/operator-managed keyword-gate filtering as the only current active filtering method. Filtering controls are not visible in hokim/staff dashboard.
 FR21b: The system stores manually managed keyword phrases in one centralized Ops Console database registry. AI does not auto-generate or modify keywords.
-FR22: The system classifies eligible messages as signal or ignore using AI, with mode-aware routing (ai_full / keyword_gate / shadow_compare).
+FR22: The system classifies eligible keyword-matched messages as signal or ignore using AI; structurally retained non-keyword messages are skipped before raw storage and AI.
 FR23: For signal messages, the system assigns: category (water/electricity/gas/waste), hokim_related flag, and optional short label.
 FR24: The system deletes raw captured messages after successful classification in the same batch run.
 FR25: The system retries failed AI classification batches automatically (up to 3 attempts) and surfaces a delay indicator to the dashboard.
@@ -62,7 +62,7 @@ FR29: Users can log in with credentials to access the dashboard.
 FR30: Unauthenticated users are redirected to the login page and cannot access any dashboard content.
 FR31: Authenticated users can log out and have their session invalidated.
 FR32: The system enforces district-scoped data access — authenticated users only see data from their authorized district.
-FR33: Operators can access an admin health endpoint and Ops Console showing: last successful batch time, current queue depth, bot connectivity status per monitored group, recent processing errors, active filtering mode, basic pre-filter discard counts, keyword-gate skip counts, and shadow comparison metrics.
+FR33: Operators can access an admin health endpoint and Ops Console showing: last successful batch time, current queue depth, bot connectivity status per monitored group, recent processing errors, active keyword-gate state, basic pre-filter discard counts, and keyword-gate skip counts.
 FR34: The system exposes a health status to the dashboard that indicates whether signal data is current or delayed, without exposing technical details to non-operator users.
 
 **Total FRs: 35** (including FR6a and FR21a/FR21b sub-items)
@@ -102,7 +102,7 @@ From Architecture — technical decisions that directly affect story scope and i
 - **AR4 — Three-outcome discard model:** Stage 1 = structural pre-filter discard (at webhook, not written to raw_messages); Stage 2 = keyword-gate skip (at webhook, keyword_gate mode only); Stage 3 = AI-classified-as-ignore (at batch time, deleted after classification). Must not conflate these three.
 - **AR5 — Idempotency rules:** Batch: `$transaction([signalCreate, rawDelete])` per message. Intake: `upsert` with empty update on `telegram_update_id` unique constraint. Simulated messages use negative update IDs.
 - **AR6 — District scope enforcement:** `districtId` must always come from `req.session.districtId` — never from request body or query params. Applied via middleware on all `/api/*` routes except `/api/auth/*`.
-- **AR7 — Filtering pipeline (F1/F2/F3 + mode routing):** All in `bot/filters/pipeline.ts`. F1 = bot sender; F2 = no text/caption; F3 = bot command/pure emoji/empty after trim. DO NOT discard on character count. Mode routing reads `FILTER_MODE` env var.
+- **AR7 — Filtering pipeline (F1/F2/F3 + keyword gate):** All in `bot/filters/pipeline.ts`. F1 = bot sender; F2 = no text/caption; F3 = bot command/pure emoji/empty after trim. DO NOT discard on character count. `FILTER_MODE=keyword_gate` is the current active filtering configuration.
 - **AR8 — AI classifier:** `@google/genai` SDK, `ai.models.generateContent()`, `responseMimeType: 'application/json'`, `responseJsonSchema` via `zod-to-json-schema`. Discriminated union Zod schema. Invalid AI output = retry or log, never silently accepted.
 - **AR9 — AI retry strategy:** 3 attempts with exponential backoff. Failed messages stay in raw_messages for next batch run.
 - **AR10 — Session & auth:** `express-session` + `connect-pg-simple`, `argon2` password hashing. httpOnly cookie always; secure flag Phase 2 only. Login rate limit: 5 attempts/60s per username (in-memory counter). sameSite: strict for CSRF.
@@ -115,7 +115,7 @@ From Architecture — technical decisions that directly affect story scope and i
 - **AR17 — Telegram message link:** `telegramMessageUrl` built in `signals/mapper.ts` using `t.me/c/<internal_chat_id>/<message_id>` format (strip `-100` prefix from supergroup chat_id). Return null when IDs unavailable.
 - **AR18 — Batch health aggregation:** Intake counters aggregated from `pipeline_events` since previous batch start. `batch_health` written at batch completion only. Never increment `batch_health` at webhook time.
 - **AR19 — Pre-commit checklist for every story:** `pnpm lint` passes; `pnpm test` passes (includes check-uz-strings); no snake_case in Express responses; no districtId from request body; no Latin Uzbek in UI.
-- **AR20 — Phase 1 Ops Console spec:** Fully documented in `architecture-ops-console.md`. Includes: message simulator (inject test messages), pipeline event log, batch status + manual trigger, keyword registry CRUD, filtering mode display, raw messages viewer, signals browser, system health dashboard.
+- **AR20 — Phase 1 Ops Console spec:** Fully documented in `architecture-ops-console.md`. Includes: message simulator (inject test messages), pipeline event log, batch status + manual trigger, keyword registry CRUD, keyword-gate state display, raw messages viewer, signals browser, system health dashboard.
 
 ---
 
@@ -168,9 +168,9 @@ FR18: Epic 1 — Bot removal detection → operator health alert state
 FR19: Epic 1 — Non-text updates ignored; captions processed as text
 FR20: Epic 1 — 20-minute configurable batch processing
 FR21: Epic 1 — Centralized conservative structural pre-filter (F1/F2/F3)
-FR21a: Epic 1 (logic) + Epic 6 (Ops UI display) — Developer/operator filtering modes
+FR21a: Epic 1 (logic) + Epic 6 (Ops UI display) — Developer/operator keyword-gate state
 FR21b: Epic 1 (DB + matcher) + Epic 6 (Ops Console CRUD) — Manual keyword registry
-FR22: Epic 1 — AI classification: signal vs. ignore, mode-aware routing
+FR22: Epic 1 — AI classification: signal vs. ignore after keyword-gate routing
 FR23: Epic 1 — Signal metadata: category, hokim_related, short_label
 FR24: Epic 1 — Raw messages deleted after successful classification
 FR25: Epic 1 — Batch retry (3 attempts) + delay indicator surfaced to dashboard
@@ -284,23 +284,21 @@ So that I have accurate visibility into which mahalla groups are actively monito
 
 ---
 
-### Story 1.4: Keyword Registry & Three-Mode Filtering Pipeline
+### Story 1.4: Keyword Registry & Keyword-Gated Filtering Pipeline
 
 As a **developer/operator**,
-I want a centralized keyword registry in the database and the full three-mode filtering pipeline (`ai_full`, `keyword_gate`, `shadow_compare`) wired into the webhook intake,
-So that the pipeline correctly routes messages based on the active `FILTER_MODE` env var, supports `keyword_gate` as the preferred demo/pilot default, and records keyword match outcomes for comparison.
+I want a centralized keyword registry in the database and keyword-gated filtering wired into the webhook intake,
+So that the current active pipeline sends only keyword-matched messages to AI while keeping non-keyword chatter out of `raw_messages`.
 
 **Acceptance Criteria:**
 
 **Given** active keywords exist in the `keywords` table for the district and `FILTER_MODE=keyword_gate`
 **When** a message passes F1/F2/F3 structural pre-filter
 **Then** in `keyword_gate` mode: only keyword-matched messages are written to `raw_messages`; non-keyword messages are counted as `keyword_skipped_count` in pipeline events and NOT written
-**And** in `ai_full` mode: all F1/F2/F3-passing messages are written to `raw_messages` regardless of keyword match
-**And** in `shadow_compare` mode: all F1/F2/F3-passing messages are written; keyword match status is recorded in `pipeline_events.detail` for comparison metrics
-**And** the default `FILTER_MODE` is `keyword_gate`; `ai_full` remains available as fallback and `shadow_compare` remains available for coverage validation
+**And** the current active `FILTER_MODE` is `keyword_gate`; `ai_full` may be reconsidered later only by explicit owner decision
 **And** keyword matching is case-insensitive phrase matching; inactive keywords (`is_active=false`) are ignored; empty keyword list returns no match
 **And** `districtId` for keyword lookup is derived from `mahalla.district_id` — never from the request body
-**And** Vitest tests cover: case-insensitive match, inactive keyword ignored, empty keyword list, all three FILTER_MODE routing paths
+**And** Vitest tests cover: case-insensitive match, inactive keyword ignored, empty keyword list, keyword match writes, and keyword no-match skips
 
 ---
 
@@ -731,7 +729,7 @@ So that I can trace each message through the pipeline and validate classifier be
 
 As a **developer/operator**,
 I want to create, toggle, and delete keyword phrases in Ops Console,
-So that I can manage the keyword registry for `keyword_gate` and `shadow_compare` modes.
+So that I can manage the keyword registry for the active keyword-gate pipeline.
 
 **Acceptance Criteria:**
 
@@ -758,5 +756,5 @@ So that I can verify classifier output quality and pipeline state during HITL va
 **When** the panel loads
 **Then** `GET /api/ops/signals` returns 50 most recent `signal_messages` for the district: `category`, `hokimRelated`, `shortLabel`, `textSource`, `telegramTimestamp`
 **And** `GET /api/ops/raw-messages` returns all pending `raw_messages`: `id`, `text`, `mahallaId`, `telegramTimestamp`, `textSource`
-**And** Health Dashboard panel shows two sections: (1) **Infrastructure** — DB status, scheduler status, AI API status, bot connectivity per mahalla — sourced from `GET /api/ops/system-health`; (2) **Pipeline Metrics** — active `FILTER_MODE`, `lastBatchAt`, `queueDepth`, `preFilterDiscardCount`, `keywordSkipCount`, `shadowCompareMetrics` if FILTER_MODE=shadow_compare — sourced from `GET /api/ops/batch-status`; both auto-refresh every 10 seconds
+**And** Health Dashboard panel shows two sections: (1) **Infrastructure** — DB status, scheduler status, AI API status, bot connectivity per mahalla — sourced from `GET /api/ops/system-health`; (2) **Pipeline Diagnostics** — active keyword-gate state, `lastBatchAt`, `queueDepth`, `preFilterDiscardCount`, and `keywordSkipCount` — sourced from `GET /api/ops/batch-status`; both auto-refresh every 10 seconds
 **And** `pnpm lint` and `pnpm test` pass

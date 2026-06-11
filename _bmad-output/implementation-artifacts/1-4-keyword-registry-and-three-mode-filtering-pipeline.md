@@ -2,6 +2,8 @@
 
 Status: done
 
+> Supersession note (2026-06-11): This completed story records historical implementation work. Current product direction uses `keyword_gate` as the only active filtering method; comparison mode is not current scope, and `ai_full` may be reconsidered later only by explicit owner decision.
+
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
 ## Story

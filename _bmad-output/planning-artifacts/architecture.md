@@ -45,21 +45,21 @@ processing, Uzbek NLP, district-scoped multi-user auth, Developer Ops Console.
 - express-session + connect-pg-simple — PostgreSQL-backed session store (no Redis in Phase 1)
 - node-cron v4.x — in-process scheduler (no BullMQ/Redis in Phase 1)
 - AI model: configurable Gemini model via `AI_MODEL` env var (Google AI only in Phase 1)
-- Filtering mode: configurable via `FILTER_MODE` env var (`keyword_gate` default for demo/pilot, `ai_full` fallback, `shadow_compare` validation)
+- Filtering: `keyword_gate` is the only active current development/demo-pilot method; `ai_full` may be reconsidered later only by explicit owner decision
 - Keyword registry: centralized PostgreSQL-backed Ops Console registry; manually edited by developer/operator only
 - Pre-filter thresholds and keyword coverage: provisional until real-data validation
 
 ### Cross-Cutting Concerns
 
 1. **District-scoped data isolation** — middleware guard on all API routes
-2. **Filtering centralization** — structural pre-filtering, keyword matching, and mode routing stay in one intake/classification path
+2. **Filtering centralization** — structural pre-filtering and keyword matching stay in one intake/classification path
 3. **Uzbek Cyrillic string enforcement** — typed `strings.ts` dictionary + Vitest check
 4. **Health state propagation** — `batch_health` → `/api/health` → 60s poll → amber banner
 5. **Idempotency** — `telegram_update_id` unique constraint; `$transaction([signalCreate, rawDelete])` per message
 6. **Security secrets** — five env-only secrets (DATABASE_URL included); webhook validated via grammY `secretToken` option
 7. **AI output validation** — Zod discriminated union before every write; invalid = retry or log, never silently accepted
 8. **Gemini model selection** — `AI_MODEL` env var selects the Gemini model; Google AI is the only implemented provider in Phase 1
-9. **Filtering mode isolation** — active mode is visible to Ops only; no hokim/staff dashboard control or mode language
+9. **Filtering isolation** — keyword-gate operation is visible to Ops only; no hokim/staff dashboard control or filtering-mode language
 
 ---
 
@@ -81,7 +81,7 @@ hardens the same product for the real pilot deployment.
 - Express.js server (simpler middleware chain, more LLM-assisted examples, clean grammY integration)
 - Prisma ORM (fast schema iteration, guided migration, auto-generated TypeScript types)
 - Developer Ops Console at `/ops` — full pipeline visibility for HITL validation
-- Developer-side filtering modes: keyword-gated AI as preferred demo/pilot default, full AI fallback, and shadow comparison
+- Developer-side filtering: keyword-gated AI only for current development/demo-pilot scope; full AI classification may be reconsidered later only by explicit owner decision
 - Manual keyword registry in Ops Console; keywords are not AI-generated
 - Message simulator in Ops Console — inject test messages without real Telegram groups
 - Real bot integration with test groups in parallel — both paths feed the same pipeline
@@ -93,9 +93,9 @@ patterns are production-quality. Only infrastructure and queue management are si
 **Phase 1 exit gates:**
 - Real Telegram test group intake works for text and textual captions.
 - Ops Console can simulate messages, trigger classification, and show pipeline decisions.
-- Ops Console can show active filtering mode, manage keywords, and compare keyword coverage against AI outcomes.
+- Ops Console can show keyword-gate state and manage keywords.
 - Classifier behavior is benchmarked on realistic or real labeled mahalla messages.
-- Keyword-gated missed-signal risk is measured during validation; switch to `ai_full` if keyword coverage is not acceptable for pilot.
+- Keyword-gated missed-signal risk is reviewed manually during validation; switching to full AI classification requires an explicit owner decision.
 - Dashboard scan flow, filters, context drawer, auth, and delayed-signal health state are demo-ready.
 - Bot removal/connectivity health state is validated in a test group.
 - Retry/restart checks show no raw/signal data loss for normal Phase 1 failure cases.
@@ -432,7 +432,7 @@ model BatchHealth {
   // Stage-1 pre-filter discards (counted at intake, written at batch completion)
   pre_filter_discards Int       @default(0)
   filter_mode          String    @db.VarChar(20)
-  // 'ai_full' | 'keyword_gate' | 'shadow_compare'
+  // Current scope: 'keyword_gate'
   keyword_matched_count          Int @default(0)
   keyword_skipped_count          Int @default(0)
   keyword_ai_signal_count        Int @default(0)
@@ -532,9 +532,8 @@ Messages can leave the pipeline in three distinct ways. Do not conflate structur
   classified by AI as non-civic signals. These exist in `raw_messages` and are deleted after
   classification. All ignored messages are deleted — ignored-message sampling is a Phase 2 feature.
 
-In `ai_full`, all structurally retained messages are written to `raw_messages`. In `keyword_gate`, only
-keyword-matched messages are written. In `shadow_compare`, all structurally retained messages are written,
-and keyword match status is stored in `pipeline_events.detail`/batch metrics for comparison.
+In current active scope, `keyword_gate` writes only keyword-matched messages to `raw_messages`.
+Full AI classification may be reconsidered later only by explicit owner decision; no other filtering method is current scope.
 
 Keyword skip and structural discard counts happen at intake time, while `batch_health` is written at
 batch time. The implementation must aggregate intake counters from `pipeline_events` created since the
@@ -757,7 +756,7 @@ interface HealthStatus {
   pendingRawMessages: number         // current count in raw_messages pending classification
   preFilterDiscards:  number         // Stage-1 discard count from most recent batch_health row
   ignoredCount:       number         // AI-classified-as-ignore count from most recent batch_health row
-  filterMode:         'ai_full' | 'keyword_gate' | 'shadow_compare'
+  filterMode:         'keyword_gate'
   keywordMatchedCount:      number
   keywordSkippedCount:      number
   keywordAiSignalCount:     number
@@ -989,17 +988,14 @@ All intake filtering and mode routing starts from `src/bot/filters/pipeline.ts`:
   - Discard if text is empty after trimming
   - **DO NOT** discard based on character count. Short civic texts like `gaz?`, `suv?`, `tok?` MUST reach the AI classifier.
 - **F4 - Manual keyword match:** For messages that pass F1/F2/F3, load active keywords for the district and run a deterministic case-insensitive phrase match. Keywords are manually maintained; AI never creates them.
-- **Mode routing:**
-  - `ai_full`: queue every F1/F2/F3-passing message for AI; record keyword match status only for Ops metrics.
-  - `keyword_gate`: queue only keyword-matched messages for AI; skip non-keyword messages before `raw_messages`.
-  - `shadow_compare`: queue every F1/F2/F3-passing message for AI and record whether each message matched keywords so Ops can compare coverage.
+- **Keyword-gate routing:** Queue only keyword-matched messages for AI; skip non-keyword messages before `raw_messages`.
 
 **Edited messages:** Discarded. `update.edited_message` is defined → discard and log.
 **Forwarded messages:** Treated as original. Sender = the forwarder.
 **Anonymous admin posts:** Discarded by F1 (`GroupAnonymousBot` has `is_bot === true`). Known limitation.
 
-`FILTER_MODE=keyword_gate` is the default for demo/pilot cost and noise control. The active mode is read from env at server startup and displayed in
-Ops Console only. Runtime switching from the dashboard is out of scope.
+`FILTER_MODE=keyword_gate` is the only current development/demo-pilot filtering configuration.
+Runtime switching from the dashboard is out of scope. Full AI classification may be reconsidered later only by explicit owner decision.
 
 ---
 
@@ -1056,7 +1052,7 @@ BOT_TOKEN=                   # from @BotFather
 TELEGRAM_WEBHOOK_SECRET=     # random string; set same in Telegram webhook config
 AI_API_KEY=                  # Google AI API key
 AI_MODEL=gemini-2.5-flash    # configurable Gemini model selection
-FILTER_MODE=keyword_gate     # keyword_gate | ai_full | shadow_compare; developer/operator only
+FILTER_MODE=keyword_gate     # current active filtering method
 OPS_ENABLED=false            # true only during Phase 1 local validation
 OPS_SECRET=                  # optional; required if accessing Ops Console over a tunnel/non-localhost
 NODE_ENV=development
@@ -1161,9 +1157,7 @@ logger.info(`Batch complete for district ${districtId}`)
 Add focused Vitest coverage for:
 
 - Keyword matcher: case-insensitive phrase matching, trimmed phrases, inactive keywords ignored, empty keyword list returns no match.
-- `ai_full`: every F1/F2/F3-passing human text message is queued for AI, regardless of keyword match.
 - `keyword_gate`: keyword-matched messages are queued for AI; non-keyword messages are skipped before `raw_messages` and counted as `keyword_skipped_count`.
-- `shadow_compare`: every F1/F2/F3-passing message is queued for AI, and keyword/no-keyword AI outcomes update comparison metrics.
 - Ops keyword CRUD: protected by the existing Ops guard and constrained to the authenticated/operator district.
 - Signal mapper: `telegramMessageUrl` is generated only when Telegram chat/message IDs are available.
 
@@ -1212,7 +1206,7 @@ Before any implementation story is marked done:
         ↓
 POST /webhook → grammY → pipeline.ts structural pre-filter
         ↓                     ↓ (structural discard: logged, counted)
-  keyword matcher + FILTER_MODE router
+  keyword matcher + keyword_gate router
         ↓                     ↓ (keyword_gate no-match: keyword_skip counted, no AI)
   raw_messages (PostgreSQL; eligible AI messages only)
         ↓
@@ -1220,7 +1214,7 @@ POST /webhook → grammY → pipeline.ts structural pre-filter
         ↓
   ai-client.ts → @google/genai → ClassifierOutputSchema.safeParse()
         ↓
-  signal_messages written | raw_messages deleted | batch_health/filter metrics updated
+  signal_messages written | raw_messages deleted | batch_health/filter diagnostics updated
         ↓
 SPA GET /api/signals (60s poll) ← signals/query.ts reads signal_messages
 SPA GET /api/health  (60s poll) ← health/query.ts reads batch_health

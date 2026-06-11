@@ -60,7 +60,7 @@ assessedDocuments:
 | FR19 | Non-text updates ignored; captions processed |
 | FR20 | 20-minute configurable batch processing |
 | FR21 | Centralized conservative structural pre-filter (F1/F2/F3) |
-| FR21a | Developer/operator filtering modes: ai_full, keyword_gate, shadow_compare |
+| FR21a | Developer/operator keyword-gate filtering; older multi-mode language superseded by 2026-06-11 owner decision |
 | FR21b | Manual keyword registry in Ops Console (no AI auto-generation) |
 | FR22 | AI classification: signal vs. ignore; mode-aware routing |
 | FR23 | Signal: category, hokim_related, short_label |
@@ -132,7 +132,7 @@ This section is historical because the original assessment was run before epics 
 | Topic | PRD | Architecture | Assessment |
 |---|---|---|---|
 | 20-min batch | FR20: configurable interval, default 20 min | `node-cron '*/20 * * * *'`, configurable | ✅ Aligned |
-| Filtering modes | FR21a: ai_full, keyword_gate, shadow_compare | Env var `FILTER_MODE`, mode routing in `pipeline.ts` | ✅ Aligned |
+| Filtering method | FR21a: keyword_gate is the only current active filtering method | Env var `FILTER_MODE=keyword_gate`; older multi-mode planning superseded by 2026-06-11 owner decision | ✅ Aligned |
 | Keyword registry | FR21b: manual, centralized, Ops Console only | PostgreSQL `keywords` table, Ops CRUD routes, AI never generates | ✅ Aligned |
 | Three-discard model | FR21/22: structural, keyword-gate, AI-ignore | Arch §4 "Three-Outcome Discard Model" explicitly documented | ✅ Aligned |
 | Signal storage | FR26: all required fields | Prisma `SignalMessage` model matches all required fields | ✅ Aligned |

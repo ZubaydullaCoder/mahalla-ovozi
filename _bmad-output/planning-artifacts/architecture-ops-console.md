@@ -115,7 +115,7 @@ Body: { mahallaId, senderDisplayName?, text, textSource, simulatedTimestamp? }
 Response: {
   decision: 'queued' | 'structural_discard' | 'keyword_skip'
   reason?: string
-  filterMode: 'ai_full' | 'keyword_gate' | 'shadow_compare'
+  filterMode: 'keyword_gate'
   keywordMatched: boolean
   matchedPhrase: string | null
 }
@@ -323,24 +323,23 @@ Events are written by `pipeline.ts` during intake/filtering and by `batch-proces
 classification/storage. The table is truncated (not dropped) when
 the developer manually resets via the Ops Console. It is excluded from the 90-day signal retention
 purge logic, but it still has a Phase 1 debug retention cap: keep the newest 50,000 events or 14 days,
-whichever is smaller. This is enough for multi-day shadow comparison at pilot scale while preventing
+whichever is smaller. This is enough for Phase 1 keyword-gate debugging while preventing
 raw text and AI-output debug traces from growing without bound.
 
 ---
 
-## 3. Filtering Mode & Keyword Registry
+## 3. Keyword-Gate State & Keyword Registry
 
 ### Purpose
 
-Shows the active developer-side `FILTER_MODE` and provides the single source of truth for manual
-keyword phrases used by `keyword_gate` and `shadow_compare`.
+Shows the active keyword-gate state and provides the single source of truth for manual keyword phrases.
 
-The active mode is read from `.env` at server startup and is display-only in Ops Console. Runtime mode
-switching is out of scope for Phase 1.
+`FILTER_MODE=keyword_gate` is read from `.env` at server startup and is display-only in Ops Console.
+Runtime mode switching is out of scope for Phase 1.
 
 ### UI
 
-- Filtering mode panel: displays `ai_full`, `keyword_gate`, or `shadow_compare` with a short developer note.
+- Filtering state panel: displays `keyword_gate` with a short developer note.
 - Display both current server mode and last batch mode; if they differ, show "restart or rerun batch required" guidance.
 - Show "Mode changes require editing `.env` and restarting the server"; do not imply runtime switching.
 - Keyword registry table: phrase, active status, created time, updated time.
@@ -366,7 +365,7 @@ Ops keyword requests must not accept `districtId` from the client.
 
 ```
 GET    /api/ops/filtering-mode
-Response: { filterMode: 'ai_full' | 'keyword_gate' | 'shadow_compare' }
+Response: { filterMode: 'keyword_gate' }
 
 GET    /api/ops/keywords
 Response: Keyword[]
@@ -426,7 +425,7 @@ Response: {
   lastBatchAt:      string | null
   lastBatchDuration: number | null  // milliseconds
   lastBatchResult: {
-    filterMode:               'ai_full' | 'keyword_gate' | 'shadow_compare'
+    filterMode:               'keyword_gate'
     messagesFetched:          number
     signalsWritten:           number
     ignoredCount:             number

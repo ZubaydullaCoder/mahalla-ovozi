@@ -44,7 +44,7 @@ The core insight is that Telegram groups are where civic signals surface earlies
 
 Mahalla Ovozi's differentiation is its discipline: it solves exactly one problem and refuses all scope creep. No issue cards. No resolution workflow. No confidence scores. No automated truth claims. The product's value is a clean, evidence-backed signal stream that lets a busy non-technical leader scan what residents are saying in 60 seconds, not 60 minutes.
 
-The 20-minute AI batch pipeline keeps the system fast enough for live monitoring while controlling unnecessary AI cost. Phase 1 supports three developer/operator-side filtering modes: full AI classification after structural pre-filtering, keyword-gated AI classification, and shadow comparison between the two. Based on owner analysis of real mahalla Telegram groups showing low signal density, keyword-gated filtering is the preferred demo/pilot default for cost and dashboard-noise control. Full AI classification remains available as a fallback, and shadow comparison remains available to validate missed-signal risk.
+The 20-minute AI batch pipeline keeps the system fast enough for live monitoring while controlling unnecessary AI cost. Phase 1 uses keyword-gated AI classification as the only active development and demo/pilot filtering method: structural pre-filters remove obvious non-signal updates, manually managed keywords determine which messages enter the AI queue, and AI classifies only keyword-matched messages. Based on owner analysis of real mahalla Telegram groups showing low signal density, this keeps cost and dashboard noise under control. Full AI classification may be reconsidered later only by explicit owner decision if keyword gating underperforms.
 
 ---
 
@@ -98,7 +98,7 @@ AI accuracy targets are directional for the pilot — hard thresholds will be se
 
 If classification quality is insufficient, the pilot will extend prompt engineering, few-shot examples, and/or model selection before declaring go/no-go.
 
-Filtering-mode quality is also validated during Phase 1. Keyword-gated filtering is the preferred demo/pilot default because real mahalla group analysis indicates signal messages are rare, but keyword coverage must still be tested against real/test data. If missed non-keyword signal risk is unacceptable, the operator can switch to `ai_full`; `shadow_compare` is used when coverage needs evidence before or during pilot validation.
+Keyword coverage is validated manually during Phase 1 with real/test group data. Keyword-gated filtering is the active demo/pilot method because real mahalla group analysis indicates signal messages are rare. If missed non-keyword signal risk becomes unacceptable, `ai_full` may be reconsidered later by explicit owner decision rather than developed in parallel now.
 
 ### Measurable Outcomes
 
@@ -136,12 +136,12 @@ No additions. Prove the concept first.
 
 The MVP product scope above is fixed, but implementation is delivered in two phases:
 
-- **Phase 1 - validation build:** Implements the MVP behavior locally with production-quality schema, API contracts, module boundaries, authentication, bot intake, AI pipeline, dashboard, health state, Developer Ops Console, developer-side filtering mode selection, and centralized manual keyword management for validation. Infrastructure is intentionally simplified for fast human-in-the-loop validation.
+- **Phase 1 - validation build:** Implements the MVP behavior locally with production-quality schema, API contracts, module boundaries, authentication, bot intake, keyword-gated AI pipeline, dashboard, health state, Developer Ops Console, and centralized manual keyword management for validation. Infrastructure is intentionally simplified for fast human-in-the-loop validation.
 - **Phase 2 - pilot deployment hardening:** Adds the production deployment layer required for the real district pilot: Docker Compose, Nginx, HTTPS, secure cookies, external backups, production monitoring posture, and any queue/worker split approved after Phase 1 validation.
 
 Therefore, deployment-hardening items are part of the pilot-ready MVP, but they are not blockers for Phase 1 local validation stories.
 
-Filtering mode selection is not a hokim/staff dashboard feature. It is a developer/operator validation control used to compare cost, coverage, and missed-signal risk before choosing the pilot default.
+Filtering mode selection is not a hokim/staff dashboard feature. Current development uses `keyword_gate` only; any future switch to full AI classification requires an explicit owner decision.
 
 ### Growth Features (Post-MVP)
 
@@ -326,10 +326,10 @@ WCAG 2.1 AA is the internal MVP quality target for semantic HTML, keyboard navig
 - Telegram context action: stored signals can expose a Telegram message link when the viewer has group access
 - Filters: time range (1h / 3h / 6h / Today / Yesterday / custom up to 7 days), mahalla, keyword search
 - Telegram bot: text and text-caption capture from monitored supergroups via webhook; media binaries are ignored for MVP
-- 20-minute AI batch pipeline: structural pre-filter + configurable developer-side filtering mode + configurable AI classification model selected after implementation-time validation
+- 20-minute AI batch pipeline: structural pre-filter + keyword gate + configurable AI classification model selected after implementation-time validation
 - Signal-only storage: raw messages deleted post-classification, signals retained 90 days
 - "Signals may be delayed" dashboard indicator (non-technical, hokim-visible)
-- Admin health endpoint and Ops Console: last batch time, queue status, bot connectivity, recent processing errors, discard counts, active filtering mode, keyword registry, and comparison metrics (operator-only)
+- Admin health endpoint and Ops Console: last batch time, queue status, bot connectivity, recent processing errors, discard counts, active keyword-gate state, and keyword registry (operator-only)
 - Session-based auth: login, protected routes, no public registration
 - Phase 2 pilot deployment: Docker Compose + Nginx + Let's Encrypt + daily pg_dump backups
 
@@ -337,7 +337,7 @@ WCAG 2.1 AA is the internal MVP quality target for semantic HTML, keyboard navig
 
 ### Risk Mitigation Strategy
 
-**Technical risks:** AI classification quality and keyword-gated missed-signal risk are the highest-risk assumptions. Mitigation: Phase 1 validation with real/test group data, shadow comparison metrics, prompt engineering, keyword iteration, and model selection before go/no-go decision. Exact model/provider/filtering mode must remain configurable, with `keyword_gate` preferred for demo/pilot unless validation shows missed-signal risk is unacceptable.
+**Technical risks:** AI classification quality and keyword-gated missed-signal risk are the highest-risk assumptions. Mitigation: Phase 1 validation with real/test group data, manual owner/operator review, prompt engineering, keyword iteration, and model selection before go/no-go decision. The exact model/provider remains configurable; filtering stays `keyword_gate` unless the owner explicitly approves a later switch to full AI classification.
 
 **Operational risks:** Bot setup requires confirmed Telegram group/bot configuration. Mitigation: documented setup checklist, real test group validation, and operator walkthrough with client before pilot launch.
 
@@ -383,9 +383,9 @@ WCAG 2.1 AA is the internal MVP quality target for semantic HTML, keyboard navig
 
 - **FR20:** The system processes captured messages in batches at a configurable interval (default: every 20 minutes)
 - **FR21:** The system applies a centralized conservative pre-filter before AI classification to remove structural noise such as bot-originated messages, unsupported non-text updates, empty text, pure emoji/reactions, and bot commands; exact thresholds must be validated with real mahalla data
-- **FR21a:** The system supports developer/operator-only filtering modes: `ai_full`, `keyword_gate`, and `shadow_compare`; the active mode is not visible or controllable in the hokim/staff dashboard
+- **FR21a:** The system uses developer/operator-managed `keyword_gate` filtering as the only current active filtering method; filtering mode controls are not visible or controllable in the hokim/staff dashboard
 - **FR21b:** The system stores manually managed keyword phrases in one centralized Ops Console database registry; AI does not auto-generate or modify keywords
-- **FR22:** The system classifies eligible messages as signal or ignore using AI. In `ai_full`, every structurally retained message is AI-classified; in `keyword_gate`, only keyword-matched messages are AI-classified; in `shadow_compare`, every structurally retained message is AI-classified while keyword match status is recorded for comparison
+- **FR22:** The system classifies eligible keyword-matched messages as signal or ignore using AI. Structurally retained messages without keyword matches are skipped before `raw_messages` and are not sent to AI.
 - **FR23:** For signal messages, the system assigns: category (water/electricity/gas/waste), hokim-related flag, and optional short label
 - **FR24:** The system deletes raw captured messages after successful classification in the same batch run
 - **FR25:** The system retries failed AI classification batches automatically and surfaces a delay indicator to the dashboard
@@ -405,7 +405,7 @@ WCAG 2.1 AA is the internal MVP quality target for semantic HTML, keyboard navig
 
 ### Operational Health
 
-- **FR33:** Operators can access an admin health endpoint and Ops Console showing: last successful batch time, current queue depth, bot connectivity status per monitored group, recent processing errors, active filtering mode, basic pre-filter discard counts, keyword-gate skip counts, and shadow comparison metrics useful for debugging
+- **FR33:** Operators can access an admin health endpoint and Ops Console showing: last successful batch time, current queue depth, bot connectivity status per monitored group, recent processing errors, active keyword-gate state, basic pre-filter discard counts, and keyword-gate skip counts useful for debugging
 - **FR34:** The system exposes a health status to the dashboard that indicates whether signal data is current or delayed, without exposing technical details to non-operator users
 
 ---
