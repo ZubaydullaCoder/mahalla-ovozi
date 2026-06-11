@@ -52,7 +52,7 @@ development_status:
   1-2-express-server-and-telegram-webhook-intake: done
   1-3-bot-connectivity-monitoring: done
   1-4-keyword-registry-and-three-mode-filtering-pipeline: done
-  1-5-ai-classifier-batch-processor: backlog
+  1-5-ai-classifier-batch-processor: ready-for-dev
   1-6-signal-retention-purge: backlog
   epic-1-retrospective: optional
 
