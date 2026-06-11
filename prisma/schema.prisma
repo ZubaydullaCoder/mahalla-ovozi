@@ -103,6 +103,7 @@ model SignalMessage {
   @@index([district_id])
   @@index([category])
   @@index([telegram_timestamp])
+  @@index([created_at])
   @@index([hokim_related])
   @@index([keyword_matched])
   @@map("signal_messages")
