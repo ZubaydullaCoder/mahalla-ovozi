@@ -36,7 +36,8 @@ Current sprint state:
 - Epic 1 is done: foundation, Telegram intake, keyword registry, classifier batch processor, signal retention purge.
 - Epic 2 is in progress: authentication and session security.
 - Story 2-1 is done: login and session issuance with PostgreSQL-backed sessions, failed-login rate limiting, and auth route tests.
-- Story 2-2 is next: protected routes and district scope enforcement.
+- Story 2-2 is done: protected routes and district scope enforcement with `requireAuth`, district-scoped placeholder routes, and auth middleware tests.
+- Story 2-3 is next: logout and session invalidation.
 
 ## Core Product Constraints
 
