@@ -2,7 +2,7 @@
 project: mahalla-ovozi
 status: active
 purpose: AI agent implementation context
-last_updated: 2026-06-11
+last_updated: 2026-06-12
 ---
 
 # Project Context
@@ -35,7 +35,8 @@ Current sprint state:
 
 - Epic 1 is done: foundation, Telegram intake, keyword registry, classifier batch processor, signal retention purge.
 - Epic 2 is in progress: authentication and session security.
-- Story 2-1 is validated and ready for development; validation report: `_bmad-output/implementation-artifacts/2-1-story-validation-report-2026-06-11.md`.
+- Story 2-1 is done: login and session issuance with PostgreSQL-backed sessions, failed-login rate limiting, and auth route tests.
+- Story 2-2 is next: protected routes and district scope enforcement.
 
 ## Core Product Constraints
 

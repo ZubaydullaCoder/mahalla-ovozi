@@ -1,6 +1,6 @@
 # Story 2.1: Login & Session Issuance
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -24,45 +24,51 @@ so that I can access the dashboard and my session persists for up to 8 hours wit
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Install `express-session`, `connect-pg-simple`, and their type packages (AC: 1)
-  - [ ] 1.1 `pnpm --filter @mahalla-ovozi/server add express-session connect-pg-simple`
-  - [ ] 1.2 `pnpm --filter @mahalla-ovozi/server add -D @types/express-session @types/connect-pg-simple`
+- [x] Task 1: Install `express-session`, `connect-pg-simple`, and their type packages (AC: 1)
+  - [x] 1.1 `pnpm --filter @mahalla-ovozi/server add express-session connect-pg-simple`
+  - [x] 1.2 `pnpm --filter @mahalla-ovozi/server add -D @types/express-session @types/connect-pg-simple`
 
-- [ ] Task 2: Add `SESSION_SECRET` to `env.ts` schema (AC: 2)
-  - [ ] 2.1 Add `SESSION_SECRET: z.string().min(1)` to `EnvSchema` in `apps/server/src/shared/env.ts`
+- [x] Task 2: Add `SESSION_SECRET` to `env.ts` schema (AC: 2)
+  - [x] 2.1 Add `SESSION_SECRET: z.string().min(1)` to `EnvSchema` in `apps/server/src/shared/env.ts`
 
-- [ ] Task 3: Declare session type augmentation (AC: 2)
-  - [ ] 3.1 Create `apps/server/src/shared/session.d.ts` to augment `express-session` with `userId: number` and `districtId: number`
+- [x] Task 3: Declare session type augmentation (AC: 2)
+  - [x] 3.1 Create `apps/server/src/shared/session.d.ts` to augment `express-session` with `userId: number` and `districtId: number`
 
-- [ ] Task 4: Wire session middleware in `web/index.ts` (AC: 1, 2)
-  - [ ] 4.1 Import `session` from `express-session`, `connectPgSimple` from `connect-pg-simple`, `Pool` from `pg`
-  - [ ] 4.2 Create `pgPool` with `new Pool({ connectionString: env.DATABASE_URL })`
-  - [ ] 4.3 Create `PgStore = connectPgSimple(session)` and `app.use(session({...}))` with exact configuration from architecture Section 6
-  - [ ] 4.4 Mount session middleware **before** `webhookRouter` — session must be available on all routes
+- [x] Task 4: Wire session middleware in `web/index.ts` (AC: 1, 2)
+  - [x] 4.1 Import `session` from `express-session`, `connectPgSimple` from `connect-pg-simple`, `Pool` from `pg`
+  - [x] 4.2 Create `pgPool` with `new Pool({ connectionString: env.DATABASE_URL })`
+  - [x] 4.3 Create `PgStore = connectPgSimple(session)` and `app.use(session({...}))` with exact configuration from architecture Section 6
+  - [x] 4.4 Mount session middleware **before** `webhookRouter` — session must be available on all routes
 
-- [ ] Task 5: Create `apps/server/src/auth/routes.ts` — login route + failed-login rate limiter (AC: 1, 3, 4)
-  - [ ] 5.1 Implement in-memory failed-login limiter map: `Map<username, { count: number; windowStart: number }>`
-  - [ ] 5.2 Implement `POST /api/auth/login` handler: validate body, block if the username already has 5 failed attempts in the active window, lookup user, verify argon2 hash, record failed attempts only on invalid credentials, clear the username counter on success, set session, return 200
-  - [ ] 5.3 Return HTTP 429 on the 6th attempt within a 60-second window after 5 failed attempts: `{ statusCode: 429, error: 'Too Many Requests', message: 'Too many login attempts' }`
-  - [ ] 5.4 Return HTTP 401 on bad credentials: `{ statusCode: 401, error: 'Unauthorized', message: 'Invalid credentials' }` — same message for wrong username or wrong password
+- [x] Task 5: Create `apps/server/src/auth/routes.ts` — login route + failed-login rate limiter (AC: 1, 3, 4)
+  - [x] 5.1 Implement in-memory failed-login limiter map: `Map<username, { count: number; windowStart: number }>`
+  - [x] 5.2 Implement `POST /api/auth/login` handler: validate body, block if the username already has 5 failed attempts in the active window, lookup user, verify argon2 hash, record failed attempts only on invalid credentials, clear the username counter on success, set session, return 200
+  - [x] 5.3 Return HTTP 429 on the 6th attempt within a 60-second window after 5 failed attempts: `{ statusCode: 429, error: 'Too Many Requests', message: 'Too many login attempts' }`
+  - [x] 5.4 Return HTTP 401 on bad credentials: `{ statusCode: 401, error: 'Unauthorized', message: 'Invalid credentials' }` — same message for wrong username or wrong password
 
-- [ ] Task 6: Create `apps/server/src/auth/index.ts` — export auth router (AC: 1)
-  - [ ] 6.1 Export default `authRouter` from `routes.ts`
+- [x] Task 6: Create `apps/server/src/auth/index.ts` — export auth router (AC: 1)
+  - [x] 6.1 Export default `authRouter` from `routes.ts`
 
-- [ ] Task 7: Register auth router in `web/index.ts` (AC: 1)
-  - [ ] 7.1 Mount `authRouter` under `/api/auth` **after** session middleware and **after** `express.json()` so `req.body` is populated for login
+- [x] Task 7: Register auth router in `web/index.ts` (AC: 1)
+  - [x] 7.1 Mount `authRouter` under `/api/auth` **after** session middleware and **after** `express.json()` so `req.body` is populated for login
 
-- [ ] Task 8: Write tests in `apps/server/src/auth/routes.test.ts` (AC: 5)
-  - [ ] 8.1 Test: valid credentials → 200 + Set-Cookie header
-  - [ ] 8.2 Test: wrong password → 401 with exact error shape
-  - [ ] 8.3 Test: unknown username → 401 (same message as wrong password — no field discrimination)
-  - [ ] 8.4 Test: after 5 failed attempts, the 6th attempt → 429 rate limit response
-  - [ ] 8.5 Test: after 60-second window reset, counter clears and login is allowed again
+- [x] Task 8: Write tests in `apps/server/src/auth/routes.test.ts` (AC: 5)
+  - [x] 8.1 Test: valid credentials → 200 + Set-Cookie header
+  - [x] 8.2 Test: wrong password → 401 with exact error shape
+  - [x] 8.3 Test: unknown username → 401 (same message as wrong password — no field discrimination)
+  - [x] 8.4 Test: after 5 failed attempts, the 6th attempt → 429 rate limit response
+  - [x] 8.5 Test: after 60-second window reset, counter clears and login is allowed again
 
-- [ ] Task 9: Pre-commit verification (AC: 5)
-  - [ ] 9.1 `pnpm lint` passes
-  - [ ] 9.2 `pnpm test` passes (all existing 80 tests + new auth tests)
-  - [ ] 9.3 `pnpm exec tsc -p apps/server/tsconfig.json --noEmit` passes
+- [x] Task 9: Pre-commit verification (AC: 5)
+  - [x] 9.1 `pnpm lint` passes
+  - [x] 9.2 `pnpm test` passes (all 86 tests: 80 existing + 6 new auth tests)
+  - [x] 9.3 `pnpm exec tsc -p apps/server/tsconfig.json --noEmit` passes
+
+### Review Findings
+
+- [x] [Review][Patch] Login route has no async error boundary [apps/server/src/auth/routes.ts:40]
+- [x] [Review][Patch] Failed-login limiter retains expired one-off usernames indefinitely [apps/server/src/auth/routes.ts:7]
+- [x] [Review][Patch] Tests do not verify that successful login stores `userId` and `districtId` in the session [apps/server/src/auth/routes.test.ts:73]
 
 ## Dev Notes
 
@@ -549,6 +555,27 @@ Claude Sonnet 4.6 (Thinking) via Antigravity
 
 ### Debug Log References
 
+- Fixed: `authRouter` import in test file must use `./index.js` barrel (default export not re-exported as named from `routes.ts` directly).
+- Fixed: TS2742 non-portable inferred type on `router` — resolved by importing `IRouter` and annotating `const router: IRouter = Router()`.
+
 ### Completion Notes List
 
+- Installed `express-session@^1.18.1` and `connect-pg-simple` with their `@types` packages.
+- Added `SESSION_SECRET` to `EnvSchema` in `env.ts` (it was already in `.env` but missing from schema validation).
+- Created `session.d.ts` type augmentation in `shared/` — enables type-safe `req.session.userId` and `req.session.districtId` without casting.
+- Wired session middleware in `web/index.ts` before all route handlers; `pgPool` is a separate `pg.Pool` instance (not Prisma) per AR3. `createTableIfMissing: true` auto-creates the `sessions` table.
+- Middleware order: `morgan → session → express.json() → webhookRouter → authRouter`.
+- `POST /api/auth/login` route in `auth/routes.ts`: validates body types, checks in-memory rate limiter before DB lookup, verifies argon2 hash (hash first, plain second), clears counter on success, sets `req.session.userId` + `req.session.districtId`.
+- Rate limiter is module-level Map — tests use distinct usernames to avoid state leakage between test cases.
+- All 86 tests pass (80 existing + 6 new). `pnpm lint` and `pnpm exec tsc --noEmit` both pass.
+
 ### File List
+
+- `apps/server/package.json` (modified — express-session, connect-pg-simple added)
+- `pnpm-lock.yaml` (modified — lockfile updated)
+- `apps/server/src/shared/env.ts` (modified — SESSION_SECRET added to EnvSchema)
+- `apps/server/src/shared/session.d.ts` (new — express-session type augmentation)
+- `apps/server/src/auth/routes.ts` (new — login route + in-memory rate limiter)
+- `apps/server/src/auth/index.ts` (new — barrel export of authRouter)
+- `apps/server/src/auth/routes.test.ts` (new — 6 Vitest tests for login route)
+- `apps/server/src/web/index.ts` (modified — session middleware + authRouter mounted)
