@@ -31,13 +31,12 @@ Phase 1 validates the full local MVP behavior with production-quality schema, co
 
 Phase 2 will harden deployment for real pilot use: VPS/domain, HTTPS, stable webhook, secure secrets, backups, and monitoring.
 
-Current sprint state:
+Canonical sprint and story status is tracked in `_bmad-output/implementation-artifacts/sprint-status.yaml`.
 
-- Epic 1 is done: foundation, Telegram intake, keyword registry, classifier batch processor, signal retention purge.
-- Epic 2 is in progress: authentication and session security.
-- Story 2-1 is done: login and session issuance with PostgreSQL-backed sessions, failed-login rate limiting, and auth route tests.
-- Story 2-2 is done: protected routes and district scope enforcement with `requireAuth`, district-scoped placeholder routes, and auth middleware tests.
-- Story 2-3 is ready-for-dev after validation: logout and session invalidation.
+Current implementation focus:
+
+- Epic 2 authentication and session security.
+- Story 2-3 logout and session invalidation is the next implementation target after validation.
 - Next recommended workflow step is `bmad-dev-story` for Story 2-3 implementation.
 
 ## Core Product Constraints
