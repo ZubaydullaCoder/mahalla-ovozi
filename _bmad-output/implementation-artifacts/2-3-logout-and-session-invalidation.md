@@ -1,6 +1,6 @@
 # Story 2.3: Logout & Session Invalidation
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -24,22 +24,22 @@ so that my access is revoked and no one can reuse my session cookie after I leav
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add `POST /api/auth/logout` route to `auth/routes.ts` (AC: 1, 2, 3)
-  - [ ] 1.1 Call `req.session.destroy(err => ...)` to delete session from PostgreSQL session store
-  - [ ] 1.2 On success: call `res.clearCookie(...)` then respond `200 { ok: true }`
-  - [ ] 1.3 On destroy error: log the error and respond `500` with standard error shape
-  - [ ] 1.4 Ensure the handler is registered under the existing `authRouter` — no new router needed
+- [x] Task 1: Add `POST /api/auth/logout` route to `auth/routes.ts` (AC: 1, 2, 3)
+  - [x] 1.1 Call `req.session.destroy(err => ...)` to delete session from PostgreSQL session store
+  - [x] 1.2 On success: call `res.clearCookie(...)` then respond `200 { ok: true }`
+  - [x] 1.3 On destroy error: log the error and respond `500` with standard error shape
+  - [x] 1.4 Ensure the handler is registered under the existing `authRouter` — no new router needed
 
-- [ ] Task 2: Write tests in `apps/server/src/auth/routes.test.ts` (AC: 1, 2, 3, 4)
-  - [ ] 2.1 Test: authenticated user calls logout → 200, session is destroyed
-  - [ ] 2.2 Test: subsequent request using the original pre-logout cookie → 401 from `requireAuth`
-  - [ ] 2.3 Test: logout response includes `Set-Cookie` header that clears the cookie with matching non-expiry cookie attributes
-  - [ ] 2.4 Test: unauthenticated logout call (no session) → 200 (idempotent — no error to the user)
+- [x] Task 2: Write tests in `apps/server/src/auth/routes.test.ts` (AC: 1, 2, 3, 4)
+  - [x] 2.1 Test: authenticated user calls logout → 200, session is destroyed
+  - [x] 2.2 Test: subsequent request using the original pre-logout cookie → 401 from `requireAuth`
+  - [x] 2.3 Test: logout response includes `Set-Cookie` header that clears the cookie with matching non-expiry cookie attributes
+  - [x] 2.4 Test: unauthenticated logout call (no session) → 200 (idempotent — no error to the user)
 
-- [ ] Task 3: Pre-commit verification (AC: 4)
-  - [ ] 3.1 `pnpm lint` passes
-  - [ ] 3.2 `pnpm test` passes (all 93 existing tests + new logout tests)
-  - [ ] 3.3 `pnpm exec tsc -p apps/server/tsconfig.json --noEmit` passes
+- [x] Task 3: Pre-commit verification (AC: 4)
+  - [x] 3.1 `pnpm lint` passes
+  - [x] 3.2 `pnpm test` passes (all 97 tests: 93 existing + 4 new logout tests)
+  - [x] 3.3 `pnpm exec tsc -p apps/server/tsconfig.json --noEmit` passes
 
 ## Dev Notes
 
@@ -307,6 +307,25 @@ Claude Sonnet 4.6 (Thinking)
 
 ### Debug Log References
 
+_No issues encountered — clean implementation._
+
 ### Completion Notes List
 
+- Implemented `router.post('/logout', ...)` in `apps/server/src/auth/routes.ts` using callback-based `req.session.destroy()` pattern (not async/await per story spec).
+- Cookie cleared via `res.clearCookie('connect.sid', { path, httpOnly, sameSite, secure })` — matching non-expiry attributes from session middleware; `maxAge`/`expires` intentionally omitted per story guidance.
+- Logout handler registered on existing `authRouter` under `/api/auth`; exempt from `requireAuth` by route order — no `web/index.ts` change needed.
+- Returns `200 { ok: true }` for both authenticated and unauthenticated calls (idempotent — AC 4).
+- Extended `createTestApp()` in `routes.test.ts` to wire `requireAuth` on `/api` and add `/api/test-protected` route — existing 6 login tests unaffected.
+- 4 new logout tests added: 200 success, Set-Cookie header clearing verification, original pre-logout cookie rejected with 401 (server-side invalidation proof), unauthenticated 200.
+- All 97 tests pass (`pnpm test`), lint clean (`pnpm lint`), type-check clean (`tsc --noEmit`).
+
 ### File List
+
+- `apps/server/src/auth/routes.ts` — MODIFIED: added `router.post('/logout', ...)` handler
+- `apps/server/src/auth/routes.test.ts` — MODIFIED: extended `createTestApp()` with `requireAuth` + `/api/test-protected`; added `describe('POST /api/auth/logout', ...)` with 4 tests
+
+## Change Log
+
+| Date | Description |
+|---|---|
+| 2026-06-13 | Implemented Story 2.3: added `POST /api/auth/logout` handler and 4 test cases; all 97 tests pass |

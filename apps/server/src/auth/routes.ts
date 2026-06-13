@@ -101,4 +101,25 @@ router.post('/login', async (req, res) => {
   }
 })
 
+router.post('/logout', (req, res) => {
+  const sessionName = 'connect.sid' // default express-session cookie name
+  const clearCookieOptions = {
+    path: '/',
+    httpOnly: true,
+    sameSite: 'strict' as const,
+    secure: false,
+  }
+
+  req.session.destroy((err) => {
+    if (err) {
+      logger.error({ err }, 'Session destroy failed during logout')
+      res.status(500).json({ statusCode: 500, error: 'Internal Server Error', message: 'Logout failed' })
+      return
+    }
+
+    res.clearCookie(sessionName, clearCookieOptions)
+    res.status(200).json({ ok: true })
+  })
+})
+
 export default router

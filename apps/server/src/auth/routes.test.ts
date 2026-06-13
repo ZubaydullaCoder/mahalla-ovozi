@@ -46,7 +46,7 @@ vi.mock('../shared/logger.js', () => ({
 // Import mocked modules after vi.mock() calls
 import { prisma } from '../shared/db.js'
 import * as argon2 from 'argon2'
-import { authRouter } from './index.js'
+import { authRouter, requireAuth } from './index.js'
 
 function createTestApp() {
   const app = express()
@@ -59,6 +59,11 @@ function createTestApp() {
     cookie: { httpOnly: true, sameSite: 'strict', maxAge: 8 * 60 * 60 * 1000 },
   }))
   app.use('/api/auth', authRouter)
+  // Wire requireAuth to test that post-logout requests are properly rejected (AC 2)
+  app.use('/api', requireAuth)
+  app.get('/api/test-protected', (req, res) => {
+    res.json({ districtId: req.session.districtId })
+  })
   app.get('/test/session', (req, res) => {
     res.json({ userId: req.session.userId, districtId: req.session.districtId })
   })
@@ -173,6 +178,71 @@ describe('POST /api/auth/login', () => {
       .post('/api/auth/login')
       .send({ username: 'timeuser', password: 'correct' })
 
+    expect(res.status).toBe(200)
+  })
+})
+
+describe('POST /api/auth/logout', () => {
+  let app: ReturnType<typeof createTestApp>
+
+  beforeEach(() => {
+    app = createTestApp()
+    vi.clearAllMocks()
+  })
+
+  it('returns 200 when authenticated user logs out', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(mockUser)
+    vi.mocked(argon2.verify).mockResolvedValueOnce(true)
+
+    const agent = request.agent(app)
+    await agent.post('/api/auth/login').send({ username: 'operator', password: 'devpassword' })
+
+    const res = await agent.post('/api/auth/logout')
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ ok: true })
+  })
+
+  it('clears the session cookie in the logout response', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(mockUser)
+    vi.mocked(argon2.verify).mockResolvedValueOnce(true)
+
+    const agent = request.agent(app)
+    await agent.post('/api/auth/login').send({ username: 'operator', password: 'devpassword' })
+
+    const res = await agent.post('/api/auth/logout')
+    const setCookie = res.headers['set-cookie'] as string[] | string | undefined
+    const cookieStr = Array.isArray(setCookie) ? setCookie.join('; ') : (setCookie ?? '')
+    expect(cookieStr).toMatch(/connect\.sid/)
+    expect(cookieStr.toLowerCase()).toContain('path=/')
+    expect(cookieStr.toLowerCase()).toContain('httponly')
+    expect(cookieStr.toLowerCase()).toContain('samesite=strict')
+    expect(cookieStr.toLowerCase()).toMatch(/expires=thu, 01 jan 1970|max-age=0/)
+  })
+
+  it('rejects the original pre-logout cookie after logout with 401', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(mockUser)
+    vi.mocked(argon2.verify).mockResolvedValueOnce(true)
+
+    const agent = request.agent(app)
+    const loginRes = await agent.post('/api/auth/login').send({ username: 'operator', password: 'devpassword' })
+    const setCookie = loginRes.headers['set-cookie'] as string[] | string | undefined
+    const originalCookie = Array.isArray(setCookie) ? setCookie[0] : setCookie
+
+    await agent.post('/api/auth/logout')
+
+    if (!originalCookie) {
+      throw new Error('Expected login response to set a session cookie')
+    }
+
+    const res = await request(app)
+      .get('/api/test-protected')
+      .set('Cookie', originalCookie)
+
+    expect(res.status).toBe(401)
+  })
+
+  it('returns 200 even when called without an active session (idempotent)', async () => {
+    const res = await request(app).post('/api/auth/logout')
     expect(res.status).toBe(200)
   })
 })
