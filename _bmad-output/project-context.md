@@ -2,7 +2,7 @@
 project: mahalla-ovozi
 status: active
 purpose: AI agent implementation context
-last_updated: 2026-06-12
+last_updated: 2026-06-13
 ---
 
 # Project Context
@@ -37,7 +37,8 @@ Current sprint state:
 - Epic 2 is in progress: authentication and session security.
 - Story 2-1 is done: login and session issuance with PostgreSQL-backed sessions, failed-login rate limiting, and auth route tests.
 - Story 2-2 is done: protected routes and district scope enforcement with `requireAuth`, district-scoped placeholder routes, and auth middleware tests.
-- Story 2-3 is next: logout and session invalidation.
+- Story 2-3 is ready-for-dev after validation: logout and session invalidation.
+- Next recommended workflow step is `bmad-dev-story` for Story 2-3 implementation.
 
 ## Core Product Constraints
 
