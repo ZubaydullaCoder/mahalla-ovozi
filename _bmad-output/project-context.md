@@ -33,12 +33,6 @@ Phase 2 will harden deployment for real pilot use: VPS/domain, HTTPS, stable web
 
 Canonical sprint and story status is tracked in `_bmad-output/implementation-artifacts/sprint-status.yaml`.
 
-Current implementation focus:
-
-- Epic 2 authentication and session security.
-- Story 2-3 logout and session invalidation is the next implementation target after validation.
-- Next recommended workflow step is `bmad-dev-story` for Story 2-3 implementation.
-
 ## Core Product Constraints
 
 MVP scope is fixed. Do not add features unless the owner explicitly changes scope.
