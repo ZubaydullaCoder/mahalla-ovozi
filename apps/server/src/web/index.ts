@@ -10,6 +10,7 @@ import webhookRouter from '../bot/webhook.js'
 import { prisma } from '../shared/db.js'
 import { purgeOldSignals, runClassifyBatchWithLock } from '../classifier/index.js'
 import { authRouter, requireAuth } from '../auth/index.js'
+import { signalsRouter } from '../signals/index.js'
 
 const app = express()
 
@@ -40,10 +41,7 @@ app.use('/api/auth', authRouter)
 // All /api/* routes below this point require a valid session
 app.use('/api', requireAuth)
 
-// TODO: Replace in Story 3.2 — full signals query endpoint
-app.get('/api/signals', (_req, res) => {
-  res.json([])
-})
+app.use('/api', signalsRouter)
 
 // TODO: Replace when dashboard mahalla filter route is implemented
 app.get('/api/mahallas', async (req, res) => {
