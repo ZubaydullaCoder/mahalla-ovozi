@@ -6,6 +6,9 @@ import { LaneGrid, type SignalsByCategory } from '../components/lane-grid/lane-g
 import { useSignals, type Signal } from '../api/signals.ts'
 import { useHealth } from '../api/health.ts'
 import { DelayBanner } from '../components/delay-banner.tsx'
+import { FilterBar } from '../components/filter-bar/filter-bar.tsx'
+import { useFilters } from '../hooks/use-filters.ts'
+import { filterByTimeRange, filterByMahalla } from '../utils/filter-utils.ts'
 import { strings } from '../strings.ts'
 
 // Lane label order for loading skeleton — matches LANE_ORDER in LaneGrid
@@ -42,10 +45,21 @@ function groupSignals(signals: Signal[]): SignalsByCategory {
 }
 
 export function DashboardPage() {
-  const { data: signals, isLoading, isError } = useSignals()
+  const { filterState, setTimeRange, setMahallaId, computedApiParams, isApiPreset } = useFilters()
+
+  // computedApiParams is { from, to } | undefined — structurally compatible with SignalsQueryParams
+  const { data: signals, isLoading, isError } = useSignals(computedApiParams)
   const { data: healthData } = useHealth()
   const isDelayed = healthData?.status === 'delayed'
-  const groupedSignals = groupSignals(signals ?? [])
+
+  // Apply client-side filters BEFORE grouping
+  // When isApiPreset is true, the API has already scoped to yesterday/7d — skip filterByTimeRange
+  const rawSignals = signals ?? []
+  const timeFilteredSignals = isApiPreset
+    ? rawSignals
+    : filterByTimeRange(rawSignals, filterState.timeRange)
+  const filteredSignals = filterByMahalla(timeFilteredSignals, filterState.mahallaId)
+  const groupedSignals = groupSignals(filteredSignals)
 
   // Context drawer wiring is Story 4-3 — stub with console.log for now
   const handleCardClick = (signal: Signal) => {
@@ -54,9 +68,18 @@ export function DashboardPage() {
 
   return (
     <>
-      <AppShell>
+      <AppShell
+        filterBar={
+          <FilterBar
+            filterState={filterState}
+            onTimeRangeChange={setTimeRange}
+            onMahallaChange={setMahallaId}
+          />
+        }
+      >
         {isLoading ? (
-          /* Loading state: skeleton in each of 5 lanes, aria-busy per AC-1 */
+          /* Loading state: skeleton in each of 5 lanes, aria-busy per AC-1.
+             Fires on initial load AND when Yesterday/7d triggers an uncached API call. */
           <div style={{ display: 'flex', height: 'calc(100vh - 56px)', gap: 1 }}>
             {SKELETON_LANE_LABELS.map((label) => (
               <div

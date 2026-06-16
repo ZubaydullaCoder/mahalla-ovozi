@@ -42,5 +42,14 @@ export const strings = {
     delayBannerPrefix:    'Сигналлар янгиланмаяпти — охирги янгиланиш',
     delayBannerNoData:    'Сигналлар янгиланмаяпти — маълумот йўқ',
   },
+  filterBar: {
+    preset1h:        '1 соат',
+    preset3h:        '3 соат',
+    preset6h:        '6 соат',
+    presetToday:     'Бугун',
+    presetYesterday: 'Кеча',
+    preset7d:        '7 кун',
+    allMahallas:     'Барча маҳаллалар',
+  },
 
 } as const
