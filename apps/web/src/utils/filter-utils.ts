@@ -38,3 +38,18 @@ export function filterByMahalla(signals: Signal[], mahallaId: number | null): Si
   if (mahallaId === null) return signals
   return signals.filter(s => s.mahallaId === mahallaId)
 }
+
+/**
+ * Filters signals by keyword text — client-side only.
+ * Matches case-insensitively across rawText, senderDisplayName, and mahallaName.
+ * Returns all signals when searchText is empty or whitespace-only.
+ */
+export function filterByKeyword(signals: Signal[], searchText: string): Signal[] {
+  const lower = searchText.trim().toLowerCase()  // trim here — raw input preserved in visible input state
+  if (!lower) return signals
+  return signals.filter(s =>
+    s.rawText.toLowerCase().includes(lower) ||
+    (s.senderDisplayName ?? '').toLowerCase().includes(lower) ||
+    s.mahallaName.toLowerCase().includes(lower)
+  )
+}

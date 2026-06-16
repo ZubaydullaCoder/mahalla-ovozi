@@ -27,9 +27,19 @@ export interface LaneColumnProps {
   laneKey: LaneKey
   signals: Signal[]
   onCardClick: (signal: Signal) => void
+  isKeywordSearch?: boolean   // NEW: when true, shows keyword-search-specific empty state
 }
 
-function EmptyLane({ token }: { token: ReturnType<typeof theme.useToken>['token'] }) {
+function EmptyLane({
+  token,
+  isKeywordSearch,
+}: {
+  token: ReturnType<typeof theme.useToken>['token']
+  isKeywordSearch?: boolean
+}) {
+  const message = isKeywordSearch
+    ? strings.dashboard.searchEmptyLane
+    : strings.dashboard.emptyLane
   return (
     <div
       style={{
@@ -47,7 +57,7 @@ function EmptyLane({ token }: { token: ReturnType<typeof theme.useToken>['token'
         aria-hidden="true"
         style={{ fontSize: 28, opacity: 0.35, lineHeight: 1 }}
       >
-        📭
+        {isKeywordSearch ? '🔍' : '📭'}
       </span>
       <span
         style={{
@@ -56,13 +66,13 @@ function EmptyLane({ token }: { token: ReturnType<typeof theme.useToken>['token'
           textAlign: 'center',
         }}
       >
-        {strings.dashboard.emptyLane}
+        {message}
       </span>
     </div>
   )
 }
 
-export function LaneColumn({ laneKey, signals, onCardClick }: LaneColumnProps) {
+export function LaneColumn({ laneKey, signals, onCardClick, isKeywordSearch }: LaneColumnProps) {
   const { token } = theme.useToken()
   const parentRef = useRef<HTMLDivElement>(null)
 
@@ -113,7 +123,7 @@ export function LaneColumn({ laneKey, signals, onCardClick }: LaneColumnProps) {
         }}
       >
         {signals.length === 0 ? (
-          <EmptyLane token={token} />
+          <EmptyLane token={token} isKeywordSearch={isKeywordSearch} />
         ) : useVirtual ? (
           /* Virtual scroll — when signals > 50 */
           <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>

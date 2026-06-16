@@ -34,6 +34,7 @@ export const strings = {
       waste:       'Чиқинди',
     },
     emptyLane:            'Бугун сигналлар йўқ',
+    searchEmptyLane:      'Қидирув натижалари топилмади',
     loading:              'Юкланмоқда...',
     loadErrorTitle:       'Сигналларни юклаб бўлмади',
     loadErrorDescription: 'Саҳифани янгилаб кўринг ёки кейинроқ қайта урининг.',
@@ -50,6 +51,7 @@ export const strings = {
     presetYesterday: 'Кеча',
     preset7d:        '7 кун',
     allMahallas:     'Барча маҳаллалар',
+    searchPlaceholder: 'Қидириш...',
   },
 
 } as const

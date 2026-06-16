@@ -1,6 +1,6 @@
 // apps/web/src/utils/filter-utils.test.ts
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { filterByTimeRange, filterByMahalla } from './filter-utils.ts'
+import { filterByTimeRange, filterByMahalla, filterByKeyword } from './filter-utils.ts'
 import type { Signal } from '../api/signals.ts'
 
 // Minimal Signal factory — only fields used by filter functions
@@ -183,5 +183,109 @@ describe('additive AND combination (filterByTimeRange + filterByMahalla)', () =>
     const timeFiltered = filterByTimeRange([tooOld], '1h')
     const finalResult = filterByMahalla(timeFiltered, 10)
     expect(finalResult).toHaveLength(0)
+  })
+})
+
+describe('filterByKeyword', () => {
+  function makeKwSignal(overrides: { id: number; rawText?: string; senderDisplayName?: string | null; mahallaName?: string }): Signal {
+    return makeSignal({
+      id: overrides.id,
+      rawText: overrides.rawText ?? 'default text',
+      senderDisplayName: overrides.senderDisplayName !== undefined ? overrides.senderDisplayName : null,
+      mahallaName: overrides.mahallaName ?? 'Test Mahalla',
+    })
+  }
+
+  it('returns all signals when searchText is empty string', () => {
+    const signals = [makeKwSignal({ id: 1 }), makeKwSignal({ id: 2 })]
+    expect(filterByKeyword(signals, '')).toHaveLength(2)
+  })
+
+  it('returns all signals when searchText is whitespace-only', () => {
+    const signals = [makeKwSignal({ id: 1 }), makeKwSignal({ id: 2 })]
+    expect(filterByKeyword(signals, '   ')).toHaveLength(2)
+  })
+
+  it('returns empty array when no signal matches', () => {
+    const signals = [makeKwSignal({ id: 1, rawText: 'hello world' })]
+    expect(filterByKeyword(signals, 'xyz')).toHaveLength(0)
+  })
+
+  it('matches by rawText — case-insensitive', () => {
+    const match = makeKwSignal({ id: 1, rawText: 'Сув борувчи shikayat' })
+    const noMatch = makeKwSignal({ id: 2, rawText: 'Газ муаммо' })
+    const result = filterByKeyword([match, noMatch], 'сув')
+    expect(result).toHaveLength(1)
+    expect(result[0]!.id).toBe(1)
+  })
+
+  it('matches by rawText — uppercase query, lowercase text', () => {
+    const signal = makeKwSignal({ id: 1, rawText: 'shikayat elektr' })
+    expect(filterByKeyword([signal], 'SHIKAYAT')).toHaveLength(1)
+  })
+
+  it('matches by senderDisplayName — case-insensitive', () => {
+    const match = makeKwSignal({ id: 1, senderDisplayName: 'Akbar Toshmatov' })
+    const noMatch = makeKwSignal({ id: 2, senderDisplayName: 'Zulfiya Nazarova' })
+    const result = filterByKeyword([match, noMatch], 'akbar')
+    expect(result).toHaveLength(1)
+    expect(result[0]!.id).toBe(1)
+  })
+
+  it('matches by mahallaName — case-insensitive', () => {
+    const match = makeKwSignal({ id: 1, mahallaName: 'Yunusobod' })
+    const noMatch = makeKwSignal({ id: 2, mahallaName: 'Chilonzor' })
+    const result = filterByKeyword([match, noMatch], 'YUNUSOBOD')
+    expect(result).toHaveLength(1)
+    expect(result[0]!.id).toBe(1)
+  })
+
+  it('does not throw when senderDisplayName is null', () => {
+    const signal = makeKwSignal({ id: 1, senderDisplayName: null, rawText: 'test' })
+    expect(() => filterByKeyword([signal], 'test')).not.toThrow()
+  })
+
+  it('senderDisplayName null is treated as empty string (no match on null)', () => {
+    const signal = makeKwSignal({ id: 1, senderDisplayName: null, rawText: 'unrelated', mahallaName: 'Other' })
+    // 'null' as literal string should NOT match
+    expect(filterByKeyword([signal], 'null')).toHaveLength(0)
+  })
+
+  it('leading/trailing spaces in searchText are trimmed (no false zero results)', () => {
+    const signal = makeKwSignal({ id: 1, rawText: 'sув boruvchi' })
+    // Extra spaces around search term should still match
+    expect(filterByKeyword([signal], '  sув  ')).toHaveLength(1)
+  })
+
+  it('multiple signals can match', () => {
+    const s1 = makeKwSignal({ id: 1, rawText: 'gaz muammo' })
+    const s2 = makeKwSignal({ id: 2, rawText: 'gaz nasosi' })
+    const s3 = makeKwSignal({ id: 3, rawText: 'elektr muammo' })
+    const result = filterByKeyword([s1, s2, s3], 'gaz')
+    expect(result).toHaveLength(2)
+  })
+
+  it('empty input array returns empty result', () => {
+    expect(filterByKeyword([], 'query')).toHaveLength(0)
+  })
+})
+
+describe('AND combination: filterByMahalla + filterByKeyword', () => {
+  it('signals matching both mahalla AND keyword survive; others are excluded', () => {
+    const match = makeSignal({ id: 1, mahallaId: 10, rawText: 'sув shikayat' })
+    const wrongMahalla = makeSignal({ id: 2, mahallaId: 20, rawText: 'sув shikayat' })
+    const wrongKeyword = makeSignal({ id: 3, mahallaId: 10, rawText: 'gaz muammo' })
+
+    const mahallaFiltered = filterByMahalla([match, wrongMahalla, wrongKeyword], 10)
+    const result = filterByKeyword(mahallaFiltered, 'sув')
+
+    expect(result).toHaveLength(1)
+    expect(result[0]!.id).toBe(1)
+  })
+
+  it('when no signals pass mahalla filter, keyword filter also yields empty', () => {
+    const s = makeSignal({ id: 1, mahallaId: 99, rawText: 'sув' })
+    const mahallaFiltered = filterByMahalla([s], 10)
+    expect(filterByKeyword(mahallaFiltered, 'sув')).toHaveLength(0)
   })
 })

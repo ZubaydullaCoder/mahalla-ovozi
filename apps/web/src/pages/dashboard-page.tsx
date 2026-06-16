@@ -1,4 +1,5 @@
 // apps/web/src/pages/dashboard-page.tsx
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Alert, Skeleton } from 'antd'
 import { AppShell } from '../components/app-shell.tsx'
 import { UnsupportedScreen } from '../components/unsupported-screen.tsx'
@@ -8,7 +9,7 @@ import { useHealth } from '../api/health.ts'
 import { DelayBanner } from '../components/delay-banner.tsx'
 import { FilterBar } from '../components/filter-bar/filter-bar.tsx'
 import { useFilters } from '../hooks/use-filters.ts'
-import { filterByTimeRange, filterByMahalla } from '../utils/filter-utils.ts'
+import { filterByTimeRange, filterByMahalla, filterByKeyword } from '../utils/filter-utils.ts'
 import { strings } from '../strings.ts'
 
 // Lane label order for loading skeleton — matches LANE_ORDER in LaneGrid
@@ -45,21 +46,56 @@ function groupSignals(signals: Signal[]): SignalsByCategory {
 }
 
 export function DashboardPage() {
-  const { filterState, setTimeRange, setMahallaId, computedApiParams, isApiPreset } = useFilters()
+  const {
+    filterState,
+    setTimeRange,
+    setMahallaId,
+    setSearchText,
+    setCustomRange,
+    computedApiParams,
+    isApiPreset,
+  } = useFilters()
 
   // computedApiParams is { from, to } | undefined — structurally compatible with SignalsQueryParams
   const { data: signals, isLoading, isError } = useSignals(computedApiParams)
   const { data: healthData } = useHealth()
   const isDelayed = healthData?.status === 'delayed'
 
-  // Apply client-side filters BEFORE grouping
-  // When isApiPreset is true, the API has already scoped to yesterday/7d — skip filterByTimeRange
+  // TWO-VALUE search state pattern:
+  // searchInputText — immediate visible value (useState, updated on every keystroke)
+  // filterState.searchText — debounced applied filter (updated after 300ms)
+  const [searchInputText, setSearchInputText] = useState('')
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleSearchChange = useCallback((text: string) => {
+    setSearchInputText(text)                        // immediate visible update
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    searchTimerRef.current = setTimeout(() => setSearchText(text), 300)  // debounced filter
+  }, [setSearchText])
+
+  const handleSearchClear = useCallback(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)  // cancel pending timer
+    setSearchInputText('')   // immediate visible clear
+    setSearchText('')        // immediate filter clear — NO debounce (AC-3)
+  }, [setSearchText])
+
+  // Clean up debounce timer on unmount
+  useEffect(() => {
+    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current) }
+  }, [])
+
+  // Apply client-side filters BEFORE grouping — in order: time → mahalla → keyword → group
+  // When isApiPreset is true, the API has already scoped to yesterday/7d/custom — skip filterByTimeRange
   const rawSignals = signals ?? []
   const timeFilteredSignals = isApiPreset
     ? rawSignals
     : filterByTimeRange(rawSignals, filterState.timeRange)
-  const filteredSignals = filterByMahalla(timeFilteredSignals, filterState.mahallaId)
-  const groupedSignals = groupSignals(filteredSignals)
+  const mahallaFiltered = filterByMahalla(timeFilteredSignals, filterState.mahallaId)
+  const keywordFiltered = filterByKeyword(mahallaFiltered, filterState.searchText)
+  const groupedSignals = groupSignals(keywordFiltered)
+
+  // isKeywordActive uses the debounced applied filter (searchText), not the immediate visible value
+  const isKeywordActive = filterState.searchText.trim().length > 0
 
   // Context drawer wiring is Story 4-3 — stub with console.log for now
   const handleCardClick = (signal: Signal) => {
@@ -74,12 +110,16 @@ export function DashboardPage() {
             filterState={filterState}
             onTimeRangeChange={setTimeRange}
             onMahallaChange={setMahallaId}
+            searchInputText={searchInputText}   // immediate visible value
+            onSearchChange={handleSearchChange}  // per-keystroke, debounced internally
+            onSearchClear={handleSearchClear}    // instant clear path (AC-3)
+            onRangeChange={setCustomRange}
           />
         }
       >
         {isLoading ? (
           /* Loading state: skeleton in each of 5 lanes, aria-busy per AC-1.
-             Fires on initial load AND when Yesterday/7d triggers an uncached API call. */
+             Fires on initial load AND when Yesterday/7d/custom range triggers an uncached API call. */
           <div style={{ display: 'flex', height: 'calc(100vh - 56px)', gap: 1 }}>
             {SKELETON_LANE_LABELS.map((label) => (
               <div
@@ -114,6 +154,7 @@ export function DashboardPage() {
                 signals={groupedSignals}
                 activeSignalId={null}
                 onCardClick={handleCardClick}
+                isKeywordSearch={isKeywordActive}
               />
             </div>
           </div>

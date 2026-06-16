@@ -14,9 +14,10 @@ export interface LaneGridProps {
   signals: SignalsByCategory
   activeSignalId: number | null
   onCardClick: (signal: Signal) => void
+  isKeywordSearch?: boolean   // NEW: passed through to each LaneColumn for context-aware empty state
 }
 
-export function LaneGrid({ signals, onCardClick }: LaneGridProps) {
+export function LaneGrid({ signals, onCardClick, isKeywordSearch }: LaneGridProps) {
   return (
     <div
       className="lane-grid"
@@ -34,6 +35,7 @@ export function LaneGrid({ signals, onCardClick }: LaneGridProps) {
           // categoryColor for cards is always the signal's service category — handled in LaneColumn
           // CATEGORY_COLORS[hokim] is NOT passed as card color (ANTI-PATTERN prevention)
           onCardClick={onCardClick}
+          isKeywordSearch={isKeywordSearch}
         />
       ))}
     </div>
