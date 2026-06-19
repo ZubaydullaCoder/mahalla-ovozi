@@ -82,18 +82,18 @@ development_status:
   # EPIC 4: Filtering, Search & Context Drawer
   # Goal: Time/mahalla filters, keyword search, context drawer.
   # ─────────────────────────────────────────────────────────────────────────
-  epic-4: in-progress
+  epic-4: done
   4-1-filter-bar-time-range-and-mahalla-filter: done
   4-2-keyword-search: done
-  4-3-context-drawer: review
+  4-3-context-drawer: done
   epic-4-retrospective: optional
 
   # ─────────────────────────────────────────────────────────────────────────
   # EPIC 5: Operational Health & Pipeline Reliability
   # Goal: Admin health endpoint, bot status, batch reliability, health banner.
   # ─────────────────────────────────────────────────────────────────────────
-  epic-5: backlog
-  5-1-health-api-endpoint-and-batch-reliability: backlog
+  epic-5: in-progress
+  5-1-health-api-endpoint-and-batch-reliability: ready-for-dev
   5-2-bot-connectivity-health-and-dashboard-banner-wiring: backlog
   epic-5-retrospective: optional
 
