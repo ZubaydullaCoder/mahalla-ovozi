@@ -1,10 +1,11 @@
 // apps/server/src/health/index.test.ts
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+// (Rewritten for Story 5.1 — replaces the stub-era test file entirely)
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import request from 'supertest'
 import express from 'express'
 import session from 'express-session'
 
-// ─── vi.hoisted mocks (must be declared before vi.mock factories) ─────────────
+// ─── vi.hoisted mocks ─────────────────────────────────────────────────────────
 
 const mockEnv = vi.hoisted(() => ({
   DATABASE_URL:            'postgresql://test:test@localhost:5432/test',
@@ -23,12 +24,12 @@ vi.mock('../shared/env.js', () => ({ env: mockEnv }))
 // ─── Prisma mock ──────────────────────────────────────────────────────────────
 
 const mockBatchHealthFindFirst = vi.hoisted(() => vi.fn())
+const mockRawMessageCount      = vi.hoisted(() => vi.fn())
 
 vi.mock('../shared/db.js', () => ({
   prisma: {
-    batchHealth: {
-      findFirst: mockBatchHealthFindFirst,
-    },
+    batchHealth: { findFirst: mockBatchHealthFindFirst },
+    rawMessage:  { count:     mockRawMessageCount },
   },
 }))
 
@@ -45,11 +46,8 @@ vi.mock('../shared/logger.js', () => ({
   },
 }))
 
-// Import after all vi.mock() calls
 import { healthRouter } from './index.js'
 import { requireAuth }   from '../auth/middleware.js'
-
-// ─── Test app factory ─────────────────────────────────────────────────────────
 
 function createTestApp() {
   const app = express()
@@ -61,23 +59,18 @@ function createTestApp() {
     cookie: { httpOnly: true, sameSite: 'strict', maxAge: 8 * 60 * 60 * 1000 },
   }))
 
-  // Helper route to set session (simulates successful login)
   app.post('/test/login', (req, res) => {
     req.session.userId     = req.body.userId     as number
     req.session.districtId = req.body.districtId as number
     res.json({ ok: true })
   })
 
-  // Wire requireAuth BEFORE healthRouter — mirrors production web/index.ts ordering
   app.use('/api', requireAuth)
   app.use('/api', healthRouter)
-
   return app
 }
 
 const SESSION_DISTRICT_ID = 7
-
-// ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('GET /api/health', () => {
   let app: ReturnType<typeof createTestApp>
@@ -87,106 +80,202 @@ describe('GET /api/health', () => {
     vi.clearAllMocks()
   })
 
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   // ── Authentication ──────────────────────────────────────────────────────────
 
-  it('returns 401 for unauthenticated requests (requireAuth gate)', async () => {
+  it('returns 401 for unauthenticated requests', async () => {
     const res = await request(app).get('/api/health')
     expect(res.status).toBe(401)
     expect(res.body).toMatchObject({ statusCode: 401, error: 'Unauthorized' })
   })
 
-  // ── No completed rows → delayed, null lastBatchAt ──────────────────────────
+  // ── no_data state ───────────────────────────────────────────────────────────
 
-  it('returns status delayed and null lastBatchAt when no completed batch_health rows exist', async () => {
+  it('returns status no_data with null nullable fields when no completed batch exists', async () => {
     mockBatchHealthFindFirst.mockResolvedValueOnce(null)
+    mockRawMessageCount.mockResolvedValueOnce(5)
 
     const agent = request.agent(app)
     await agent.post('/test/login').send({ userId: 1, districtId: SESSION_DISTRICT_ID })
 
     const res = await agent.get('/api/health')
-
     expect(res.status).toBe(200)
-    expect(res.body).toEqual({ lastBatchAt: null, status: 'delayed' })
+    expect(res.body).toEqual({
+      status:            'no_data',
+      lastBatchAt:       null,
+      lastBatchStatus:   null,
+      messagesProcessed: null,
+      signalsWritten:    null,
+      queueDepth:        5,
+    })
   })
 
-  // ── Session district scoping ────────────────────────────────────────────────
+  // ── current state ───────────────────────────────────────────────────────────
 
-  it('queries batch_health with req.session.districtId only', async () => {
-    mockBatchHealthFindFirst.mockResolvedValueOnce(null)
-
-    const agent = request.agent(app)
-    await agent.post('/test/login').send({ userId: 1, districtId: SESSION_DISTRICT_ID })
-
-    await agent.get('/api/health')
-
-    expect(mockBatchHealthFindFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          district_id: SESSION_DISTRICT_ID,
-          completed_at: { not: null },
-        }),
-      }),
-    )
-  })
-
-  // ── Recent completed row → current ─────────────────────────────────────────
-
-  it('returns status current when most recent completed_at is less than 25 minutes ago', async () => {
-    const recentDate = new Date(Date.now() - 10 * 60 * 1000) // 10 minutes ago
-    mockBatchHealthFindFirst.mockResolvedValueOnce({ completed_at: recentDate })
+  it('returns status current when completed_at is less than 25 minutes ago', async () => {
+    const recentDate = new Date(Date.now() - 10 * 60 * 1000) // 10 min ago
+    mockBatchHealthFindFirst.mockResolvedValueOnce({
+      completed_at:     recentDate,
+      status:           'ok',
+      signals_written:  3,
+      messages_fetched: 10,
+    })
+    mockRawMessageCount.mockResolvedValueOnce(2)
 
     const agent = request.agent(app)
     await agent.post('/test/login').send({ userId: 1, districtId: SESSION_DISTRICT_ID })
 
     const res = await agent.get('/api/health')
-
     expect(res.status).toBe(200)
-    expect(res.body.status).toBe('current')
-    expect(res.body.lastBatchAt).toBe(recentDate.toISOString())
+    expect(res.body).toMatchObject({
+      status:            'current',
+      lastBatchAt:       recentDate.toISOString(),
+      lastBatchStatus:   'success',
+      messagesProcessed: 10,
+      signalsWritten:    3,
+      queueDepth:        2,
+    })
   })
 
-  // ── Old completed row → delayed ────────────────────────────────────────────
+  // ── delayed state ───────────────────────────────────────────────────────────
 
-  it('returns status delayed when most recent completed_at is >= 25 minutes ago', async () => {
-    const oldDate = new Date(Date.now() - 30 * 60 * 1000) // 30 minutes ago
-    mockBatchHealthFindFirst.mockResolvedValueOnce({ completed_at: oldDate })
+  it('returns status delayed when completed_at is more than 25 minutes ago', async () => {
+    const oldDate = new Date(Date.now() - 30 * 60 * 1000) // 30 min ago
+    mockBatchHealthFindFirst.mockResolvedValueOnce({
+      completed_at:     oldDate,
+      status:           'ok',
+      signals_written:  1,
+      messages_fetched: 4,
+    })
+    mockRawMessageCount.mockResolvedValueOnce(0)
 
     const agent = request.agent(app)
     await agent.post('/test/login').send({ userId: 1, districtId: SESSION_DISTRICT_ID })
 
     const res = await agent.get('/api/health')
-
     expect(res.status).toBe(200)
     expect(res.body.status).toBe('delayed')
     expect(res.body.lastBatchAt).toBe(oldDate.toISOString())
   })
 
-  // ── Exactly at 25-minute threshold → delayed ───────────────────────────────
+  // ── exactly 25-min threshold → delayed ─────────────────────────────────────
 
   it('returns status delayed when completed_at is exactly 25 minutes ago', async () => {
-    const exactThreshold = new Date(Date.now() - 25 * 60 * 1000)
-    mockBatchHealthFindFirst.mockResolvedValueOnce({ completed_at: exactThreshold })
+    const fixedNow = new Date('2026-06-19T10:00:00.000Z')
+    vi.useFakeTimers()
+    vi.setSystemTime(fixedNow)
+
+    const exactThreshold = new Date(fixedNow.getTime() - 25 * 60 * 1000)
+    mockBatchHealthFindFirst.mockResolvedValueOnce({
+      completed_at:     exactThreshold,
+      status:           'ok',
+      signals_written:  0,
+      messages_fetched: 0,
+    })
+    mockRawMessageCount.mockResolvedValueOnce(0)
 
     const agent = request.agent(app)
     await agent.post('/test/login').send({ userId: 1, districtId: SESSION_DISTRICT_ID })
 
     const res = await agent.get('/api/health')
-
     expect(res.status).toBe(200)
     expect(res.body.status).toBe('delayed')
   })
 
-  // ── Prisma failure → 500 with logger context ───────────────────────────────
+  // ── lastBatchStatus: failed batch ──────────────────────────────────────────
 
-  it('returns 500 and logs when Prisma throws', async () => {
-    const dbError = new Error('DB connection refused')
-    mockBatchHealthFindFirst.mockRejectedValueOnce(dbError)
+  it('maps batch_health.status "failed" → lastBatchStatus "failed"', async () => {
+    const recentDate = new Date(Date.now() - 5 * 60 * 1000)
+    mockBatchHealthFindFirst.mockResolvedValueOnce({
+      completed_at:     recentDate,
+      status:           'failed',
+      signals_written:  0,
+      messages_fetched: 3,
+    })
+    mockRawMessageCount.mockResolvedValueOnce(3)
 
     const agent = request.agent(app)
     await agent.post('/test/login').send({ userId: 1, districtId: SESSION_DISTRICT_ID })
 
     const res = await agent.get('/api/health')
+    expect(res.status).toBe(200)
+    expect(res.body.lastBatchStatus).toBe('failed')
+  })
 
+  // ── District scoping ────────────────────────────────────────────────────────
+
+  it('queries batchHealth and rawMessage with req.session.districtId only', async () => {
+    mockBatchHealthFindFirst.mockResolvedValueOnce(null)
+    mockRawMessageCount.mockResolvedValueOnce(0)
+
+    const agent = request.agent(app)
+    await agent.post('/test/login').send({ userId: 1, districtId: SESSION_DISTRICT_ID })
+    await agent.get('/api/health')
+
+    expect(mockBatchHealthFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ district_id: SESSION_DISTRICT_ID }),
+      }),
+    )
+    expect(mockRawMessageCount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ district_id: SESSION_DISTRICT_ID }),
+      }),
+    )
+  })
+
+  // ── queueDepth always numeric ───────────────────────────────────────────────
+
+  it('returns queueDepth 0 when no pending raw messages', async () => {
+    mockBatchHealthFindFirst.mockResolvedValueOnce(null)
+    mockRawMessageCount.mockResolvedValueOnce(0)
+
+    const agent = request.agent(app)
+    await agent.post('/test/login').send({ userId: 1, districtId: SESSION_DISTRICT_ID })
+
+    const res = await agent.get('/api/health')
+    expect(res.status).toBe(200)
+    expect(res.body.queueDepth).toBe(0)
+  })
+
+  // ── Response shape — full key set ──────────────────────────────────────────
+
+  it('returns exactly the 6 expected keys — no extras, no missing', async () => {
+    const recentDate = new Date(Date.now() - 5 * 60 * 1000)
+    mockBatchHealthFindFirst.mockResolvedValueOnce({
+      completed_at:     recentDate,
+      status:           'ok',
+      signals_written:  2,
+      messages_fetched: 5,
+    })
+    mockRawMessageCount.mockResolvedValueOnce(1)
+
+    const agent = request.agent(app)
+    await agent.post('/test/login').send({ userId: 1, districtId: SESSION_DISTRICT_ID })
+
+    const res = await agent.get('/api/health')
+    expect(res.status).toBe(200)
+    expect(Object.keys(res.body).sort()).toEqual([
+      'lastBatchAt', 'lastBatchStatus', 'messagesProcessed',
+      'queueDepth', 'signalsWritten', 'status',
+    ])
+  })
+
+  // ── Prisma failure → 500 ───────────────────────────────────────────────────
+
+  it('returns 500 and logs when Prisma throws', async () => {
+    const dbError = new Error('DB connection refused')
+    // Simulate Promise.all rejection from either query
+    mockBatchHealthFindFirst.mockRejectedValueOnce(dbError)
+    mockRawMessageCount.mockResolvedValueOnce(0)
+
+    const agent = request.agent(app)
+    await agent.post('/test/login').send({ userId: 1, districtId: SESSION_DISTRICT_ID })
+
+    const res = await agent.get('/api/health')
     expect(res.status).toBe(500)
     expect(res.body).toMatchObject({
       statusCode: 500,
@@ -194,28 +283,8 @@ describe('GET /api/health', () => {
       message:    'Health check failed',
     })
     expect(mockLoggerError).toHaveBeenCalledWith(
-      { err: dbError },
+      expect.objectContaining({ err: dbError, districtId: SESSION_DISTRICT_ID }),
       'Health endpoint query failed',
     )
-  })
-
-  // ── Response shape ──────────────────────────────────────────────────────────
-
-  it('returns exactly { lastBatchAt, status } — no extra fields from old stub shape', async () => {
-    const recentDate = new Date(Date.now() - 5 * 60 * 1000)
-    mockBatchHealthFindFirst.mockResolvedValueOnce({ completed_at: recentDate })
-
-    const agent = request.agent(app)
-    await agent.post('/test/login').send({ userId: 1, districtId: SESSION_DISTRICT_ID })
-
-    const res = await agent.get('/api/health')
-
-    expect(res.status).toBe(200)
-    // Old stub had: status: 'no_data', lastBatchStatus, messagesProcessed, signalsWritten, queueDepth
-    expect(res.body.lastBatchStatus).toBeUndefined()
-    expect(res.body.messagesProcessed).toBeUndefined()
-    expect(res.body.signalsWritten).toBeUndefined()
-    expect(res.body.queueDepth).toBeUndefined()
-    expect(Object.keys(res.body).sort()).toEqual(['lastBatchAt', 'status'])
   })
 })

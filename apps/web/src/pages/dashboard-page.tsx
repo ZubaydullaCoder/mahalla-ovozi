@@ -59,7 +59,7 @@ export function DashboardPage() {
   // computedApiParams is { from, to } | undefined — structurally compatible with SignalsQueryParams
   const { data: signals, isLoading, isError } = useSignals(computedApiParams)
   const { data: healthData } = useHealth()
-  const isDelayed = healthData?.status === 'delayed'
+  const isDelayed = healthData?.status === 'delayed' || healthData?.status === 'no_data'
 
   // TWO-VALUE search state pattern:
   // searchInputText — immediate visible value (useState, updated on every keystroke)

@@ -93,7 +93,7 @@ development_status:
   # Goal: Admin health endpoint, bot status, batch reliability, health banner.
   # ─────────────────────────────────────────────────────────────────────────
   epic-5: in-progress
-  5-1-health-api-endpoint-and-batch-reliability: ready-for-dev
+  5-1-health-api-endpoint-and-batch-reliability: done
   5-2-bot-connectivity-health-and-dashboard-banner-wiring: backlog
   epic-5-retrospective: optional
 

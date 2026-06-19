@@ -1,6 +1,6 @@
 # Story 5.1: Health API — GET /api/health Endpoint
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -55,41 +55,41 @@ So that the frontend can accurately display whether signal data is current or de
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Expand `health/index.ts` — replace the TODO stub with the full Story 5.1 health response (AC: 1–7)
-  - [ ] Add `rawMessage.count` for `queueDepth` in parallel with `batchHealth.findFirst`
-  - [ ] Extend `batchHealth.findFirst` select to include `status`, `signals_written`, `messages_fetched`
-  - [ ] Implement `status` derivation: `no_data` when `lastBatchAt === null`, else `>= 25 min` → `'delayed'`, `< 25 min` → `'current'`
-  - [ ] Map `batch_health.status` → `lastBatchStatus`: `'ok'` → `'success'`, `'failed'` → `'failed'`, null → `null`
-  - [ ] Return full shape with camelCase keys; absent optionals → `null`
+- [x] Task 1: Expand `health/index.ts` — replace the TODO stub with the full Story 5.1 health response (AC: 1–7)
+  - [x] Add `rawMessage.count` for `queueDepth` in parallel with `batchHealth.findFirst`
+  - [x] Extend `batchHealth.findFirst` select to include `status`, `signals_written`, `messages_fetched`
+  - [x] Implement `status` derivation: `no_data` when `lastBatchAt === null`, else `>= 25 min` → `'delayed'`, `< 25 min` → `'current'`
+  - [x] Map `batch_health.status` → `lastBatchStatus`: `'ok'` → `'success'`, `'failed'` → `'failed'`, null → `null`
+  - [x] Return full shape with camelCase keys; absent optionals → `null`
 
-- [ ] Task 2: Update dashboard health API type + banner condition (AC: 2, 3)
-  - [ ] Add `lastBatchStatus: 'success' | 'failed' | null`
-  - [ ] Add `messagesProcessed: number | null`
-  - [ ] Add `signalsWritten: number | null`
-  - [ ] Add `queueDepth: number`
-  - [ ] Add `'no_data'` to the `status` union type
-  - [ ] Update `apps/web/src/pages/dashboard-page.tsx` so `status === 'no_data'` also renders the existing `DelayBanner` with `lastBatchAt=null`
+- [x] Task 2: Update dashboard health API type + banner condition (AC: 2, 3)
+  - [x] Add `lastBatchStatus: 'success' | 'failed' | null`
+  - [x] Add `messagesProcessed: number | null`
+  - [x] Add `signalsWritten: number | null`
+  - [x] Add `queueDepth: number`
+  - [x] Add `'no_data'` to the `status` union type
+  - [x] Update `apps/web/src/pages/dashboard-page.tsx` so `status === 'no_data'` also renders the existing `DelayBanner` with `lastBatchAt=null`
 
-- [ ] Task 3: Replace `health/index.test.ts` — rewrite tests to match the full Story 5.1 shape (AC: 8)
-  - [ ] Mock both `prisma.batchHealth.findFirst` and `prisma.rawMessage.count`
-  - [ ] Test all status states: `no_data`, `current`, `delayed`, exactly-25-min
-  - [ ] Use `vi.useFakeTimers()` + `vi.setSystemTime()` + `vi.useRealTimers()` for the exact-25-min threshold test so it proves inclusive boundary behavior without clock drift
-  - [ ] Test `queueDepth` is always present and sourced from `rawMessage.count`
-  - [ ] Test `lastBatchStatus` mapping (`'ok'` → `'success'`, `'failed'` → `'failed'`)
-  - [ ] Remove the old assertion `expect(Object.keys(res.body).sort()).toEqual(['lastBatchAt', 'status'])` — new shape has more fields
-  - [ ] Retain 401 and 500 tests
+- [x] Task 3: Replace `health/index.test.ts` — rewrite tests to match the full Story 5.1 shape (AC: 8)
+  - [x] Mock both `prisma.batchHealth.findFirst` and `prisma.rawMessage.count`
+  - [x] Test all status states: `no_data`, `current`, `delayed`, exactly-25-min
+  - [x] Use `vi.useFakeTimers()` + `vi.setSystemTime()` + `vi.useRealTimers()` for the exact-25-min threshold test so it proves inclusive boundary behavior without clock drift
+  - [x] Test `queueDepth` is always present and sourced from `rawMessage.count`
+  - [x] Test `lastBatchStatus` mapping (`'ok'` → `'success'`, `'failed'` → `'failed'`)
+  - [x] Remove the old assertion `expect(Object.keys(res.body).sort()).toEqual(['lastBatchAt', 'status'])` — new shape has more fields
+  - [x] Retain 401 and 500 tests
 
-- [ ] Task 4: Add focused frontend coverage for `no_data` banner behavior (AC: 8)
-  - [ ] Add `apps/web/src/pages/dashboard-page.test.tsx` if no dashboard page test file exists yet
-  - [ ] Mock `useHealth()` to return `{ status: 'no_data', lastBatchAt: null, ... }`
-  - [ ] Assert the existing Uzbek Cyrillic no-data delay banner text is rendered
-  - [ ] Assert `status='current'` does not render the delay banner
+- [x] Task 4: Add focused frontend coverage for `no_data` banner behavior (AC: 8)
+  - [x] Add `apps/web/src/pages/dashboard-page.test.tsx` if no dashboard page test file exists yet
+  - [x] Mock `useHealth()` to return `{ status: 'no_data', lastBatchAt: null, ... }`
+  - [x] Assert the existing Uzbek Cyrillic no-data delay banner text is rendered
+  - [x] Assert `status='current'` does not render the delay banner
 
-- [ ] Task 5: Verify all checks pass (AC: 8)
-  - [ ] `pnpm lint`
-  - [ ] `pnpm test` (baseline: 295 tests, 23 test files — net should increase)
-  - [ ] `pnpm exec tsc -b apps/server/tsconfig.json`
-  - [ ] `pnpm exec tsc -b apps/web/tsconfig.json`
+- [x] Task 5: Verify all checks pass (AC: 8)
+  - [x] `pnpm lint`
+  - [x] `pnpm test` (baseline: 295 tests, 23 test files — net should increase)
+  - [x] `pnpm exec tsc -b apps/server/tsconfig.json`
+  - [x] `pnpm exec tsc -b apps/web/tsconfig.json`
 
 ---
 
@@ -623,6 +623,32 @@ Recent pattern: `feat(story-X.Y):` prefix for implementation commits, `docs(stor
 
 ## Story Completion Status
 
-- Implementation readiness: ready-for-dev
-- Context engine analysis: completed — comprehensive developer guide created
-- Next: Run `bmad-dev-story` to implement, then `bmad-code-review`
+- Implementation readiness: review
+- Implementation date: 2026-06-19
+- Next: Run `bmad-code-review`
+
+---
+
+## Dev Agent Record
+
+### File List
+
+| Action | File |
+|--------|------|
+| MODIFIED | `apps/server/src/health/index.ts` |
+| MODIFIED | `apps/server/src/health/index.test.ts` |
+| MODIFIED | `apps/web/src/api/health.ts` |
+| MODIFIED | `apps/web/src/pages/dashboard-page.tsx` |
+| CREATED  | `apps/web/src/pages/dashboard-page.test.tsx` |
+
+### Completion Notes
+
+- **Task 1:** Replaced stub with full 6-field health response. Used `Promise.all` for parallel `batchHealth.findFirst` + `rawMessage.count`. Added explicit `districtId` guard (401). Status derivation: `no_data` when null, `>= 25min → delayed`, `< 25min → current`. `lastBatchStatus` maps `'ok' → 'success'`, `'failed' → 'failed'`. `queueDepth` always numeric. Logger now includes `districtId` context.
+- **Task 2:** Extended `DashboardHealthStatus` with `no_data` in status union, `lastBatchStatus`, `messagesProcessed`, `signalsWritten`, `queueDepth`. Updated `isDelayed` in `dashboard-page.tsx` to `status === 'delayed' || status === 'no_data'`.
+- **Task 3:** Rewrote `health/index.test.ts` (stub-era 222 lines → full 5.1 shape). Added `mockRawMessageCount` alongside `mockBatchHealthFindFirst`. Added `afterEach(() => vi.useRealTimers())`. Tests: 401, no_data, current, delayed, exactly-25-min (fake timers), failed mapping, district scoping for both queries, queueDepth=0, full 6-key shape assertion, 500+logger.
+- **Task 4:** Created `dashboard-page.test.tsx` — mocks LaneGrid, FilterBar, UnsupportedScreen, useSignals, useFilters, useHealth; asserts `no_data` renders Uzbek Cyrillic banner, `delayed` renders prefix banner, `current` renders no banner.
+- **Task 5:** All checks pass — `pnpm lint` ✅, `pnpm test` 300/300 (24 files) ✅, server tsc ✅, web tsc ✅.
+
+### Change Log
+
+- 2026-06-19: Story 5.1 implemented — health endpoint expanded to full 6-field shape; frontend type synced; dashboard no_data banner wired; 5 new tests added (+5 net: 295→300, 23→24 files).

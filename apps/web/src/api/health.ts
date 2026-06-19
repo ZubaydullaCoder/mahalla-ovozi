@@ -3,8 +3,12 @@
 import { useQuery } from '@tanstack/react-query'
 
 export interface DashboardHealthStatus {
-  lastBatchAt: string | null // ISO 8601 UTC
-  status: 'current' | 'delayed'
+  status:            'current' | 'delayed' | 'no_data'
+  lastBatchAt:       string | null   // ISO 8601 UTC
+  lastBatchStatus:   'success' | 'failed' | null
+  messagesProcessed: number | null
+  signalsWritten:    number | null
+  queueDepth:        number
 }
 
 async function fetchHealth(): Promise<DashboardHealthStatus> {
