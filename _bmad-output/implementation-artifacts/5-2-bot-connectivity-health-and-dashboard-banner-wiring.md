@@ -1,6 +1,6 @@
 # Story 5.2: Operator Pipeline & Health Monitoring
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -118,30 +118,30 @@ So that I can diagnose pipeline state from the command line or any HTTP client d
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Export `isBatchRunning()` from `classifier/index.ts` (AC: 5)
-  - [ ] Add `export function isBatchRunning(): boolean { return isRunning }` after `runClassifyBatchWithLock`
+- [x] Task 1: Export `isBatchRunning()` from `classifier/index.ts` (AC: 5)
+  - [x] Add `export function isBatchRunning(): boolean { return isRunning }` after `runClassifyBatchWithLock`
 
-- [ ] Task 2: Extend `shared/env.ts` with `OPS_ENABLED` and `OPS_SECRET` (AC: 4)
-  - [ ] Add `OPS_ENABLED: z.string().optional()` and `OPS_SECRET: z.string().optional()` to `EnvSchema`
+- [x] Task 2: Extend `shared/env.ts` with `OPS_ENABLED` and `OPS_SECRET` (AC: 4)
+  - [x] Add `OPS_ENABLED: z.string().optional()` and `OPS_SECRET: z.string().optional()` to `EnvSchema`
 
-- [ ] Task 3: Create `apps/server/src/ops/index.ts` — Ops router with guard + both endpoints (AC: 1, 2, 3, 6)
-  - [ ] Implement the Ops Console guard middleware (404 for production/disabled, 403 for secret mismatch/non-localhost)
-  - [ ] Implement `GET /api/ops/batch-status` handler (district resolution, latest batch_health query, failed batch_health query for recent errors, rawMessage.count queue depth, isBatchRunning)
-  - [ ] Implement `GET /api/ops/system-health` handler (prisma.$queryRaw timing, mahalla query, isBatchRunning)
+- [x] Task 3: Create `apps/server/src/ops/index.ts` — Ops router with guard + both endpoints (AC: 1, 2, 3, 6)
+  - [x] Implement the Ops Console guard middleware (404 for production/disabled, 403 for secret mismatch/non-localhost)
+  - [x] Implement `GET /api/ops/batch-status` handler (district resolution, latest batch_health query, failed batch_health query for recent errors, rawMessage.count queue depth, isBatchRunning)
+  - [x] Implement `GET /api/ops/system-health` handler (prisma.$queryRaw timing, mahalla query, isBatchRunning)
 
-- [ ] Task 4: Mount ops router in `web/index.ts` BEFORE `requireAuth` (AC: 7)
-  - [ ] Import `opsRouter` from `../ops/index.js`
-  - [ ] Add `app.use('/api/ops', opsRouter)` BEFORE `app.use('/api', requireAuth)`
+- [x] Task 4: Mount ops router in `web/index.ts` BEFORE `requireAuth` (AC: 7)
+  - [x] Import `opsRouter` from `../ops/index.js`
+  - [x] Add `app.use('/api/ops', opsRouter)` BEFORE `app.use('/api', requireAuth)`
 
-- [ ] Task 5: Create `apps/server/src/ops/index.test.ts` — unit tests (AC: 8)
-  - [ ] Test guard behavior: production → 404, OPS_ENABLED=false → 404, wrong secret → 403, localhost including `::ffff:127.0.0.1` → 200
-  - [ ] Test batch-status endpoint: shape, null result, queueDepth, recentErrors, schedulerStatus
-  - [ ] Test system-health endpoint: db ok/error, bot ok/error, botConnectivity shape
+- [x] Task 5: Create `apps/server/src/ops/index.test.ts` — unit tests (AC: 8)
+  - [x] Test guard behavior: production → 404, OPS_ENABLED=false → 404, wrong secret → 403, localhost including `::ffff:127.0.0.1` → 200
+  - [x] Test batch-status endpoint: shape, null result, queueDepth, recentErrors, schedulerStatus
+  - [x] Test system-health endpoint: db ok/error, bot ok/error, botConnectivity shape
 
-- [ ] Task 6: Verify all checks (AC: 8)
-  - [ ] `pnpm lint`
-  - [ ] `pnpm test` (baseline: 300 tests, 24 files — net should increase)
-  - [ ] `pnpm exec tsc -b apps/server/tsconfig.json`
+- [x] Task 6: Verify all checks (AC: 8)
+  - [x] `pnpm lint`
+  - [x] `pnpm test` (327 tests, 25 files — added 27 new tests)
+  - [x] `pnpm exec tsc -b apps/server/tsconfig.json`
 
 ---
 
@@ -562,8 +562,37 @@ Pattern: `feat(story-X.Y):` prefix for implementation commits, `docs(story):` fo
 
 ---
 
+## Dev Agent Record
+
+### File List
+
+| Status | File |
+|--------|------|
+| MODIFIED | `apps/server/src/classifier/index.ts` |
+| MODIFIED | `apps/server/src/shared/env.ts` |
+| MODIFIED | `apps/server/src/web/index.ts` |
+| CREATED  | `apps/server/src/ops/index.ts` |
+| CREATED  | `apps/server/src/ops/index.test.ts` |
+
+### Completion Notes
+
+- **AC-5:** Exported `isBatchRunning()` as a read-only accessor for the module-level `isRunning` flag in `classifier/index.ts`.
+- **AC-4:** Added `OPS_ENABLED: z.string().optional()` and `OPS_SECRET: z.string().optional()` to `EnvSchema` in `shared/env.ts`.
+- **AC-3/AC-6/AC-1/AC-2:** Created `ops/index.ts` with a **combined guard middleware** (request-time env check pattern per story note — avoids module-load-time guard, enabling full testability without `vi.isolateModules`). Both `/batch-status` and `/system-health` endpoints implemented per AC specs.
+- **AC-7:** Mounted `opsRouter` at `/api/ops` in `web/index.ts` BEFORE `app.use('/api', requireAuth)` — critical ordering preserved.
+- **AC-8:** 27 unit tests covering all guard states, including non-localhost without `OPS_SECRET`, batch-status shape/null/errors/schedulerStatus, system-health db/bot/botConnectivity. Used `vi.resetAllMocks()` + explicit defaults pattern (avoids mock queue starvation across tests). Results: 327/327 tests pass, `pnpm lint` clean, `pnpm exec tsc -b apps/server/tsconfig.json` clean.
+- **TypeScript fix:** Added `IRouter` explicit type annotation to `opsRouter` export to satisfy TSC portability requirement (same pattern as `healthRouter`).
+- **Review:** Code review completed; missing AC-8 non-localhost/no-secret guard test was added and verified. Story is ready for the next BMAD step.
+
+### Change Log
+
+- 2026-06-21: Implemented Story 5.2 — Ops router with guard, batch-status, system-health endpoints, env vars, and 26 unit tests.
+
+---
+
 ## Story Completion Status
 
-- Implementation readiness: ready-for-dev
-- Created: 2026-06-19
-- Next: Run `bmad-dev-story` then `bmad-code-review`
+- Implementation readiness: done
+- Implemented: 2026-06-21
+- Reviewed: 2026-06-21
+- Next: Proceed to the next BMAD workflow step

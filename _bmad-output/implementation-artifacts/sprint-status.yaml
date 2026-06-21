@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context recommended)
 
 generated: 2026-06-03
-last_updated: 2026-06-19
+last_updated: 2026-06-21
 project: mahalla-ovozi
 project_key: NOKEY
 tracking_system: file-system
@@ -92,9 +92,9 @@ development_status:
   # EPIC 5: Operational Health & Pipeline Reliability
   # Goal: Admin health endpoint, bot status, batch reliability, health banner.
   # ─────────────────────────────────────────────────────────────────────────
-  epic-5: in-progress
+  epic-5: done
   5-1-health-api-endpoint-and-batch-reliability: done
-  5-2-bot-connectivity-health-and-dashboard-banner-wiring: ready-for-dev
+  5-2-bot-connectivity-health-and-dashboard-banner-wiring: done
   epic-5-retrospective: optional
 
   # ─────────────────────────────────────────────────────────────────────────

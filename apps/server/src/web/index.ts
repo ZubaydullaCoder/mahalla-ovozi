@@ -12,6 +12,7 @@ import { purgeOldSignals, runClassifyBatchWithLock } from '../classifier/index.j
 import { authRouter, requireAuth } from '../auth/index.js'
 import { signalsRouter } from '../signals/index.js'
 import { healthRouter } from '../health/index.js'
+import { opsRouter } from '../ops/index.js'
 
 const app = express()
 
@@ -38,6 +39,7 @@ app.use(session({
 app.use(express.json())
 app.use(webhookRouter)
 app.use('/api/auth', authRouter)
+app.use('/api/ops', opsRouter)     // ops guard replaces auth; must be BEFORE requireAuth
 
 // All /api/* routes below this point require a valid session
 app.use('/api', requireAuth)

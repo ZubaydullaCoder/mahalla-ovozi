@@ -26,4 +26,8 @@ export async function runClassifyBatchWithLock(trigger: 'cron' | 'manual'): Prom
   }
 }
 
+export function isBatchRunning(): boolean {
+  return isRunning
+}
+
 export { purgeOldSignals } from './purge.js'
