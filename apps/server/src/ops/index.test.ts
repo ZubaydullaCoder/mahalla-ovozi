@@ -37,6 +37,11 @@ const mockRawMessageCount      = vi.hoisted(() => vi.fn())
 const mockMahallaFindMany      = vi.hoisted(() => vi.fn())
 const mockQueryRaw             = vi.hoisted(() => vi.fn())
 const mockPipelineEventFindMany = vi.hoisted(() => vi.fn())
+const mockKeywordFindMany  = vi.hoisted(() => vi.fn())
+const mockKeywordFindFirst = vi.hoisted(() => vi.fn())
+const mockKeywordCreate    = vi.hoisted(() => vi.fn())
+const mockKeywordUpdateMany = vi.hoisted(() => vi.fn())
+const mockKeywordDeleteMany = vi.hoisted(() => vi.fn())
 
 vi.mock('../shared/db.js', () => ({
   prisma: {
@@ -45,6 +50,13 @@ vi.mock('../shared/db.js', () => ({
     rawMessage:    { count: mockRawMessageCount },
     mahalla:       { findMany: mockMahallaFindMany },
     pipelineEvent: { findMany: mockPipelineEventFindMany },
+    keyword: {
+      findMany:  mockKeywordFindMany,
+      findFirst: mockKeywordFindFirst,
+      create:    mockKeywordCreate,
+      updateMany: mockKeywordUpdateMany,
+      deleteMany: mockKeywordDeleteMany,
+    },
     $queryRaw:     mockQueryRaw,
   },
 }))
@@ -63,6 +75,7 @@ vi.mock('../shared/logger.js', () => ({
 }))
 
 import { opsRouter } from './index.js'
+import { Prisma } from '../generated/prisma/client.js'
 
 // ─── Test app factory ─────────────────────────────────────────────────────────
 // No requireAuth — ops guard handles access control
@@ -137,6 +150,16 @@ function resetMocks() {
   // Pipeline event defaults
   mockPipelineEventFindMany.mockResolvedValue([])
   mockRunClassifyBatchWithLock.mockResolvedValue(undefined)
+  // Keyword defaults
+  mockKeywordFindMany.mockResolvedValue([])
+  mockKeywordFindFirst.mockResolvedValue(null)
+  mockKeywordCreate.mockResolvedValue({
+    id: 1, district_id: 1, phrase: 'suv', is_active: true,
+    created_at: new Date('2026-06-22T08:00:00.000Z'),
+    updated_at: new Date('2026-06-22T08:00:00.000Z'),
+  })
+  mockKeywordUpdateMany.mockResolvedValue({ count: 1 })
+  mockKeywordDeleteMany.mockResolvedValue({ count: 1 })
 }
 
 // ─── Guard tests ──────────────────────────────────────────────────────────────
@@ -836,5 +859,370 @@ describe('POST /api/ops/trigger-batch', () => {
     expect(res.body).toEqual({ triggered: true })
     // Should return in well under 100ms because it's fire-and-forget
     expect(elapsed).toBeLessThan(500)
+  })
+})
+
+// ─── GET /api/ops/filtering-mode ──────────────────────────────────────────────
+
+describe('GET /api/ops/filtering-mode', () => {
+  let app: ReturnType<typeof createTestApp>
+
+  beforeEach(() => {
+    resetMocks()
+    app = createTestApp()
+  })
+
+  it('returns filterMode from env', async () => {
+    mockEnv.FILTER_MODE = 'keyword_gate' as typeof mockEnv.FILTER_MODE
+    const res = await request(app).get('/api/ops/filtering-mode')
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ filterMode: 'keyword_gate' })
+  })
+
+  it('returns 404 when ops disabled', async () => {
+    mockEnv.OPS_ENABLED = 'false'
+    const res = await request(app).get('/api/ops/filtering-mode')
+    expect(res.status).toBe(404)
+  })
+})
+
+// ─── GET /api/ops/keywords ────────────────────────────────────────────────────
+
+const KEYWORD_ROWS = [
+  {
+    id: 1, district_id: 1, phrase: 'suv', is_active: true,
+    created_at: new Date('2026-06-22T08:00:00.000Z'),
+    updated_at: new Date('2026-06-22T08:00:00.000Z'),
+  },
+  {
+    id: 2, district_id: 1, phrase: 'gaz muammo', is_active: false,
+    created_at: new Date('2026-06-22T09:00:00.000Z'),
+    updated_at: new Date('2026-06-22T09:30:00.000Z'),
+  },
+]
+
+describe('GET /api/ops/keywords', () => {
+  let app: ReturnType<typeof createTestApp>
+
+  beforeEach(() => {
+    resetMocks()
+    app = createTestApp()
+  })
+
+  it('returns 404 when ops disabled', async () => {
+    mockEnv.OPS_ENABLED = 'false'
+    const res = await request(app).get('/api/ops/keywords')
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 503 when no active district', async () => {
+    mockDistrictFindFirst.mockResolvedValue(null)
+    const res = await request(app).get('/api/ops/keywords')
+    expect(res.status).toBe(503)
+    expect(res.body).toMatchObject({ error: 'No active district' })
+  })
+
+  it('returns keyword list with camelCase fields sorted active-first', async () => {
+    mockKeywordFindMany.mockResolvedValue(KEYWORD_ROWS)
+    const res = await request(app).get('/api/ops/keywords')
+    expect(res.status).toBe(200)
+    expect(res.body).toHaveLength(2)
+    expect(res.body[0]).toMatchObject({
+      id: 1, phrase: 'suv', isActive: true,
+      createdAt: '2026-06-22T08:00:00.000Z',
+      updatedAt: '2026-06-22T08:00:00.000Z',
+    })
+    expect(res.body[1]).toMatchObject({
+      id: 2, phrase: 'gaz muammo', isActive: false,
+    })
+  })
+
+  it('queries with district_id and correct orderBy', async () => {
+    mockKeywordFindMany.mockResolvedValue([])
+    await request(app).get('/api/ops/keywords')
+    expect(mockKeywordFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where:   { district_id: ACTIVE_DISTRICT.id },
+        orderBy: [{ is_active: 'desc' }, { phrase: 'asc' }],
+      })
+    )
+  })
+
+  it('returns empty array when no keywords exist', async () => {
+    // default: mockKeywordFindMany → []
+    const res = await request(app).get('/api/ops/keywords')
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual([])
+  })
+
+  it('returns 500 on Prisma error', async () => {
+    mockKeywordFindMany.mockRejectedValue(new Error('DB failure'))
+    const res = await request(app).get('/api/ops/keywords')
+    expect(res.status).toBe(500)
+    expect(res.body).toMatchObject({
+      statusCode: 500,
+      error:      'Internal Server Error',
+      message:    'Keywords query failed',
+    })
+  })
+})
+
+// ─── POST /api/ops/keywords ───────────────────────────────────────────────────
+
+describe('POST /api/ops/keywords', () => {
+  let app: ReturnType<typeof createTestApp>
+
+  beforeEach(() => {
+    resetMocks()
+    app = createTestApp()
+  })
+
+  it('returns 404 when ops disabled', async () => {
+    mockEnv.OPS_ENABLED = 'false'
+    const res = await request(app)
+      .post('/api/ops/keywords')
+      .send({ phrase: 'suv' })
+    expect(res.status).toBe(404)
+  })
+
+  it('creates keyword with 201 and correct shape', async () => {
+    const res = await request(app)
+      .post('/api/ops/keywords')
+      .send({ phrase: 'suv' })
+    expect(res.status).toBe(201)
+    expect(res.body).toMatchObject({
+      id:       1,
+      phrase:   'suv',
+      isActive: true,
+    })
+    expect(res.body.createdAt).toBeDefined()
+    expect(res.body.updatedAt).toBeDefined()
+    expect(mockKeywordCreate).toHaveBeenCalledWith({
+      data: { district_id: ACTIVE_DISTRICT.id, phrase: 'suv', is_active: true },
+    })
+  })
+
+  it('trims and collapses whitespace in phrase', async () => {
+    await request(app)
+      .post('/api/ops/keywords')
+      .send({ phrase: '  suv   muammo  ' })
+    expect(mockKeywordCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ phrase: 'suv muammo' }),
+    })
+  })
+
+  it('returns 400 when phrase is empty', async () => {
+    const res = await request(app)
+      .post('/api/ops/keywords')
+      .send({ phrase: '' })
+    expect(res.status).toBe(400)
+    expect(res.body).toMatchObject({ error: 'Bad Request', message: 'Invalid phrase' })
+    expect(mockKeywordCreate).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 when phrase is only whitespace', async () => {
+    const res = await request(app)
+      .post('/api/ops/keywords')
+      .send({ phrase: '   ' })
+    expect(res.status).toBe(400)
+    expect(mockKeywordCreate).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 when phrase exceeds 120 characters', async () => {
+    const longPhrase = 'a'.repeat(121)
+    const res = await request(app)
+      .post('/api/ops/keywords')
+      .send({ phrase: longPhrase })
+    expect(res.status).toBe(400)
+    expect(mockKeywordCreate).not.toHaveBeenCalled()
+  })
+
+  it('returns 409 when phrase already exists (case-insensitive check)', async () => {
+    mockKeywordFindFirst.mockResolvedValue({ id: 1, phrase: 'Suv' })
+    const res = await request(app)
+      .post('/api/ops/keywords')
+      .send({ phrase: 'suv' })
+    expect(res.status).toBe(409)
+    expect(res.body).toMatchObject({
+      statusCode: 409,
+      error:      'Conflict',
+      message:    'Keyword phrase already exists for this district',
+    })
+    expect(mockKeywordCreate).not.toHaveBeenCalled()
+  })
+
+  it('returns 409 when database unique constraint catches a duplicate create', async () => {
+    mockKeywordCreate.mockRejectedValue(new Prisma.PrismaClientKnownRequestError(
+      'Unique constraint failed',
+      { code: 'P2002', clientVersion: '7.8.0' },
+    ))
+    const res = await request(app)
+      .post('/api/ops/keywords')
+      .send({ phrase: 'suv' })
+    expect(res.status).toBe(409)
+    expect(res.body).toMatchObject({
+      statusCode: 409,
+      error:      'Conflict',
+      message:    'Keyword phrase already exists for this district',
+    })
+  })
+
+  it('returns 503 when no active district', async () => {
+    mockDistrictFindFirst.mockResolvedValue(null)
+    const res = await request(app)
+      .post('/api/ops/keywords')
+      .send({ phrase: 'suv' })
+    expect(res.status).toBe(503)
+  })
+
+  it('returns 500 on Prisma error', async () => {
+    mockKeywordCreate.mockRejectedValue(new Error('DB failure'))
+    const res = await request(app)
+      .post('/api/ops/keywords')
+      .send({ phrase: 'suv' })
+    expect(res.status).toBe(500)
+    expect(res.body).toMatchObject({ message: 'Keyword create failed' })
+  })
+})
+
+// ─── PATCH /api/ops/keywords/:id ──────────────────────────────────────────────
+
+describe('PATCH /api/ops/keywords/:id', () => {
+  let app: ReturnType<typeof createTestApp>
+
+  beforeEach(() => {
+    resetMocks()
+    app = createTestApp()
+    // By default, keyword exists in active district
+    mockKeywordFindFirst.mockResolvedValue(KEYWORD_ROWS[0])
+  })
+
+  it('returns 404 when ops disabled', async () => {
+    mockEnv.OPS_ENABLED = 'false'
+    const res = await request(app)
+      .patch('/api/ops/keywords/1')
+      .send({ isActive: false })
+    expect(res.status).toBe(404)
+  })
+
+  it('toggles isActive and returns updated keyword', async () => {
+    mockKeywordFindFirst.mockResolvedValue({
+      ...KEYWORD_ROWS[0],
+      is_active: false,
+      updated_at: new Date('2026-06-22T08:01:00.000Z'),
+    })
+    const res = await request(app)
+      .patch('/api/ops/keywords/1')
+      .send({ isActive: false })
+    expect(res.status).toBe(200)
+    expect(res.body).toMatchObject({ id: 1, isActive: false })
+    expect(mockKeywordUpdateMany).toHaveBeenCalledWith({
+      where: { id: 1, district_id: ACTIVE_DISTRICT.id },
+      data:  { is_active: false },
+    })
+  })
+
+  it('returns 400 when id is not a positive integer', async () => {
+    const res = await request(app)
+      .patch('/api/ops/keywords/abc')
+      .send({ isActive: false })
+    expect(res.status).toBe(400)
+    expect(res.body).toMatchObject({ message: 'Invalid keyword id' })
+  })
+
+  it('returns 400 when body is missing isActive', async () => {
+    const res = await request(app)
+      .patch('/api/ops/keywords/1')
+      .send({})
+    expect(res.status).toBe(400)
+    expect(res.body).toMatchObject({ message: 'PATCH body must only include boolean isActive' })
+  })
+
+  it('returns 400 when body has extra fields (strict)', async () => {
+    const res = await request(app)
+      .patch('/api/ops/keywords/1')
+      .send({ isActive: false, phrase: 'hacked' })
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 404 when keyword belongs to different district', async () => {
+    mockKeywordUpdateMany.mockResolvedValue({ count: 0 })
+    const res = await request(app)
+      .patch('/api/ops/keywords/99')
+      .send({ isActive: false })
+    expect(res.status).toBe(404)
+    expect(res.body).toMatchObject({ message: 'Keyword not found' })
+    expect(mockKeywordFindFirst).not.toHaveBeenCalled()
+  })
+
+  it('returns 503 when no active district', async () => {
+    mockDistrictFindFirst.mockResolvedValue(null)
+    const res = await request(app)
+      .patch('/api/ops/keywords/1')
+      .send({ isActive: false })
+    expect(res.status).toBe(503)
+  })
+
+  it('returns 500 on Prisma error', async () => {
+    mockKeywordUpdateMany.mockRejectedValue(new Error('DB failure'))
+    const res = await request(app)
+      .patch('/api/ops/keywords/1')
+      .send({ isActive: false })
+    expect(res.status).toBe(500)
+    expect(res.body).toMatchObject({ message: 'Keyword update failed' })
+  })
+})
+
+// ─── DELETE /api/ops/keywords/:id ─────────────────────────────────────────────
+
+describe('DELETE /api/ops/keywords/:id', () => {
+  let app: ReturnType<typeof createTestApp>
+
+  beforeEach(() => {
+    resetMocks()
+    app = createTestApp()
+    // By default, keyword exists in active district
+    mockKeywordFindFirst.mockResolvedValue(KEYWORD_ROWS[0])
+  })
+
+  it('returns 404 when ops disabled', async () => {
+    mockEnv.OPS_ENABLED = 'false'
+    const res = await request(app).delete('/api/ops/keywords/1')
+    expect(res.status).toBe(404)
+  })
+
+  it('deletes keyword and returns { deleted: 1 }', async () => {
+    const res = await request(app).delete('/api/ops/keywords/1')
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ deleted: 1 })
+    expect(mockKeywordDeleteMany).toHaveBeenCalledWith({
+      where: { id: 1, district_id: ACTIVE_DISTRICT.id },
+    })
+  })
+
+  it('returns 400 when id is not a positive integer', async () => {
+    const res = await request(app).delete('/api/ops/keywords/abc')
+    expect(res.status).toBe(400)
+    expect(res.body).toMatchObject({ message: 'Invalid keyword id' })
+  })
+
+  it('returns 404 when keyword belongs to different district', async () => {
+    mockKeywordDeleteMany.mockResolvedValue({ count: 0 })
+    const res = await request(app).delete('/api/ops/keywords/99')
+    expect(res.status).toBe(404)
+    expect(res.body).toMatchObject({ message: 'Keyword not found' })
+  })
+
+  it('returns 503 when no active district', async () => {
+    mockDistrictFindFirst.mockResolvedValue(null)
+    const res = await request(app).delete('/api/ops/keywords/1')
+    expect(res.status).toBe(503)
+  })
+
+  it('returns 500 on Prisma error', async () => {
+    mockKeywordDeleteMany.mockRejectedValue(new Error('DB failure'))
+    const res = await request(app).delete('/api/ops/keywords/1')
+    expect(res.status).toBe(500)
+    expect(res.body).toMatchObject({ message: 'Keyword delete failed' })
   })
 })

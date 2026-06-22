@@ -1,6 +1,6 @@
 # Story 6.4: Keyword Registry CRUD
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -78,58 +78,58 @@ so that I can manage the keyword registry that drives the active keyword-gate pi
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add 5 new routes to `apps/server/src/ops/index.ts` (AC: 1, 2, 3, 4, 5)
-  - [ ] `GET /api/ops/filtering-mode` — returns `{ filterMode: env.FILTER_MODE }`
-  - [ ] `GET /api/ops/keywords` — district-scoped list, sorted `is_active DESC, phrase ASC`; 503 when no active district
-  - [ ] `POST /api/ops/keywords` — phrase validation (trim, collapse, length ≤120, non-empty); case-insensitive duplicate check; create with `district_id` from active district; return 201 with Keyword
-  - [ ] `PATCH /api/ops/keywords/:id` — parse `{ isActive: boolean }` via Zod; district-ownership check; update `is_active`; return updated Keyword
-  - [ ] `DELETE /api/ops/keywords/:id` — district-ownership check; delete; return `{ deleted: 1 }`
+- [x] Task 1: Add 5 new routes to `apps/server/src/ops/index.ts` (AC: 1, 2, 3, 4, 5)
+  - [x] `GET /api/ops/filtering-mode` — returns `{ filterMode: env.FILTER_MODE }`
+  - [x] `GET /api/ops/keywords` — district-scoped list, sorted `is_active DESC, phrase ASC`; 503 when no active district
+  - [x] `POST /api/ops/keywords` — phrase validation (trim, collapse, length ≤120, non-empty); case-insensitive duplicate check; create with `district_id` from active district; return 201 with Keyword
+  - [x] `PATCH /api/ops/keywords/:id` — parse `{ isActive: boolean }` via Zod; district-ownership check; update `is_active`; return updated Keyword
+  - [x] `DELETE /api/ops/keywords/:id` — district-ownership check; delete; return `{ deleted: 1 }`
 
-- [ ] Task 2: Add Keyword types and API hooks to `apps/web/src/api/ops.ts` (AC: 3, 4, 5, 6)
-  - [ ] Add `OpsKeyword` interface: `{ id: number, phrase: string, isActive: boolean, createdAt: string, updatedAt: string }`
-  - [ ] Add `fetchFilteringMode()` → `GET /api/ops/filtering-mode`
-  - [ ] Add `fetchKeywords()` → `GET /api/ops/keywords`
-  - [ ] Add `postKeyword(phrase: string)` → `POST /api/ops/keywords`
-  - [ ] Add `patchKeyword(id: number, isActive: boolean)` → `PATCH /api/ops/keywords/:id`
-  - [ ] Add `deleteKeyword(id: number)` → `DELETE /api/ops/keywords/:id`
-  - [ ] Add `useFilteringMode()` hook: `queryKey: [...OPS_QUERY_KEY, 'filtering-mode']`
-  - [ ] Add `useKeywords()` hook: `queryKey: [...OPS_QUERY_KEY, 'keywords']`
-  - [ ] Add `useAddKeyword()` mutation: on success → `invalidateQueries({ queryKey: [...OPS_QUERY_KEY, 'keywords'] })`
-  - [ ] Add `useToggleKeyword()` mutation: on success → `invalidateQueries({ queryKey: [...OPS_QUERY_KEY, 'keywords'] })`
-  - [ ] Add `useDeleteKeyword()` mutation: on success → `invalidateQueries({ queryKey: [...OPS_QUERY_KEY, 'keywords'] })`
+- [x] Task 2: Add Keyword types and API hooks to `apps/web/src/api/ops.ts` (AC: 3, 4, 5, 6)
+  - [x] Add `OpsKeyword` interface: `{ id: number, phrase: string, isActive: boolean, createdAt: string, updatedAt: string }`
+  - [x] Add `fetchFilteringMode()` → `GET /api/ops/filtering-mode`
+  - [x] Add `fetchKeywords()` → `GET /api/ops/keywords`
+  - [x] Add `postKeyword(phrase: string)` → `POST /api/ops/keywords`
+  - [x] Add `patchKeyword(id: number, isActive: boolean)` → `PATCH /api/ops/keywords/:id`
+  - [x] Add `deleteKeyword(id: number)` → `DELETE /api/ops/keywords/:id`
+  - [x] Add `useFilteringMode()` hook: `queryKey: [...OPS_QUERY_KEY, 'filtering-mode']`
+  - [x] Add `useKeywords()` hook: `queryKey: [...OPS_QUERY_KEY, 'keywords']`
+  - [x] Add `useAddKeyword()` mutation: on success → `invalidateQueries({ queryKey: [...OPS_QUERY_KEY, 'keywords'] })`
+  - [x] Add `useToggleKeyword()` mutation: on success → `invalidateQueries({ queryKey: [...OPS_QUERY_KEY, 'keywords'] })`
+  - [x] Add `useDeleteKeyword()` mutation: on success → `invalidateQueries({ queryKey: [...OPS_QUERY_KEY, 'keywords'] })`
 
-- [ ] Task 3: Replace `apps/web/src/components/ops/keyword-registry-panel.tsx` stub with full implementation (AC: 6)
-  - [ ] Replace the 5-line stub entirely
-  - [ ] Implement `FilteringModeSection` sub-component using `useFilteringMode()`
-  - [ ] Implement `AddKeywordForm` sub-component with Input + Button + inline error Alert
-  - [ ] Implement `KeywordTable` sub-component using `useKeywords()`, AntD `Table` with columns: Phrase, Status Tag, Created At, Actions
-  - [ ] Toggle button calls `useToggleKeyword()`, label changes based on `isActive`
-  - [ ] Delete button wrapped in AntD `Popconfirm` with phrase-specific confirmation text
-  - [ ] Export `KeywordRegistryPanel` as composed layout with Space orientation vertical
+- [x] Task 3: Replace `apps/web/src/components/ops/keyword-registry-panel.tsx` stub with full implementation (AC: 6)
+  - [x] Replace the 5-line stub entirely
+  - [x] Implement `FilteringModeSection` sub-component using `useFilteringMode()`
+  - [x] Implement `AddKeywordForm` sub-component with Input + Button + inline error Alert
+  - [x] Implement `KeywordTable` sub-component using `useKeywords()`, AntD `Table` with columns: Phrase, Status Tag, Created At, Actions
+  - [x] Toggle button calls `useToggleKeyword()`, label changes based on `isActive`
+  - [x] Delete button wrapped in AntD `Popconfirm` with phrase-specific confirmation text
+  - [x] Export `KeywordRegistryPanel` as composed layout with Space orientation vertical
 
-- [ ] Task 4: Write backend tests in `apps/server/src/ops/index.test.ts` (AC: 7)
-  - [ ] Add `keyword` Prisma mock: `{ findMany, findFirst, create, update, delete: mockKeywordDelete }` to `vi.hoisted` and `vi.mock('../shared/db.js', ...)` block
-  - [ ] Add tests for `GET /api/ops/filtering-mode`
-  - [ ] Add tests for `GET /api/ops/keywords`
-  - [ ] Add tests for `POST /api/ops/keywords` (valid, too long, empty, duplicate)
-  - [ ] Add tests for `PATCH /api/ops/keywords/:id` (success, cross-district 404)
-  - [ ] Add tests for `DELETE /api/ops/keywords/:id` (success, cross-district 404)
+- [x] Task 4: Write backend tests in `apps/server/src/ops/index.test.ts` (AC: 7)
+  - [x] Add `keyword` Prisma mock: `{ findMany, findFirst, create, update, delete: mockKeywordDelete }` to `vi.hoisted` and `vi.mock('../shared/db.js', ...)` block
+  - [x] Add tests for `GET /api/ops/filtering-mode`
+  - [x] Add tests for `GET /api/ops/keywords`
+  - [x] Add tests for `POST /api/ops/keywords` (valid, too long, empty, duplicate)
+  - [x] Add tests for `PATCH /api/ops/keywords/:id` (success, cross-district 404)
+  - [x] Add tests for `DELETE /api/ops/keywords/:id` (success, cross-district 404)
 
-- [ ] Task 5: Write frontend tests for `KeywordRegistryPanel` (AC: 7)
-  - [ ] Create `apps/web/src/components/ops/keyword-registry-panel.test.tsx`
-  - [ ] Mock `../../api/ops.ts` hooks: `useFilteringMode`, `useKeywords`, `useAddKeyword`, `useToggleKeyword`, `useDeleteKeyword`
-  - [ ] Test: renders filtering mode section with `filterMode` value
-  - [ ] Test: renders keyword table with active/inactive keywords
-  - [ ] Test: Add form submission calls `useAddKeyword()` mutate; clears on success; shows error on failure
-  - [ ] Test: Toggle button calls `useToggleKeyword()` with correct `id` and `isActive` inverted
-  - [ ] Test: Delete requires Popconfirm before calling `useDeleteKeyword()`
-  - [ ] Test: Empty state shows AntD Empty when keyword list is empty
+- [x] Task 5: Write frontend tests for `KeywordRegistryPanel` (AC: 7)
+  - [x] Create `apps/web/src/components/ops/keyword-registry-panel.test.tsx`
+  - [x] Mock `../../api/ops.ts` hooks: `useFilteringMode`, `useKeywords`, `useAddKeyword`, `useToggleKeyword`, `useDeleteKeyword`
+  - [x] Test: renders filtering mode section with `filterMode` value
+  - [x] Test: renders keyword table with active/inactive keywords
+  - [x] Test: Add form submission calls `useAddKeyword()` mutate; clears on success; shows error on failure
+  - [x] Test: Toggle button calls `useToggleKeyword()` with correct `id` and `isActive` inverted
+  - [x] Test: Delete requires Popconfirm before calling `useDeleteKeyword()`
+  - [x] Test: Empty state shows AntD Empty when keyword list is empty
 
-- [ ] Task 6: Verify all checks (AC: 7)
-  - [ ] `pnpm lint` — no new errors
-  - [ ] `pnpm test` — all existing + new tests pass
-  - [ ] `pnpm exec tsc -b apps/web/tsconfig.json` — frontend type check passes
-  - [ ] `pnpm exec tsc -b apps/server/tsconfig.json` — backend type check passes
+- [x] Task 6: Verify all checks (AC: 7)
+  - [x] `pnpm lint` — no new errors
+  - [x] `pnpm test` — all existing + new tests pass (472 total, 0 failures)
+  - [x] `pnpm exec tsc -b apps/web/tsconfig.json` — frontend type check passes
+  - [x] `pnpm exec tsc -b apps/server/tsconfig.json` — backend type check passes
 
 ---
 
@@ -875,13 +875,22 @@ Pattern: `feat(story-X.Y):` prefix for implementation commits.
 
 ### Agent Model Used
 
-Claude Sonnet 4.6 (Thinking)
+Claude Opus 4.6 (Thinking)
 
 ### Debug Log References
+
+- Fixed AntD Popconfirm test timeout: `userEvent.click` causes jsdom timeout with AntD portal overlays; switched to `fireEvent.click` + `act()` flush for reliable Popconfirm interaction testing.
 
 ### Completion Notes List
 
 - 2026-06-22: Story 6.4 specification created.
+- 2026-06-22: Story 6.4 implementation complete.
+  - Backend: 5 new routes appended to `ops/index.ts` (filtering-mode, keywords CRUD). All routes use active-district-from-DB pattern. POST includes phrase validation (trim, collapse, length ≤120) and case-insensitive duplicate check via Prisma `mode: 'insensitive'`. PATCH uses `z.object().strict()` to reject extra fields. DELETE verifies district ownership before removal.
+  - Frontend API: 6 fetch functions + 5 TanStack Query hooks added to `ops.ts`. `useFilteringMode` uses `staleTime: Infinity` (env-only value). All mutations invalidate `['ops', 'keywords']` specifically.
+  - Frontend UI: `KeywordRegistryPanel` with 3 sub-components (FilteringModeSection, AddKeywordForm, KeywordTable). Uses AntD 6 conventions: `Space orientation`, `Alert title`, `Popconfirm` with `okButtonProps={{ danger: true }}`.
+  - Backend tests: 34 new tests covering all 5 routes (ops guard, district scoping, validation, duplicate check, cross-district 404, error handling).
+  - Frontend tests: 16 new tests covering filtering mode display, keyword table states, add form validation/error, toggle mutation, delete with Popconfirm.
+  - Verification: `pnpm lint` 0 errors, `pnpm test` 472/472 pass, `tsc -b` clean for both apps.
 
 ### File List
 
@@ -892,3 +901,7 @@ Claude Sonnet 4.6 (Thinking)
 | MODIFY | `apps/web/src/api/ops.ts` |
 | REPLACE | `apps/web/src/components/ops/keyword-registry-panel.tsx` |
 | CREATE | `apps/web/src/components/ops/keyword-registry-panel.test.tsx` |
+
+### Change Log
+
+- 2026-06-22: Implemented Story 6.4 — Keyword Registry CRUD (AC-1 through AC-7). Added 5 backend routes, 5 frontend hooks, full KeywordRegistryPanel UI, 34 backend tests, 16 frontend tests. All checks pass.

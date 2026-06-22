@@ -1,6 +1,7 @@
 // apps/server/src/ops/index.ts
 import { Router, type IRouter } from 'express'
 import { z } from 'zod'
+import { Prisma } from '../generated/prisma/client.js'
 import { env } from '../shared/env.js'
 import { prisma } from '../shared/db.js'
 import { logger } from '../shared/logger.js'
@@ -309,3 +310,168 @@ opsRouter.post('/trigger-batch', (_req, res) => {
   )
   return res.json({ triggered: true })
 })
+
+// ─── GET /api/ops/filtering-mode ──────────────────────────────────────────────
+opsRouter.get('/filtering-mode', (_req, res) => {
+  return res.json({ filterMode: env.FILTER_MODE })
+})
+
+// ─── GET /api/ops/keywords ─────────────────────────────────────────────────────
+opsRouter.get('/keywords', async (_req, res) => {
+  try {
+    const district = await prisma.district.findFirst({ where: { is_active: true } })
+    if (!district) return res.status(503).json({ error: 'No active district' })
+
+    const keywords = await prisma.keyword.findMany({
+      where:   { district_id: district.id },
+      orderBy: [{ is_active: 'desc' }, { phrase: 'asc' }],
+    })
+
+    return res.json(keywords.map(k => ({
+      id:        k.id,
+      phrase:    k.phrase,
+      isActive:  k.is_active,
+      createdAt: k.created_at.toISOString(),
+      updatedAt: k.updated_at.toISOString(),
+    })))
+  } catch (err) {
+    logger.error({ err }, 'Ops keywords list failed')
+    return res.status(500).json({ statusCode: 500, error: 'Internal Server Error', message: 'Keywords query failed' })
+  }
+})
+
+// ─── POST /api/ops/keywords — phrase validation & duplicate check ──────────────
+const AddKeywordBodySchema = z.object({
+  phrase: z.string()
+    .transform(s => s.trim().replace(/\s+/g, ' '))
+    .pipe(z.string().min(1).max(120)),
+})
+
+opsRouter.post('/keywords', async (req, res) => {
+  const parsed = AddKeywordBodySchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ statusCode: 400, error: 'Bad Request', message: 'Invalid phrase' })
+  }
+  const phrase = parsed.data.phrase
+
+  try {
+    const district = await prisma.district.findFirst({ where: { is_active: true } })
+    if (!district) return res.status(503).json({ error: 'No active district' })
+
+    // Case-insensitive duplicate check (includes inactive rows)
+    const existing = await prisma.keyword.findFirst({
+      where: {
+        district_id: district.id,
+        phrase:      { equals: phrase, mode: 'insensitive' },
+      },
+    })
+    if (existing) {
+      return res.status(409).json({
+        statusCode: 409,
+        error:      'Conflict',
+        message:    'Keyword phrase already exists for this district',
+      })
+    }
+
+    const keyword = await prisma.keyword.create({
+      data: {
+        district_id: district.id,
+        phrase,
+        is_active:   true,
+      },
+    })
+
+    return res.status(201).json({
+      id:        keyword.id,
+      phrase:    keyword.phrase,
+      isActive:  keyword.is_active,
+      createdAt: keyword.created_at.toISOString(),
+      updatedAt: keyword.updated_at.toISOString(),
+    })
+  } catch (err) {
+    if (isPrismaUniqueConstraintError(err)) {
+      return res.status(409).json({
+        statusCode: 409,
+        error:      'Conflict',
+        message:    'Keyword phrase already exists for this district',
+      })
+    }
+    logger.error({ err }, 'Ops keyword create failed')
+    return res.status(500).json({ statusCode: 500, error: 'Internal Server Error', message: 'Keyword create failed' })
+  }
+})
+
+// ─── PATCH /api/ops/keywords/:id — toggle isActive ────────────────────────────
+const PatchKeywordBodySchema = z.object({
+  isActive: z.boolean(),
+}).strict()
+
+opsRouter.patch('/keywords/:id', async (req, res) => {
+  const id = Number(req.params['id'])
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ statusCode: 400, error: 'Bad Request', message: 'Invalid keyword id' })
+  }
+
+  const parsed = PatchKeywordBodySchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ statusCode: 400, error: 'Bad Request', message: 'PATCH body must only include boolean isActive' })
+  }
+
+  try {
+    const district = await prisma.district.findFirst({ where: { is_active: true } })
+    if (!district) return res.status(503).json({ error: 'No active district' })
+
+    const updateResult = await prisma.keyword.updateMany({
+      where: { id, district_id: district.id },
+      data:  { is_active: parsed.data.isActive },
+    })
+    if (updateResult.count === 0) {
+      return res.status(404).json({ statusCode: 404, error: 'Not Found', message: 'Keyword not found' })
+    }
+
+    const keyword = await prisma.keyword.findFirst({
+      where: { id, district_id: district.id },
+    })
+    if (!keyword) return res.status(404).json({ statusCode: 404, error: 'Not Found', message: 'Keyword not found' })
+
+    return res.json({
+      id:        keyword.id,
+      phrase:    keyword.phrase,
+      isActive:  keyword.is_active,
+      createdAt: keyword.created_at.toISOString(),
+      updatedAt: keyword.updated_at.toISOString(),
+    })
+  } catch (err) {
+    logger.error({ err }, 'Ops keyword patch failed')
+    return res.status(500).json({ statusCode: 500, error: 'Internal Server Error', message: 'Keyword update failed' })
+  }
+})
+
+// ─── DELETE /api/ops/keywords/:id ─────────────────────────────────────────────
+opsRouter.delete('/keywords/:id', async (req, res) => {
+  const id = Number(req.params['id'])
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ statusCode: 400, error: 'Bad Request', message: 'Invalid keyword id' })
+  }
+
+  try {
+    const district = await prisma.district.findFirst({ where: { is_active: true } })
+    if (!district) return res.status(503).json({ error: 'No active district' })
+
+    const deleteResult = await prisma.keyword.deleteMany({
+      where: { id, district_id: district.id },
+    })
+    if (deleteResult.count === 0) {
+      return res.status(404).json({ statusCode: 404, error: 'Not Found', message: 'Keyword not found' })
+    }
+
+    return res.json({ deleted: 1 })
+  } catch (err) {
+    logger.error({ err }, 'Ops keyword delete failed')
+    return res.status(500).json({ statusCode: 500, error: 'Internal Server Error', message: 'Keyword delete failed' })
+  }
+})
+
+function isPrismaUniqueConstraintError(err: unknown): boolean {
+  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002'
+}
