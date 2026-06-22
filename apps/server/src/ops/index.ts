@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { env } from '../shared/env.js'
 import { prisma } from '../shared/db.js'
 import { logger } from '../shared/logger.js'
-import { isBatchRunning } from '../classifier/index.js'
+import { isBatchRunning, runClassifyBatchWithLock } from '../classifier/index.js'
 import { simulateWebhook, injectSimulatedMessage } from './simulator.js'
 
 export const opsRouter: IRouter = Router()
@@ -262,4 +262,50 @@ opsRouter.post('/simulate-message', async (req, res) => {
     logger.error({ err }, 'Ops simulate-message failed')
     return res.status(500).json({ statusCode: 500, error: 'Internal Server Error', message: 'Simulate message failed' })
   }
+})
+
+// ─── GET /api/ops/pipeline-events ─────────────────────────────────────────────
+opsRouter.get('/pipeline-events', async (req, res) => {
+  try {
+    const district = await prisma.district.findFirst({ where: { is_active: true } })
+    if (!district) return res.status(503).json({ error: 'No active district' })
+
+    const requestedLimit = Number(req.query['limit'])
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(Math.trunc(requestedLimit), 1), 500)
+      : 100
+
+    const events = await prisma.pipelineEvent.findMany({
+      where:   { district_id: district.id },
+      orderBy: { created_at: 'desc' },
+      take:    limit,
+    })
+
+    return res.json(events.map(e => ({
+      id:               e.id,
+      eventType:        e.event_type,
+      districtId:       e.district_id,
+      mahallaId:        e.mahalla_id,
+      telegramUpdateId: e.telegram_update_id,
+      rawMessageId:     e.raw_message_id,
+      signalId:         e.signal_id,
+      detail:           e.detail,
+      createdAt:        e.created_at.toISOString(),
+    })))
+  } catch (err) {
+    logger.error({ err }, 'Ops pipeline-events query failed')
+    return res.status(500).json({ statusCode: 500, error: 'Internal Server Error', message: 'Pipeline events query failed' })
+  }
+})
+
+// ─── POST /api/ops/trigger-batch ──────────────────────────────────────────────
+opsRouter.post('/trigger-batch', (_req, res) => {
+  if (isBatchRunning()) {
+    return res.json({ status: 'locked' })
+  }
+  // Fire-and-forget — SPA polls /batch-status for completion
+  runClassifyBatchWithLock('manual').catch((err: unknown) =>
+    logger.error({ err }, 'Manual batch trigger failed')
+  )
+  return res.json({ triggered: true })
 })

@@ -22,9 +22,10 @@ vi.mock('../shared/env.js', () => ({ env: mockEnv }))
 
 // isBatchRunning mock
 const mockIsBatchRunning = vi.hoisted(() => vi.fn().mockReturnValue(false))
+const mockRunClassifyBatchWithLock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 vi.mock('../classifier/index.js', () => ({
   isBatchRunning:           mockIsBatchRunning,
-  runClassifyBatchWithLock: vi.fn(),
+  runClassifyBatchWithLock: mockRunClassifyBatchWithLock,
   purgeOldSignals:          vi.fn(),
 }))
 
@@ -35,14 +36,16 @@ const mockBatchHealthFindMany  = vi.hoisted(() => vi.fn())
 const mockRawMessageCount      = vi.hoisted(() => vi.fn())
 const mockMahallaFindMany      = vi.hoisted(() => vi.fn())
 const mockQueryRaw             = vi.hoisted(() => vi.fn())
+const mockPipelineEventFindMany = vi.hoisted(() => vi.fn())
 
 vi.mock('../shared/db.js', () => ({
   prisma: {
-    district:    { findFirst: mockDistrictFindFirst },
-    batchHealth: { findFirst: mockBatchHealthFindFirst, findMany: mockBatchHealthFindMany },
-    rawMessage:  { count: mockRawMessageCount },
-    mahalla:     { findMany: mockMahallaFindMany },
-    $queryRaw:   mockQueryRaw,
+    district:      { findFirst: mockDistrictFindFirst },
+    batchHealth:   { findFirst: mockBatchHealthFindFirst, findMany: mockBatchHealthFindMany },
+    rawMessage:    { count: mockRawMessageCount },
+    mahalla:       { findMany: mockMahallaFindMany },
+    pipelineEvent: { findMany: mockPipelineEventFindMany },
+    $queryRaw:     mockQueryRaw,
   },
 }))
 
@@ -131,6 +134,9 @@ function resetMocks() {
     decision: 'queued', filterMode: 'keyword_gate', keywordMatched: true, matchedPhrase: 'suv'
   })
   mockInjectSimulatedMessage.mockResolvedValue(42)
+  // Pipeline event defaults
+  mockPipelineEventFindMany.mockResolvedValue([])
+  mockRunClassifyBatchWithLock.mockResolvedValue(undefined)
 }
 
 // ─── Guard tests ──────────────────────────────────────────────────────────────
@@ -634,5 +640,201 @@ describe('POST /api/ops/simulate-message', () => {
       statusCode: 500,
       error:      'Internal Server Error',
     })
+  })
+})
+
+// ─── GET /api/ops/pipeline-events ────────────────────────────────────────────
+
+const PIPELINE_EVENTS = [
+  {
+    id:               1,
+    event_type:       'prefilter_pass',
+    district_id:      1,
+    mahalla_id:       2,
+    telegram_update_id: 101,
+    raw_message_id:   10,
+    signal_id:        null,
+    detail:           { text: 'Suv yo\'q' },
+    created_at:       new Date('2026-06-22T10:00:00.000Z'),
+  },
+  {
+    id:               2,
+    event_type:       'keyword_match',
+    district_id:      1,
+    mahalla_id:       null,
+    telegram_update_id: 102,
+    raw_message_id:   11,
+    signal_id:        5,
+    detail:           {},
+    created_at:       new Date('2026-06-22T09:55:00.000Z'),
+  },
+]
+
+describe('GET /api/ops/pipeline-events', () => {
+  let app: ReturnType<typeof createTestApp>
+
+  beforeEach(() => {
+    resetMocks()
+    app = createTestApp()
+  })
+
+  it('returns 404 when OPS_ENABLED is not "true"', async () => {
+    mockEnv.OPS_ENABLED = 'false'
+    const res = await request(app).get('/api/ops/pipeline-events')
+    expect(res.status).toBe(404)
+    expect(res.body).toMatchObject({ error: 'Not found' })
+  })
+
+  it('returns 503 when no active district found', async () => {
+    mockDistrictFindFirst.mockResolvedValue(null)
+    const res = await request(app).get('/api/ops/pipeline-events')
+    expect(res.status).toBe(503)
+    expect(res.body).toMatchObject({ error: 'No active district' })
+  })
+
+  it('returns empty array when no pipeline events exist', async () => {
+    // default: mockPipelineEventFindMany → []
+    const res = await request(app).get('/api/ops/pipeline-events')
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual([])
+  })
+
+  it('returns events with camelCase fields, newest-first', async () => {
+    mockPipelineEventFindMany.mockResolvedValue(PIPELINE_EVENTS)
+    const res = await request(app).get('/api/ops/pipeline-events')
+    expect(res.status).toBe(200)
+    expect(res.body).toHaveLength(2)
+    expect(res.body[0]).toMatchObject({
+      id:               1,
+      eventType:        'prefilter_pass',
+      districtId:       1,
+      mahallaId:        2,
+      telegramUpdateId: 101,
+      rawMessageId:     10,
+      signalId:         null,
+      createdAt:        '2026-06-22T10:00:00.000Z',
+    })
+    expect(res.body[1]).toMatchObject({
+      id:               2,
+      eventType:        'keyword_match',
+      mahallaId:        null,
+      signalId:         5,
+    })
+  })
+
+  it('queries Prisma with district_id and orderBy created_at desc', async () => {
+    mockPipelineEventFindMany.mockResolvedValue([])
+    await request(app).get('/api/ops/pipeline-events')
+    expect(mockPipelineEventFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where:   { district_id: ACTIVE_DISTRICT.id },
+        orderBy: { created_at: 'desc' },
+      })
+    )
+  })
+
+  it('uses default limit of 100 when no limit param', async () => {
+    mockPipelineEventFindMany.mockResolvedValue([])
+    await request(app).get('/api/ops/pipeline-events')
+    expect(mockPipelineEventFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 100 })
+    )
+  })
+
+  it('uses valid limit from query string', async () => {
+    mockPipelineEventFindMany.mockResolvedValue([])
+    await request(app).get('/api/ops/pipeline-events?limit=50')
+    expect(mockPipelineEventFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 50 })
+    )
+  })
+
+  it('clamps limit to 1 when limit=0', async () => {
+    mockPipelineEventFindMany.mockResolvedValue([])
+    await request(app).get('/api/ops/pipeline-events?limit=0')
+    expect(mockPipelineEventFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 1 })
+    )
+  })
+
+  it('clamps limit to 1 when limit is negative', async () => {
+    mockPipelineEventFindMany.mockResolvedValue([])
+    await request(app).get('/api/ops/pipeline-events?limit=-10')
+    expect(mockPipelineEventFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 1 })
+    )
+  })
+
+  it('clamps limit to 500 when limit exceeds max', async () => {
+    mockPipelineEventFindMany.mockResolvedValue([])
+    await request(app).get('/api/ops/pipeline-events?limit=9999')
+    expect(mockPipelineEventFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 500 })
+    )
+  })
+
+  it('uses default limit when limit is non-numeric', async () => {
+    mockPipelineEventFindMany.mockResolvedValue([])
+    await request(app).get('/api/ops/pipeline-events?limit=abc')
+    expect(mockPipelineEventFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 100 })
+    )
+  })
+
+  it('returns 500 on Prisma error', async () => {
+    mockPipelineEventFindMany.mockRejectedValue(new Error('DB failure'))
+    const res = await request(app).get('/api/ops/pipeline-events')
+    expect(res.status).toBe(500)
+    expect(res.body).toMatchObject({
+      statusCode: 500,
+      error:      'Internal Server Error',
+      message:    'Pipeline events query failed',
+    })
+  })
+})
+
+// ─── POST /api/ops/trigger-batch ─────────────────────────────────────────────
+
+describe('POST /api/ops/trigger-batch', () => {
+  let app: ReturnType<typeof createTestApp>
+
+  beforeEach(() => {
+    resetMocks()
+    app = createTestApp()
+  })
+
+  it('returns 404 when OPS_ENABLED is not "true"', async () => {
+    mockEnv.OPS_ENABLED = 'false'
+    const res = await request(app).post('/api/ops/trigger-batch')
+    expect(res.status).toBe(404)
+    expect(res.body).toMatchObject({ error: 'Not found' })
+  })
+
+  it('returns { triggered: true } when isBatchRunning() is false', async () => {
+    // defaults: isBatchRunning → false
+    const res = await request(app).post('/api/ops/trigger-batch')
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ triggered: true })
+    expect(mockRunClassifyBatchWithLock).toHaveBeenCalledWith('manual')
+  })
+
+  it('returns { status: "locked" } when isBatchRunning() is true', async () => {
+    mockIsBatchRunning.mockReturnValue(true)
+    const res = await request(app).post('/api/ops/trigger-batch')
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ status: 'locked' })
+    expect(mockRunClassifyBatchWithLock).not.toHaveBeenCalled()
+  })
+
+  it('does not await the batch — returns immediately', async () => {
+    // Make runClassifyBatchWithLock take a very long time (never resolves in test)
+    mockRunClassifyBatchWithLock.mockReturnValue(new Promise(() => { /* never resolves */ }))
+    const start = Date.now()
+    const res   = await request(app).post('/api/ops/trigger-batch')
+    const elapsed = Date.now() - start
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ triggered: true })
+    // Should return in well under 100ms because it's fire-and-forget
+    expect(elapsed).toBeLessThan(500)
   })
 })

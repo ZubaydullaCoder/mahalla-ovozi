@@ -1,6 +1,6 @@
 # Story 6.3: Pipeline Event Log and Batch Controls
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -65,70 +65,70 @@ so that I can trace current intake decisions and validate batch behavior on dema
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add `GET /api/ops/pipeline-events` to `apps/server/src/ops/index.ts` (AC: 1)
-  - [ ] Parse `limit` from query string; default to 100; clamp to the inclusive range `1..500`
-  - [ ] Query `prisma.pipelineEvent.findMany({ where: { district_id: district.id }, orderBy: { created_at: 'desc' }, take: limit })`
-  - [ ] Map DB snake_case fields to camelCase response: `eventType`, `districtId`, `mahallaId`, `telegramUpdateId`, `rawMessageId`, `signalId`, `detail`, `createdAt` (ISO 8601 via `.toISOString()`)
-  - [ ] Return 503 when no active district; return 500 on unexpected error using standard error shape
+- [x] Task 1: Add `GET /api/ops/pipeline-events` to `apps/server/src/ops/index.ts` (AC: 1)
+  - [x] Parse `limit` from query string; default to 100; clamp to the inclusive range `1..500`
+  - [x] Query `prisma.pipelineEvent.findMany({ where: { district_id: district.id }, orderBy: { created_at: 'desc' }, take: limit })`
+  - [x] Map DB snake_case fields to camelCase response: `eventType`, `districtId`, `mahallaId`, `telegramUpdateId`, `rawMessageId`, `signalId`, `detail`, `createdAt` (ISO 8601 via `.toISOString()`)
+  - [x] Return 503 when no active district; return 500 on unexpected error using standard error shape
 
-- [ ] Task 2: Keep `pipeline_events` immutable in Story 6.3 (AC: 2)
-  - [ ] Do NOT add `DELETE /api/ops/pipeline-events`
-  - [ ] Do NOT add a frontend "Clear Log" action
-  - [ ] Preserve `pipeline_events` rows because `aggregateIntakeMetrics()` reads them for `batch_health`, and the simulator reads them to infer webhook simulation outcomes
+- [x] Task 2: Keep `pipeline_events` immutable in Story 6.3 (AC: 2)
+  - [x] Do NOT add `DELETE /api/ops/pipeline-events`
+  - [x] Do NOT add a frontend "Clear Log" action
+  - [x] Preserve `pipeline_events` rows because `aggregateIntakeMetrics()` reads them for `batch_health`, and the simulator reads them to infer webhook simulation outcomes
 
-- [ ] Task 3: Add `POST /api/ops/trigger-batch` to `apps/server/src/ops/index.ts` (AC: 4)
-  - [ ] Import `runClassifyBatchWithLock` from `'../classifier/index.js'` (already imported in test file mock; not yet imported in prod code — verify)
-  - [ ] Check `isBatchRunning()` (already imported) — if running, return `{ status: 'locked' }` immediately
-  - [ ] Otherwise fire-and-forget: `runClassifyBatchWithLock('manual').catch(err => logger.error({ err }, 'Manual batch trigger failed'))`
-  - [ ] Return `{ triggered: true }` immediately without awaiting the batch
+- [x] Task 3: Add `POST /api/ops/trigger-batch` to `apps/server/src/ops/index.ts` (AC: 4)
+  - [x] Import `runClassifyBatchWithLock` from `'../classifier/index.js'` (already imported in test file mock; not yet imported in prod code — verify)
+  - [x] Check `isBatchRunning()` (already imported) — if running, return `{ status: 'locked' }` immediately
+  - [x] Otherwise fire-and-forget: `runClassifyBatchWithLock('manual').catch(err => logger.error({ err }, 'Manual batch trigger failed'))`
+  - [x] Return `{ triggered: true }` immediately without awaiting the batch
 
-- [ ] Task 4: Add ops API hooks to `apps/web/src/api/ops.ts` (AC: 3, 4)
-  - [ ] Add `PipelineEvent` TypeScript interface matching the API response shape
-  - [ ] Add `fetchPipelineEvents()` function: `GET /api/ops/pipeline-events?limit=100`
-  - [ ] Add `postTriggerBatch()` function: `POST /api/ops/trigger-batch`
-  - [ ] Add `usePipelineEvents(autoRefresh: boolean)` hook: `queryKey: [...OPS_QUERY_KEY, 'pipeline-events']`, `refetchInterval: autoRefresh ? 5000 : false`
-  - [ ] Add `useTriggerBatch()` mutation hook: on success, invalidate `['ops']` via `qc.invalidateQueries({ queryKey: [...OPS_QUERY_KEY] })`
-  - [ ] Add `useBatchStatus()` hook: `queryKey: [...OPS_QUERY_KEY, 'batch-status']`, `refetchInterval: 5000`, queryFn calls `GET /api/ops/batch-status` (raw fetch, not reusing `useOpsStatus` which wraps with `isEnabled/isForbidden` envelope)
+- [x] Task 4: Add ops API hooks to `apps/web/src/api/ops.ts` (AC: 3, 4)
+  - [x] Add `PipelineEvent` TypeScript interface matching the API response shape
+  - [x] Add `fetchPipelineEvents()` function: `GET /api/ops/pipeline-events?limit=100`
+  - [x] Add `postTriggerBatch()` function: `POST /api/ops/trigger-batch`
+  - [x] Add `usePipelineEvents(autoRefresh: boolean)` hook: `queryKey: [...OPS_QUERY_KEY, 'pipeline-events']`, `refetchInterval: autoRefresh ? 5000 : false`
+  - [x] Add `useTriggerBatch()` mutation hook: on success, invalidate `['ops']` via `qc.invalidateQueries({ queryKey: [...OPS_QUERY_KEY] })`
+  - [x] Add `useBatchStatus()` hook: `queryKey: [...OPS_QUERY_KEY, 'batch-status']`, `refetchInterval: 5000`, queryFn calls `GET /api/ops/batch-status` (raw fetch, not reusing `useOpsStatus` which wraps with `isEnabled/isForbidden` envelope)
 
-- [ ] Task 5: Replace `apps/web/src/components/ops/pipeline-log-panel.tsx` stub with full implementation (AC: 3, 4, 5)
-  - [ ] Current stub (replace entirely): `import { strings } from '../../strings.ts'; export function PipelineLogPanel() { return <div>{strings.ops.panelPlaceholder(strings.ops.nav.pipelineLog)}</div> }`
-  - [ ] Implement two sub-sections in a vertical stack: (a) Batch Status sub-panel, (b) Pipeline Event Log sub-panel
-  - [ ] **Batch Status sub-panel**: use `useBatchStatus()`, display in AntD `Descriptions` component — scheduler status (with colored Badge), last batch at, duration, queue depth, messages fetched/signals/ignored, recent errors; "Trigger Batch Now" button with loading state (from `useTriggerBatch()`)
-  - [ ] **Pipeline Event Log sub-panel**: use `usePipelineEvents(autoRefresh)`, list events newest-first in a `List` or table; each row shows: UTC time `HH:MM:SS` from `createdAt`, colored `Tag` for event type, key identifiers from `detail` (update ID, mahalla, text snippet)
-  - [ ] Auto-refresh toggle (`Switch`) at top of event log; default: ON; controls `autoRefresh` boolean passed to `usePipelineEvents`
-  - [ ] "Refresh" button manually calls `refetch()` from `usePipelineEvents(autoRefresh)`
-  - [ ] Color coding via AntD `Tag` colors: `success` (`prefilter_pass`), `processing` (`keyword_match`), `gold` (`keyword_skip`), `default` (unknown future event types)
-  - [ ] Show AntD `Spin` overlay while fetching; show AntD `Alert type="error"` on fetch error
-  - [ ] Show AntD `Empty` when no events
+- [x] Task 5: Replace `apps/web/src/components/ops/pipeline-log-panel.tsx` stub with full implementation (AC: 3, 4, 5)
+  - [x] Current stub (replace entirely): `import { strings } from '../../strings.ts'; export function PipelineLogPanel() { return <div>{strings.ops.panelPlaceholder(strings.ops.nav.pipelineLog)}</div> }`
+  - [x] Implement two sub-sections in a vertical stack: (a) Batch Status sub-panel, (b) Pipeline Event Log sub-panel
+  - [x] **Batch Status sub-panel**: use `useBatchStatus()`, display in AntD `Descriptions` component — scheduler status (with colored Badge), last batch at, duration, queue depth, messages fetched/signals/ignored, recent errors; "Trigger Batch Now" button with loading state (from `useTriggerBatch()`)
+  - [x] **Pipeline Event Log sub-panel**: use `usePipelineEvents(autoRefresh)`, list events newest-first in a `List` or table; each row shows: UTC time `HH:MM:SS` from `createdAt`, colored `Tag` for event type, key identifiers from `detail` (update ID, mahalla, text snippet)
+  - [x] Auto-refresh toggle (`Switch`) at top of event log; default: ON; controls `autoRefresh` boolean passed to `usePipelineEvents`
+  - [x] "Refresh" button manually calls `refetch()` from `usePipelineEvents(autoRefresh)`
+  - [x] Color coding via AntD `Tag` colors: `success` (`prefilter_pass`), `processing` (`keyword_match`), `gold` (`keyword_skip`), `default` (unknown future event types)
+  - [x] Show AntD `Spin` overlay while fetching; show AntD `Alert type="error"` on fetch error
+  - [x] Show AntD `Empty` when no events
 
-- [ ] Task 6: Write backend tests for new routes in `apps/server/src/ops/index.test.ts` (AC: 6)
-  - [ ] Add mock for `pipelineEvent` model to the existing `vi.mock('../shared/db.js', ...)` block (add `pipelineEvent: { findMany: mockPipelineEventFindMany }`)
-  - [ ] Add mock for `runClassifyBatchWithLock` — note it is ALREADY mocked in the existing test file via `vi.mock('../classifier/index.js', ...)`: `runClassifyBatchWithLock: vi.fn()`. Extract it with `vi.hoisted` like existing mocks, or capture with `mockClassifier`
-  - [ ] `GET /api/ops/pipeline-events` tests:
+- [x] Task 6: Write backend tests for new routes in `apps/server/src/ops/index.test.ts` (AC: 6)
+  - [x] Add mock for `pipelineEvent` model to the existing `vi.mock('../shared/db.js', ...)` block (add `pipelineEvent: { findMany: mockPipelineEventFindMany }`)
+  - [x] Add mock for `runClassifyBatchWithLock` — note it is ALREADY mocked in the existing test file via `vi.mock('../classifier/index.js', ...)`: `runClassifyBatchWithLock: vi.fn()`. Extract it with `vi.hoisted` like existing mocks, or capture with `mockClassifier`
+  - [x] `GET /api/ops/pipeline-events` tests:
     - Returns 404 when `OPS_ENABLED !== 'true'`
     - Returns 503 when no active district
     - Returns array of events with camelCase fields when district active
     - Clamps invalid, zero, negative, or overly large `limit` values to the safe range `1..500`
     - Returns 500 on Prisma error
-  - [ ] `POST /api/ops/trigger-batch` tests:
+  - [x] `POST /api/ops/trigger-batch` tests:
     - Returns 404 when ops disabled
     - Returns `{ triggered: true }` when `isBatchRunning()` is false; verify `runClassifyBatchWithLock` called with `'manual'`
     - Returns `{ status: 'locked' }` when `isBatchRunning()` is true; verify `runClassifyBatchWithLock` NOT called
 
-- [ ] Task 7: Write frontend tests for `PipelineLogPanel` (AC: 6)
-  - [ ] Create `apps/web/src/components/ops/pipeline-log-panel.test.tsx`
-  - [ ] Mock `../../api/ops.ts` hooks: `usePipelineEvents`, `useBatchStatus`, `useTriggerBatch`
-  - [ ] Test: panel renders currently produced event types (`prefilter_pass`, `keyword_match`, `keyword_skip`)
-  - [ ] Test: panel renders unknown future event type with neutral fallback
-  - [ ] Test: "Trigger Batch Now" button shows loading state when mutation is pending; shows success after
-  - [ ] Test: auto-refresh toggle switches state (verify `usePipelineEvents` called with correct `autoRefresh` arg)
-  - [ ] Test: "Refresh" button calls the query `refetch()` function
+- [x] Task 7: Write frontend tests for `PipelineLogPanel` (AC: 6)
+  - [x] Create `apps/web/src/components/ops/pipeline-log-panel.test.tsx`
+  - [x] Mock `../../api/ops.ts` hooks: `usePipelineEvents`, `useBatchStatus`, `useTriggerBatch`
+  - [x] Test: panel renders currently produced event types (`prefilter_pass`, `keyword_match`, `keyword_skip`)
+  - [x] Test: panel renders unknown future event type with neutral fallback
+  - [x] Test: "Trigger Batch Now" button shows loading state when mutation is pending; shows success after
+  - [x] Test: auto-refresh toggle switches state (verify `usePipelineEvents` called with correct `autoRefresh` arg)
+  - [x] Test: "Refresh" button calls the query `refetch()` function
 
-- [ ] Task 8: Verify checks (AC: 6)
-  - [ ] `pnpm lint` — no new errors
-  - [ ] `pnpm test` — all existing + new tests pass
-  - [ ] `pnpm exec tsc -b apps/web/tsconfig.json` — frontend type check passes
-  - [ ] `pnpm exec tsc -b apps/server/tsconfig.json` — backend type check passes
+- [x] Task 8: Verify checks (AC: 6)
+  - [x] `pnpm lint` — no new errors
+  - [x] `pnpm test` — all existing + new tests pass
+  - [x] `pnpm exec tsc -b apps/web/tsconfig.json` — frontend type check passes
+  - [x] `pnpm exec tsc -b apps/server/tsconfig.json` — backend type check passes
 
 ---
 
@@ -682,6 +682,15 @@ Claude Sonnet 4.6 (Thinking)
 
 - 2026-06-22: Story 6.3 specification created.
 - 2026-06-22: Story 6.3 revised after validation to scope event display to current intake events, remove destructive clear-log behavior, and align query invalidation guidance.
+- 2026-06-22: Story 6.3 implemented by dev agent.
+  - Added GET /api/ops/pipeline-events with limit clamping (1–500), district-scoped, camelCase-mapped response.
+  - Added POST /api/ops/trigger-batch as fire-and-forget using runClassifyBatchWithLock('manual'); locked state returns { status: 'locked' }.
+  - Replaced PipelineLogPanel stub with full BatchStatusPanel + EventLogPanel sub-components.
+  - Added usePipelineEvents(autoRefresh), useTriggerBatch, useBatchStatus hooks to api/ops.ts.
+  - Added 16 backend tests (ops/index.test.ts: 47→63); 19 frontend tests (pipeline-log-panel.test.tsx, new file).
+  - Fixed: event tag label uses /_/g regex so multi-word unknown event types render correctly.
+  - Fixed: AntD v6 deprecation warnings: Space direction→orientation, Alert message→title.
+  - All checks pass: pnpm lint ✅ | pnpm test 424/424 ✅ | tsc web ✅ | tsc server ✅.
 
 ### File List
 
@@ -697,3 +706,4 @@ Claude Sonnet 4.6 (Thinking)
 
 - 2026-06-22: Story 6.3 specification created.
 - 2026-06-22: Story 6.3 validation fixes applied.
+- 2026-06-22: Story 6.3 implementation complete. All 8 tasks done, 424 tests passing, lint + typecheck clean. Status → review.
