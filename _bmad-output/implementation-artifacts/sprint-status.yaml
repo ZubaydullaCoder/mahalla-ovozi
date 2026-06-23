@@ -1,5 +1,5 @@
 # generated: 2026-06-03
-# last_updated: 2026-06-22
+# last_updated: 2026-06-23
 # project: mahalla-ovozi
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context recommended)
 
 generated: 2026-06-03
-last_updated: 2026-06-22
+last_updated: 2026-06-23
 project: mahalla-ovozi
 project_key: NOKEY
 tracking_system: file-system
@@ -101,7 +101,7 @@ development_status:
   # EPIC 6: Developer Ops Console (Phase 1 Validation Tool)
   # Goal: /ops console for HITL pipeline validation before pilot launch.
   # ─────────────────────────────────────────────────────────────────────────
-  epic-6: in-progress
+  epic-6: done
   6-1-ops-console-page-shell-and-guard: done
   6-2-message-simulator: done
   6-3-pipeline-event-log-and-batch-controls: done
