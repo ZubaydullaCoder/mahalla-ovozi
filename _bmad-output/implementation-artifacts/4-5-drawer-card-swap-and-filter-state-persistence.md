@@ -1,6 +1,6 @@
 # Story 4.5: Drawer Card Swap & Filter State Persistence
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -69,42 +69,48 @@ Net effect: instant breadcrumb -> skeleton -> content, matching AC-1 to AC-3.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Verify card swap works end-to-end (AC: 1, 2, 3, 4)
-  - [ ] Confirm `handleCardClick` in `dashboard-page.tsx` does NOT reset `isDrawerOpen` to false before true.
-  - [ ] Confirm `handleDrawerAfterOpenChange` clears active signal only when `open=false`.
-  - [ ] Confirm `setIsDrawerOpen(true)` while already open does not trigger a Drawer close/reopen cycle.
-  - [ ] If `handleCardClick` has any issue, fix it so it calls `setActiveSignal`, `setActiveSignalClickedAt`, and `setIsDrawerOpen(true)` sequentially with no intermediate false state.
+- [x] Task 1: Verify card swap works end-to-end (AC: 1, 2, 3, 4)
+  - [x] Confirm `handleCardClick` in `dashboard-page.tsx` does NOT reset `isDrawerOpen` to false before true.
+  - [x] Confirm `handleDrawerAfterOpenChange` clears active signal only when `open=false`.
+  - [x] Confirm `setIsDrawerOpen(true)` while already open does not trigger a Drawer close/reopen cycle.
+  - [x] If `handleCardClick` has any issue, fix it so it calls `setActiveSignal`, `setActiveSignalClickedAt`, and `setIsDrawerOpen(true)` sequentially with no intermediate false state.
 
-- [ ] Task 2: Add card swap tests in `context-drawer.test.tsx` (AC: 1, 2, 3)
-  - [ ] Test: when `anchorSignal` prop changes while drawer is open, `useSignalContext` is called with the new signal id.
-  - [ ] Test: breadcrumb changes from the original category/mahalla to the new category/mahalla.
-  - [ ] Test: `isLoading=true` shows the skeleton during swap.
-  - [ ] Use real Uzbek Cyrillic fixture text, not corrupted placeholder text.
+- [x] Task 2: Add card swap tests in `context-drawer.test.tsx` (AC: 1, 2, 3)
+  - [x] Test: when `anchorSignal` prop changes while drawer is open, `useSignalContext` is called with the new signal id.
+  - [x] Test: breadcrumb changes from the original category/mahalla to the new category/mahalla.
+  - [x] Test: `isLoading=true` shows the skeleton during swap.
+  - [x] Use real Uzbek Cyrillic fixture text, not corrupted placeholder text.
 
-- [ ] Task 3: Add dashboard interaction tests in `dashboard-page.test.tsx` (AC: 4, 5, 6)
-  - [ ] Use two distinct signal fixtures so the second click proves card swap, not a repeat click on the same signal.
-  - [ ] Test: second card click while drawer is already open keeps `ContextDrawer.isOpen === true` and updates `activeSignalId` to the second signal.
-  - [ ] Test: `onAfterOpenChange` is not called during card swap; it should only be invoked by the close path.
-  - [ ] Test: filter state persists after first card click, second card click, drawer close, and drawer reopen.
-  - [ ] Make the `useFilters` mock stateful or capture setter calls. Do not use a fixed-value mock that cannot detect accidental filter resets.
+- [x] Task 3: Add dashboard interaction tests in `dashboard-page.test.tsx` (AC: 4, 5, 6)
+  - [x] Use two distinct signal fixtures so the second click proves card swap, not a repeat click on the same signal.
+  - [x] Test: second card click while drawer is already open keeps `ContextDrawer.isOpen === true` and updates `activeSignalId` to the second signal.
+  - [x] Test: `onAfterOpenChange` is not called during card swap; it should only be invoked by the close path.
+  - [x] Test: filter state persists after first card click, second card click, drawer close, and drawer reopen.
+  - [x] Make the `useFilters` mock stateful or capture setter calls. Do not use a fixed-value mock that cannot detect accidental filter resets.
 
-- [ ] Task 4: Verify keyboard navigation (AC: 7)
-  - [ ] Confirm `signal-card.tsx` has `tabIndex={0}` and `onKeyDown` with Enter/Space.
-  - [ ] Confirm existing `signal-card.test.tsx` coverage still passes: `onClick fires on Enter keydown` and `onClick fires on Space keydown`.
+- [x] Task 4: Verify keyboard navigation (AC: 7)
+  - [x] Confirm `signal-card.tsx` has `tabIndex={0}` and `onKeyDown` with Enter/Space.
+  - [x] Confirm existing `signal-card.test.tsx` coverage still passes: `onClick fires on Enter keydown` and `onClick fires on Space keydown`.
 
-- [ ] Task 5: Confirm no competing Escape listener (AC: 8)
-  - [ ] Search for global `document.addEventListener('keydown', ...)`, `window.addEventListener('keydown', ...)`, or manual Escape handling in `dashboard-page.tsx` and `context-drawer.tsx`.
-  - [ ] Confirm only AntD Drawer handles Escape natively.
+- [x] Task 5: Confirm no competing Escape listener (AC: 8)
+  - [x] Search for global `document.addEventListener('keydown', ...)`, `window.addEventListener('keydown', ...)`, or manual Escape handling in `dashboard-page.tsx` and `context-drawer.tsx`.
+  - [x] Confirm only AntD Drawer handles Escape natively.
 
-- [ ] Task 6: Update sprint status after implementation review passes (AC: 9)
-  - [ ] Update `sprint-status.yaml`: `4-5-drawer-card-swap-and-filter-state-persistence: done`.
-  - [ ] Update `sprint-status.yaml`: `epic-4: done`.
-  - [ ] Update `last_updated` to the completion date.
+- [x] Task 6: Update sprint status after implementation review passes (AC: 9)
+  - [x] Update `sprint-status.yaml`: `4-5-drawer-card-swap-and-filter-state-persistence: done`.
+  - [x] Update `sprint-status.yaml`: `epic-4: done`.
+  - [x] Update `last_updated` to the completion date.
 
-- [ ] Task 7: Final verification (AC: 9)
-  - [ ] `pnpm lint` - 0 errors.
-  - [ ] `pnpm test` - all tests pass, no regressions.
-  - [ ] `pnpm exec tsc -b apps/web/tsconfig.json` - 0 type errors.
+- [x] Task 7: Final verification (AC: 9)
+  - [x] `pnpm lint` - 0 errors.
+  - [x] `pnpm test` - all tests pass, no regressions.
+  - [x] `pnpm exec tsc -b apps/web/tsconfig.json` - 0 type errors.
+
+### Review Findings
+
+- [x] [Review][Patch] Story/tracker lifecycle state is inconsistent - Resolved by setting the story status to `done` after review fixes passed and keeping `sprint-status.yaml` at `done`.
+- [x] [Review][Patch] Required `onAfterOpenChange` swap assertion is missing - Resolved by extending the dashboard card-swap test to record drawer open-state history and assert no close-transition callback occurs during swap.
+- [x] [Review][Patch] Whitespace check fails - Resolved by removing the trailing blank line at end of file.
 
 ---
 
@@ -408,3 +414,50 @@ it('keeps filters across drawer close and reopen', () => {
 - SignalCard keyboard: `apps/web/src/components/signal-card/signal-card.tsx` lines 70-78.
 - Filter hook: `apps/web/src/hooks/use-filters.ts`.
 - Sprint status: `_bmad-output/implementation-artifacts/sprint-status.yaml`.
+
+---
+
+## Dev Agent Record
+
+### Implementation Plan
+
+Story 4.5 is primarily a test-coverage story. All swap/persistence/keyboard logic was correctly implemented in Stories 4.3 and 4.4. The implementation plan was:
+
+1. **Verify source files** — Confirmed `handleCardClick` calls `setActiveSignal` → `setActiveSignalClickedAt` → `setIsDrawerOpen(true)` with no intermediate `false`. Confirmed `handleDrawerAfterOpenChange` clears active signal only when `open=false`. Confirmed `destroyOnHidden={false}` on Drawer. Confirmed `tabIndex={0}` + `onKeyDown` on SignalCard. Confirmed no `document.addEventListener` in dashboard or drawer.
+
+2. **Add 2 tests to `context-drawer.test.tsx`** — Tests use `render`/`rerender` pattern to simulate signal swap while drawer stays open: (a) `useSignalContext` called with new id + skeleton shown; (b) breadcrumb updates to new category/mahalla. All fixtures use Uzbek Cyrillic.
+
+3. **Upgrade `dashboard-page.test.tsx`** — Replaced fixed-value `useFilters` mock with stateful mock exposing setter spies via `vi.hoisted`. Added `secondSignal` (water/Олмазор) fixture. Updated LaneGrid mock to expose two buttons. Added 2 new tests: (a) second click swaps active signal while drawer stays open + filter setters not called; (b) filter setters not called across open → close → reopen cycle. Fixed existing 'clears the active lane card' test to use new button label.
+
+### Completion Notes
+
+- **No source file changes** — All production logic was correct from Story 4.4.
+- **4 new tests added** — 2 in `context-drawer.test.tsx`, 2 in `dashboard-page.test.tsx`.
+- **Test count: 551 → 555** — All 555 tests pass, 33 test files.
+- **pnpm lint**: 0 errors.
+- **pnpm exec tsc -b**: 0 type errors.
+- **Review fix** — Added direct no-close/reopen regression assertions and fixed story/tracker lifecycle consistency.
+- All 9 Acceptance Criteria satisfied.
+
+---
+
+## File List
+
+| Action | File |
+|--------|------|
+| VERIFY | `apps/web/src/pages/dashboard-page.tsx` |
+| VERIFY | `apps/web/src/components/context-drawer/context-drawer.tsx` |
+| VERIFY | `apps/web/src/components/signal-card/signal-card.tsx` |
+| MODIFY | `apps/web/src/components/context-drawer/context-drawer.test.tsx` |
+| MODIFY | `apps/web/src/pages/dashboard-page.test.tsx` |
+| MODIFY | `_bmad-output/implementation-artifacts/sprint-status.yaml` |
+| MODIFY | `_bmad-output/implementation-artifacts/4-5-drawer-card-swap-and-filter-state-persistence.md` |
+
+---
+
+## Change Log
+
+| Date | Summary |
+|------|---------|
+| 2026-06-24 | Story 4.5 implementation: added 4 new tests (2 swap tests in context-drawer.test.tsx, 2 filter-persistence tests in dashboard-page.test.tsx); upgraded useFilters mock to stateful/spy pattern; added secondSignal fixture; updated LaneGrid mock to expose two signal buttons. 555 tests pass, 0 lint errors, 0 type errors. |
+| 2026-06-24 | Review fixes: strengthened AC-1 no-close/reopen test coverage, resolved story/tracker status consistency, and cleared whitespace check. |

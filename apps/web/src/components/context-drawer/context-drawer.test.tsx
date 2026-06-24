@@ -134,4 +134,96 @@ describe('ContextDrawer', () => {
     // When closed, drawer body should not be in the document
     expect(screen.queryByRole('article')).not.toBeInTheDocument()
   })
+
+  // ─── Story 4.5: Card Swap Tests (AC-1, AC-2, AC-3) ──────────────────────────
+
+  // AC-1/AC-3: When anchorSignal prop changes while drawer is open,
+  // useSignalContext is called with the new signal id and skeleton shows during load.
+  it('calls useSignalContext with the new anchor id when signal swaps while drawer is open', () => {
+    const WATER_SIGNAL: Signal = {
+      ...MOCK_SIGNAL,
+      id:            2,
+      mahallaName:   'Олмазор',
+      category:      'water',
+      rawText:       'Сув йўқ',
+      hokimRelated:  false,
+    }
+
+    mockUseSignalContext.mockReturnValue({ data: [MOCK_SIGNAL], isLoading: false })
+    const { rerender } = render(
+      <ConfigProvider>
+        <ContextDrawer
+          anchorSignal={MOCK_SIGNAL}
+          anchorClickedAt={ANCHOR_CLICKED_AT}
+          isOpen={true}
+          onClose={vi.fn()}
+        />
+      </ConfigProvider>,
+    )
+
+    // Initial render: called with original signal id
+    expect(mockUseSignalContext).toHaveBeenCalledWith(MOCK_SIGNAL.id, undefined)
+
+    // Swap: change anchorSignal while drawer stays open; new fetch shows skeleton
+    mockUseSignalContext.mockReturnValue({ data: [], isLoading: true })
+    rerender(
+      <ConfigProvider>
+        <ContextDrawer
+          anchorSignal={WATER_SIGNAL}
+          anchorClickedAt={new Date('2026-06-24T06:15:00.000Z')}
+          isOpen={true}
+          onClose={vi.fn()}
+        />
+      </ConfigProvider>,
+    )
+
+    expect(mockUseSignalContext).toHaveBeenCalledWith(WATER_SIGNAL.id, undefined)
+    expect(document.querySelector('.ant-skeleton')).toBeTruthy()
+  })
+
+  // AC-2: Breadcrumb updates immediately to the new signal's category and mahalla after card swap.
+  it('breadcrumb updates to the new signal category and mahalla after card swap', () => {
+    const WATER_SIGNAL: Signal = {
+      ...MOCK_SIGNAL,
+      id:           2,
+      category:     'water',
+      mahallaName:  'Олмазор',
+      rawText:      'Сув йўқ',
+      hokimRelated: false,
+    }
+
+    mockUseSignalContext.mockReturnValue({ data: [], isLoading: false })
+    const { rerender } = render(
+      <ConfigProvider>
+        <ContextDrawer
+          anchorSignal={MOCK_SIGNAL}
+          anchorClickedAt={ANCHOR_CLICKED_AT}
+          isOpen={true}
+          onClose={vi.fn()}
+        />
+      </ConfigProvider>,
+    )
+
+    // Initial breadcrumb: gas / Навбаҳор
+    expect(document.querySelector('.ant-drawer-title')?.textContent).toContain('Газ')
+    expect(document.querySelector('.ant-drawer-title')?.textContent).toContain('Навбаҳор')
+
+    // Swap to water / Олмазор
+    rerender(
+      <ConfigProvider>
+        <ContextDrawer
+          anchorSignal={WATER_SIGNAL}
+          anchorClickedAt={new Date('2026-06-24T06:15:00.000Z')}
+          isOpen={true}
+          onClose={vi.fn()}
+        />
+      </ConfigProvider>,
+    )
+
+    const titleText = document.querySelector('.ant-drawer-title')?.textContent
+    expect(titleText).toContain('Сув')
+    expect(titleText).toContain('Олмазор')
+    expect(titleText).not.toContain('Газ')
+    expect(titleText).not.toContain('Навбаҳор')
+  })
 })

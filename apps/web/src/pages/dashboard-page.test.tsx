@@ -43,6 +43,46 @@ const mockSignal = vi.hoisted((): Signal => ({
   classifiedAt:       '2026-06-24T05:43:00.000Z',
 }))
 
+// Second distinct signal fixture — water/Олмазор — proves a second click is a real swap
+const secondSignal = vi.hoisted((): Signal => ({
+  id:                 2,
+  telegramUpdateId:   101,
+  telegramMessageId:  201,
+  telegramMessageUrl: null,
+  districtId:         1,
+  mahallaId:          11,
+  mahallaName:        'Олмазор',
+  senderDisplayName:  'Test User',
+  senderUsername:     null,
+  telegramTimestamp:  '2026-06-24T05:50:00.000Z',
+  rawText:            'Сув йўқ',
+  textSource:         'text',
+  category:           'water',
+  hokimRelated:       false,
+  keywordMatched:     true,
+  matchedKeyword:     'сув',
+  shortLabel:         null,
+  classifiedAt:       '2026-06-24T05:51:00.000Z',
+}))
+
+// Stateful filter mock — holds active filter values so setter-spy assertions work
+const mockFilterState = vi.hoisted(() => ({
+  current: {
+    timeRange: '7d' as const,
+    mahallaId: 11 as number | null,
+    searchText: 'сув',
+    customRange: null as null,
+  },
+}))
+
+// Exposed setter spies — tests assert these are NOT called during card swap / close
+const mockFilterSetters = vi.hoisted(() => ({
+  setTimeRange:   vi.fn(),
+  setMahallaId:   vi.fn(),
+  setSearchText:  vi.fn(),
+  setCustomRange: vi.fn(),
+}))
+
 const mockLaneGridProps = vi.hoisted((): { current: MockLaneGridProps | null } => ({
   current: null,
 }))
@@ -51,11 +91,18 @@ const mockContextDrawerProps = vi.hoisted((): { current: MockContextDrawerProps 
   current: null,
 }))
 
+const mockDrawerOpenStateHistory = vi.hoisted((): { current: boolean[] } => ({
+  current: [],
+}))
+
+const mockAfterOpenChangeCalls = vi.hoisted(() => vi.fn())
+
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
   mockLaneGridProps.current = null
   mockContextDrawerProps.current = null
+  mockDrawerOpenStateHistory.current = []
 })
 
 // ─── Mock heavy component dependencies ────────────────────────────────────────
@@ -64,9 +111,14 @@ vi.mock('../components/lane-grid/lane-grid.tsx', () => ({
   LaneGrid: (props: MockLaneGridProps) => {
     mockLaneGridProps.current = props
     return (
-      <button type="button" onClick={() => props.onCardClick(mockSignal)}>
-        Open signal
-      </button>
+      <>
+        <button type="button" onClick={() => props.onCardClick(mockSignal)}>
+          Open gas signal
+        </button>
+        <button type="button" onClick={() => props.onCardClick(secondSignal)}>
+          Open water signal
+        </button>
+      </>
     )
   },
 }))
@@ -82,12 +134,14 @@ vi.mock('../components/unsupported-screen.tsx', () => ({
 vi.mock('../components/context-drawer/context-drawer.tsx', () => ({
   ContextDrawer: (props: MockContextDrawerProps) => {
     mockContextDrawerProps.current = props
+    mockDrawerOpenStateHistory.current.push(props.isOpen)
     if (!props.isOpen) return null
     return (
       <button
         type="button"
         onClick={() => {
           props.onClose()
+          mockAfterOpenChangeCalls(false)
           props.onAfterOpenChange?.(false)
         }}
       >
@@ -105,13 +159,10 @@ vi.mock('../api/signals.ts', () => ({
 
 vi.mock('../hooks/use-filters.ts', () => ({
   useFilters: () => ({
-    filterState: { timeRange: 'today', mahallaId: null, searchText: '' },
-    setTimeRange:   vi.fn(),
-    setMahallaId:   vi.fn(),
-    setSearchText:  vi.fn(),
-    setCustomRange: vi.fn(),
-    computedApiParams: undefined,
-    isApiPreset:    false,
+    filterState: mockFilterState.current,
+    ...mockFilterSetters,
+    computedApiParams: { from: '2026-06-17T10:00:00.000Z', to: '2026-06-24T10:00:00.000Z' },
+    isApiPreset: true,
   }),
 }))
 
@@ -199,7 +250,7 @@ describe('DashboardPage — delay banner behavior', () => {
     expect(mockLaneGridProps.current?.activeSignalId).toBeNull()
     expect(mockContextDrawerProps.current?.anchorSignal).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open signal' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open gas signal' }))
 
     expect(mockLaneGridProps.current?.activeSignalId).toBe(mockSignal.id)
     expect(mockContextDrawerProps.current?.anchorSignal?.id).toBe(mockSignal.id)
@@ -210,5 +261,64 @@ describe('DashboardPage — delay banner behavior', () => {
     expect(mockLaneGridProps.current?.activeSignalId).toBeNull()
     expect(mockContextDrawerProps.current?.anchorSignal).toBeNull()
     expect(mockContextDrawerProps.current?.isOpen).toBe(false)
+  })
+})
+
+// ─── Card swap & filter persistence (Story 4.5: AC-4, 5, 6) ─────────────────
+
+describe('DashboardPage — card swap and filter persistence', () => {
+  // AC-4, AC-5: Second card click while drawer is open swaps content without closing/reopening.
+  // Filters must NOT be mutated during handleCardClick.
+  it('keeps drawer open and swaps active signal when a second card is clicked', () => {
+    mockUseHealth.mockReturnValue(buildHealthData('current', '2026-06-19T10:00:00.000Z'))
+    renderPage()
+
+    // Open drawer on first signal
+    fireEvent.click(screen.getByRole('button', { name: 'Open gas signal' }))
+    expect(mockContextDrawerProps.current?.isOpen).toBe(true)
+    expect(mockContextDrawerProps.current?.anchorSignal?.id).toBe(mockSignal.id)
+    expect(mockLaneGridProps.current?.activeSignalId).toBe(mockSignal.id)
+
+    mockAfterOpenChangeCalls.mockClear()
+    const historyLengthBeforeSwap = mockDrawerOpenStateHistory.current.length
+
+    // Swap to second signal — drawer must stay open, activeSignalId must update
+    fireEvent.click(screen.getByRole('button', { name: 'Open water signal' }))
+    expect(mockContextDrawerProps.current?.isOpen).toBe(true)
+    expect(mockContextDrawerProps.current?.anchorSignal?.id).toBe(secondSignal.id)
+    expect(mockLaneGridProps.current?.activeSignalId).toBe(secondSignal.id)
+    expect(mockDrawerOpenStateHistory.current.slice(historyLengthBeforeSwap)).not.toContain(false)
+    expect(mockAfterOpenChangeCalls).not.toHaveBeenCalled()
+
+    // AC-5: No filter setter was called during either card click
+    expect(mockFilterSetters.setTimeRange).not.toHaveBeenCalled()
+    expect(mockFilterSetters.setMahallaId).not.toHaveBeenCalled()
+    expect(mockFilterSetters.setSearchText).not.toHaveBeenCalled()
+    expect(mockFilterSetters.setCustomRange).not.toHaveBeenCalled()
+  })
+
+  // AC-6: Filters persist across drawer close and reopen.
+  it('keeps filters across drawer close and reopen', () => {
+    mockUseHealth.mockReturnValue(buildHealthData('current', '2026-06-19T10:00:00.000Z'))
+    renderPage()
+
+    // Open drawer on first signal
+    fireEvent.click(screen.getByRole('button', { name: 'Open gas signal' }))
+    expect(mockContextDrawerProps.current?.isOpen).toBe(true)
+
+    // Close the drawer
+    fireEvent.click(screen.getByRole('button', { name: 'Close drawer' }))
+    expect(mockContextDrawerProps.current?.isOpen).toBe(false)
+
+    // Reopen on second signal
+    fireEvent.click(screen.getByRole('button', { name: 'Open water signal' }))
+    expect(mockContextDrawerProps.current?.isOpen).toBe(true)
+    expect(mockContextDrawerProps.current?.anchorSignal?.id).toBe(secondSignal.id)
+
+    // AC-6: No filter setter called throughout the entire open → close → reopen cycle
+    expect(mockFilterSetters.setTimeRange).not.toHaveBeenCalled()
+    expect(mockFilterSetters.setMahallaId).not.toHaveBeenCalled()
+    expect(mockFilterSetters.setSearchText).not.toHaveBeenCalled()
+    expect(mockFilterSetters.setCustomRange).not.toHaveBeenCalled()
   })
 })
