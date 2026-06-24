@@ -116,6 +116,6 @@ development_status:
   # Goal: Configurable classifier providers for Gemini default, local Ollama/Gemma,
   # OpenAI-compatible providers, and rule-only testing.
   # ─────────────────────────────────────────────────────────────────────────
-  epic-7: in-progress
+  epic-7: done
   7-1-provider-based-classifier-configuration: done
   epic-7-retrospective: optional
