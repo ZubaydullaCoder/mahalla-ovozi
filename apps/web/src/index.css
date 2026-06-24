@@ -88,3 +88,28 @@ body {
     min-width: 220px;
   }
 }
+
+/* ─── Context Drawer — Responsive Width ─────────────────────────────────── */
+
+/* Default: 340px at 1024–1439px (AC-10) */
+.context-drawer .ant-drawer-content-wrapper {
+  width: 340px !important;
+  transition-duration: 250ms !important;
+  transition-timing-function: ease-out !important;
+}
+
+.context-drawer .ant-drawer-panel-motion-right-enter-active,
+.context-drawer .ant-drawer-panel-motion-right-appear-active,
+.context-drawer .ant-drawer-panel-motion-right-leave-active {
+  animation-duration: 250ms !important;
+  animation-timing-function: ease-out !important;
+  transition-duration: 250ms !important;
+  transition-timing-function: ease-out !important;
+}
+
+/* Wide: 380px at ≥1440px (AC-10) */
+@media (min-width: 1440px) {
+  .context-drawer .ant-drawer-content-wrapper {
+    width: 380px !important;
+  }
+}

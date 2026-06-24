@@ -11,6 +11,7 @@ import { FilterBar } from '../components/filter-bar/filter-bar.tsx'
 import { useFilters } from '../hooks/use-filters.ts'
 import { filterByTimeRange, filterByMahalla, filterByKeyword } from '../utils/filter-utils.ts'
 import { strings } from '../strings.ts'
+import { ContextDrawer } from '../components/context-drawer/context-drawer.tsx'
 
 // Lane label order for loading skeleton — matches LANE_ORDER in LaneGrid
 const SKELETON_LANE_LABELS = [
@@ -97,10 +98,28 @@ export function DashboardPage() {
   // isKeywordActive uses the debounced applied filter (searchText), not the immediate visible value
   const isKeywordActive = filterState.searchText.trim().length > 0
 
-  // Context drawer wiring is Story 4-3 — stub with console.log for now
-  const handleCardClick = (signal: Signal) => {
-    console.log('Signal clicked:', signal.id)
-  }
+  // Context drawer state (AC: 1, 8, 11)
+  const [activeSignal, setActiveSignal] = useState<Signal | null>(null)
+  const [activeSignalClickedAt, setActiveSignalClickedAt] = useState<Date | null>(null)
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+
+  // Capture click time once — do NOT recompute inside drawer render (AC-2)
+  const handleCardClick = useCallback((signal: Signal) => {
+    setActiveSignal(signal)
+    setActiveSignalClickedAt(new Date())
+    setIsDrawerOpen(true)
+  }, [])
+
+  const handleDrawerClose = useCallback(() => {
+    setIsDrawerOpen(false)
+  }, [])
+
+  const handleDrawerAfterOpenChange = useCallback((open: boolean) => {
+    if (!open) {
+      setActiveSignal(null)
+      setActiveSignalClickedAt(null)
+    }
+  }, [])
 
   return (
     <>
@@ -152,14 +171,24 @@ export function DashboardPage() {
             <div style={{ flex: 1, minHeight: 0 }}>
               <LaneGrid
                 signals={groupedSignals}
-                activeSignalId={null}
+                activeSignalId={isDrawerOpen ? activeSignal?.id ?? null : null}
                 onCardClick={handleCardClick}
                 isKeywordSearch={isKeywordActive}
+                isDrawerOpen={isDrawerOpen}
               />
             </div>
           </div>
         )}
       </AppShell>
+      {/* ContextDrawer renders outside AppShell so it overlays the entire viewport (AC-1) */}
+      <ContextDrawer
+        anchorSignal={activeSignal}
+        anchorClickedAt={activeSignalClickedAt}
+        isOpen={isDrawerOpen}
+        onClose={handleDrawerClose}
+        onAfterOpenChange={handleDrawerAfterOpenChange}
+        contextParams={computedApiParams}
+      />
       <UnsupportedScreen />
     </>
   )

@@ -1,6 +1,6 @@
 # Story 4.4: Context Drawer UI — Open, Display & Interaction
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -38,61 +38,61 @@ so that I can read the evidence stream for a civic issue without leaving the das
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `DrawerSignalCard` in `apps/web/src/components/context-drawer/drawer-signal-card.tsx` (AC: 5, 6)
-  - [ ] Props: `{ signal: Signal; isActive: boolean; categoryColor: string }`
-  - [ ] Full raw text — NO `WebkitLineClamp`
-  - [ ] Active state: `borderLeft: '4px solid ${categoryColor}'` + `background: '${categoryColor}0D'`
-  - [ ] Sender fallback: displayName → @username → Резидент
-  - [ ] UTC+5 timestamp (same logic as SignalCard.formatTimestamp)
-  - [ ] CaptionBadge (📷) and HokimStar (★) same as SignalCard
-  - [ ] No `onClick`, no `onKeyDown`, `cursor: 'default'`, `role="article"`
+- [x] Task 1: Create `DrawerSignalCard` in `apps/web/src/components/context-drawer/drawer-signal-card.tsx` (AC: 5, 6)
+  - [x] Props: `{ signal: Signal; isActive: boolean; categoryColor: string }`
+  - [x] Full raw text — NO `WebkitLineClamp`
+  - [x] Active state: `borderLeft: '4px solid ${categoryColor}'` + `background: '${categoryColor}0D'`
+  - [x] Sender fallback: displayName → @username → Резидент
+  - [x] UTC+5 timestamp (same logic as SignalCard.formatTimestamp)
+  - [x] CaptionBadge (📷) and HokimStar (★) same as SignalCard
+  - [x] No `onClick`, no `onKeyDown`, `cursor: 'default'`, `role="article"`
 
-- [ ] Task 2: Create `ContextDrawer` in `apps/web/src/components/context-drawer/context-drawer.tsx` (AC: 1–10)
-  - [ ] Props: `{ anchorSignal: Signal | null; anchorClickedAt: Date | null; isOpen: boolean; onClose: () => void; contextParams?: { from?: string; to?: string } }`
-  - [ ] Call `useSignalContext(anchorSignal?.id ?? null, contextParams)`
-  - [ ] AntD `Drawer`: `open={isOpen}`, `onClose={onClose}`, `placement="right"`, `className="context-drawer"`, `destroyOnHide={false}`
-  - [ ] Set `styles={{ mask: { background: 'rgba(15,12,10,0.06)' } }}`
-  - [ ] `title` = breadcrumb string from `buildBreadcrumb(anchorSignal, anchorClickedAt)`
-  - [ ] Body: 3-row `<Skeleton active paragraph={{ rows: 3 }} />` when loading; signal list when done
-  - [ ] Attach `anchorRef` to the anchor card's wrapper div; fire `scrollIntoView` in `useEffect` when data loads
-  - [ ] Only-anchor empty state (AC-9)
+- [x] Task 2: Create `ContextDrawer` in `apps/web/src/components/context-drawer/context-drawer.tsx` (AC: 1–10)
+  - [x] Props: `{ anchorSignal: Signal | null; anchorClickedAt: Date | null; isOpen: boolean; onClose: () => void; contextParams?: { from?: string; to?: string } }`
+  - [x] Call `useSignalContext(anchorSignal?.id ?? null, contextParams)`
+  - [x] AntD `Drawer`: `open={isOpen}`, `onClose={onClose}`, `placement="right"`, `className="context-drawer"`, `destroyOnHidden={false}`
+  - [x] Set `styles={{ mask: { background: 'rgba(15,12,10,0.06)' } }}`
+  - [x] `title` = breadcrumb string from `buildBreadcrumb(anchorSignal, anchorClickedAt)`
+  - [x] Body: 3-row `<Skeleton active paragraph={{ rows: 3 }} />` when loading; signal list when done
+  - [x] Attach `anchorRef` to the anchor card's wrapper div; fire `scrollIntoView` in `useEffect` when data loads
+  - [x] Only-anchor empty state (AC-9)
 
-- [ ] Task 3: Update `DashboardPage` to wire drawer state (AC: 1, 8, 11)
-  - [ ] Add `const [activeSignal, setActiveSignal] = useState<Signal | null>(null)`
-  - [ ] Add `const [activeSignalClickedAt, setActiveSignalClickedAt] = useState<Date | null>(null)`
-  - [ ] Add `const [isDrawerOpen, setIsDrawerOpen] = useState(false)`
-  - [ ] Replace `handleCardClick` stub with: `setActiveSignal(signal); setActiveSignalClickedAt(new Date()); setIsDrawerOpen(true)`
-  - [ ] Add `handleDrawerClose`: `setIsDrawerOpen(false)`
-  - [ ] Pass `activeSignalId={activeSignal?.id ?? null}` and `isDrawerOpen={isDrawerOpen}` to `LaneGrid`
-  - [ ] Render `<ContextDrawer anchorSignal={activeSignal} anchorClickedAt={activeSignalClickedAt} isOpen={isDrawerOpen} onClose={handleDrawerClose} contextParams={computedApiParams} />`
+- [x] Task 3: Update `DashboardPage` to wire drawer state (AC: 1, 8, 11)
+  - [x] Add `const [activeSignal, setActiveSignal] = useState<Signal | null>(null)`
+  - [x] Add `const [activeSignalClickedAt, setActiveSignalClickedAt] = useState<Date | null>(null)`
+  - [x] Add `const [isDrawerOpen, setIsDrawerOpen] = useState(false)`
+  - [x] Replace `handleCardClick` stub with: `setActiveSignal(signal); setActiveSignalClickedAt(new Date()); setIsDrawerOpen(true)`
+  - [x] Add `handleDrawerClose`: `setIsDrawerOpen(false)`
+  - [x] Pass `activeSignalId={activeSignal?.id ?? null}` and `isDrawerOpen={isDrawerOpen}` to `LaneGrid`
+  - [x] Render `<ContextDrawer anchorSignal={activeSignal} anchorClickedAt={activeSignalClickedAt} isOpen={isDrawerOpen} onClose={handleDrawerClose} contextParams={computedApiParams} />`
 
-- [ ] Task 4: Update `LaneGrid` — fix `activeSignalId` bug and add `isDrawerOpen` (AC: 5, 8)
-  - [ ] Add `isDrawerOpen?: boolean` to `LaneGridProps`
-  - [ ] DESTRUCTURE `activeSignalId` in the function signature (currently missing — it's in props type but not read)
-  - [ ] Pass `activeSignalId` and `isDrawerOpen` to each `LaneColumn`
+- [x] Task 4: Update `LaneGrid` — fix `activeSignalId` bug and add `isDrawerOpen` (AC: 5, 8)
+  - [x] Add `isDrawerOpen?: boolean` to `LaneGridProps`
+  - [x] DESTRUCTURE `activeSignalId` in the function signature (currently missing — it's in props type but not read)
+  - [x] Pass `activeSignalId` and `isDrawerOpen` to each `LaneColumn`
 
-- [ ] Task 5: Update `LaneColumn` to activate cards and freeze scroll (AC: 5, 8)
-  - [ ] Add `activeSignalId?: number | null` and `isDrawerOpen?: boolean` to `LaneColumnProps`
-  - [ ] Change `isActive={false}` → `isActive={signal.id === activeSignalId}` for both virtual and non-virtual render paths
-  - [ ] Add `overflowY: isDrawerOpen ? 'hidden' : 'auto'` to the `ref={parentRef}` scroll container div
+- [x] Task 5: Update `LaneColumn` to activate cards and freeze scroll (AC: 5, 8)
+  - [x] Add `activeSignalId?: number | null` and `isDrawerOpen?: boolean` to `LaneColumnProps`
+  - [x] Change `isActive={false}` → `isActive={signal.id === activeSignalId}` for both virtual and non-virtual render paths
+  - [x] Add `overflowY: isDrawerOpen ? 'hidden' : 'auto'` to the `ref={parentRef}` scroll container div
 
-- [ ] Task 6: Add `strings.drawer` and CSS to `strings.ts` + `index.css` (AC: 2, 9, 10)
-  - [ ] `strings.ts`: add `drawer: { onlyAnchorMessage: 'Бу маҳаллада бошқа сигналлар топилмади' }`
-  - [ ] `index.css`: add `.context-drawer .ant-drawer-content-wrapper { width: 340px !important; }` + `@media (min-width: 1440px)` override for 380px
+- [x] Task 6: Add `strings.drawer` and CSS to `strings.ts` + `index.css` (AC: 2, 9, 10)
+  - [x] `strings.ts`: add `drawer: { onlyAnchorMessage: 'Бу маҳаллада бошқа сигналлар топилмади' }`
+  - [x] `index.css`: add `.context-drawer .ant-drawer-content-wrapper { width: 340px !important; }` + `@media (min-width: 1440px)` override for 380px
 
-- [ ] Task 7: Add focused tests (AC: 12)
-  - [ ] Create `apps/web/src/components/context-drawer/context-drawer.test.tsx`
+- [x] Task 7: Add focused tests (AC: 12)
+  - [x] Create `apps/web/src/components/context-drawer/context-drawer.test.tsx`
     - Skeleton renders when `isLoading=true`
     - Signal list renders when data loaded
     - Only-anchor empty state: 1 signal = anchor → message appears below card
     - Breadcrumb uses service category (category='gas', hokimRelated=true → "Газ ·...")
     - `useSignalContext` called with `anchorSignal.id` and `contextParams`
-  - [ ] Update `apps/web/src/pages/dashboard-page.test.tsx`: add ContextDrawer to mocks
+  - [x] Update `apps/web/src/pages/dashboard-page.test.tsx`: add ContextDrawer to mocks
 
-- [ ] Task 8: Verify all checks (AC: 12)
-  - [ ] `pnpm lint`
-  - [ ] `pnpm test` — all 542+ pass, 0 failures
-  - [ ] `pnpm exec tsc -b apps/web/tsconfig.json`
+- [x] Task 8: Verify all checks (AC: 12)
+  - [x] `pnpm lint`
+  - [x] `pnpm test` — all 551 pass (542 baseline + 9 new), 0 failures
+  - [x] `pnpm exec tsc -b apps/web/tsconfig.json`
 
 ---
 
@@ -498,16 +498,37 @@ pnpm exec tsc -b apps/web/tsconfig.json
 
 ### Agent Model Used
 
-_to be filled by dev agent_
+Claude Sonnet 4.6 (Thinking)
 
 ### Completion Notes List
 
-_to be filled by dev agent_
+- Created `DrawerSignalCard` as a focused non-interactive component: full text, no clamp, no onClick/onKeyDown, role="article", cursor:default. Mirrors SignalCard visual patterns (active border+background, sender fallback, footer icons).
+- Created `ContextDrawer` with AntD Drawer overlay, 3-row skeleton, anchor scroll-to-center via useEffect + scrollIntoView, only-anchor empty state, and correct breadcrumb using service category label (never hokim lane label).
+- Fixed: `destroyOnHide` → `destroyOnHidden` (correct AntD v5 prop name in this project; story notes had the wrong name).
+- Fixed `LaneGrid` `activeSignalId` bug: was in interface but not destructured — now properly forwarded to LaneColumn.
+- LaneColumn: `isActive={false}` hardcode replaced with `signal.id === activeSignalId` for both virtual and non-virtual paths; overflowY freeze on drawer open.
+- DashboardPage: replaced `console.log` stub with real drawer state (useState x3 + useCallback x2); ContextDrawer rendered outside AppShell to overlay entire viewport.
+- strings.ts: added `drawer.onlyAnchorMessage` Uzbek Cyrillic string.
+- index.css: added responsive drawer width (340px default, 380px at ≥1440px).
+- dashboard-page.test.tsx: added ContextDrawer mock to prevent test breakage.
+- Test results: **551 tests pass, 33 test files** (542 baseline + 8 new ContextDrawer tests + 1 dashboard close-state regression test). No regressions.
+- pnpm lint: ✅ clean. tsc: ✅ no errors. web build: ✅ no errors.
 
 ### File List
 
-_to be filled by dev agent_
+- `apps/web/src/components/context-drawer/context-drawer.tsx` [NEW]
+- `apps/web/src/components/context-drawer/drawer-signal-card.tsx` [NEW]
+- `apps/web/src/components/context-drawer/context-drawer.test.tsx` [NEW]
+- `apps/web/src/pages/dashboard-page.tsx` [MODIFIED]
+- `apps/web/src/components/lane-grid/lane-grid.tsx` [MODIFIED]
+- `apps/web/src/components/lane-grid/lane-column.tsx` [MODIFIED]
+- `apps/web/src/strings.ts` [MODIFIED]
+- `apps/web/src/index.css` [MODIFIED]
+- `apps/web/src/pages/dashboard-page.test.tsx` [MODIFIED]
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` [MODIFIED]
 
 ### Change Log
 
 - 2026-06-24: Story 4.4 created. Full codebase + architecture + UX analysis applied. Test baseline: 542/32. Key findings: `useSignalContext` already done (4.3), `activeSignalId` bug in `lane-grid.tsx`, `isActive={false}` hardcoded in `lane-column.tsx`. Story 4.5 compatibility ensured via `destroyOnHide={false}`.
+- 2026-06-24: Story 4.4 implemented. All 8 tasks complete. 8 new tests added (550 total). Fixed `destroyOnHide` → `destroyOnHidden`. Status: review.
+- 2026-06-24: Code review fix pass completed. Cleared stale active-card state on drawer close, added 250ms ease-out drawer motion override, added close-state regression coverage. All checks pass. Status: done.

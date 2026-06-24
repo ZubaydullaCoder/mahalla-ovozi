@@ -2,21 +2,73 @@
 // apps/web/src/pages/dashboard-page.test.tsx
 // Focused coverage: no_data and delayed banner rendering, current → no banner.
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import { ConfigProvider } from 'antd'
 import { DashboardPage } from './dashboard-page.tsx'
 import type { DashboardHealthStatus } from '../api/health.ts'
+import type { Signal } from '../api/signals.ts'
+
+interface MockLaneGridProps {
+  activeSignalId: number | null
+  isDrawerOpen?: boolean
+  onCardClick: (signal: Signal) => void
+}
+
+interface MockContextDrawerProps {
+  anchorSignal: Signal | null
+  isOpen: boolean
+  onClose: () => void
+  onAfterOpenChange?: (open: boolean) => void
+}
+
+const mockSignal = vi.hoisted((): Signal => ({
+  id:                 1,
+  telegramUpdateId:   100,
+  telegramMessageId:  200,
+  telegramMessageUrl: null,
+  districtId:         1,
+  mahallaId:          10,
+  mahallaName:        'Навбаҳор',
+  senderDisplayName:  'Test User',
+  senderUsername:     null,
+  telegramTimestamp:  '2026-06-24T05:42:00.000Z',
+  rawText:            'Газ йўқ',
+  textSource:         'text',
+  category:           'gas',
+  hokimRelated:       true,
+  keywordMatched:     true,
+  matchedKeyword:     'газ',
+  shortLabel:         null,
+  classifiedAt:       '2026-06-24T05:43:00.000Z',
+}))
+
+const mockLaneGridProps = vi.hoisted((): { current: MockLaneGridProps | null } => ({
+  current: null,
+}))
+
+const mockContextDrawerProps = vi.hoisted((): { current: MockContextDrawerProps | null } => ({
+  current: null,
+}))
 
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  mockLaneGridProps.current = null
+  mockContextDrawerProps.current = null
 })
 
 // ─── Mock heavy component dependencies ────────────────────────────────────────
 
 vi.mock('../components/lane-grid/lane-grid.tsx', () => ({
-  LaneGrid: () => <div data-testid="lane-grid" />,
+  LaneGrid: (props: MockLaneGridProps) => {
+    mockLaneGridProps.current = props
+    return (
+      <button type="button" onClick={() => props.onCardClick(mockSignal)}>
+        Open signal
+      </button>
+    )
+  },
 }))
 
 vi.mock('../components/filter-bar/filter-bar.tsx', () => ({
@@ -27,10 +79,28 @@ vi.mock('../components/unsupported-screen.tsx', () => ({
   UnsupportedScreen: () => null,
 }))
 
+vi.mock('../components/context-drawer/context-drawer.tsx', () => ({
+  ContextDrawer: (props: MockContextDrawerProps) => {
+    mockContextDrawerProps.current = props
+    if (!props.isOpen) return null
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          props.onClose()
+          props.onAfterOpenChange?.(false)
+        }}
+      >
+        Close drawer
+      </button>
+    )
+  },
+}))
+
 // ─── Mock hooks ───────────────────────────────────────────────────────────────
 
 vi.mock('../api/signals.ts', () => ({
-  useSignals: () => ({ data: [], isLoading: false, isError: false }),
+  useSignals: () => ({ data: [mockSignal], isLoading: false, isError: false }),
 }))
 
 vi.mock('../hooks/use-filters.ts', () => ({
@@ -118,5 +188,27 @@ describe('DashboardPage — delay banner behavior', () => {
     renderPage()
 
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('clears the active lane card after the context drawer closes', () => {
+    mockUseHealth.mockReturnValue(
+      buildHealthData('current', '2026-06-19T10:00:00.000Z'),
+    )
+    renderPage()
+
+    expect(mockLaneGridProps.current?.activeSignalId).toBeNull()
+    expect(mockContextDrawerProps.current?.anchorSignal).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open signal' }))
+
+    expect(mockLaneGridProps.current?.activeSignalId).toBe(mockSignal.id)
+    expect(mockContextDrawerProps.current?.anchorSignal?.id).toBe(mockSignal.id)
+    expect(mockContextDrawerProps.current?.isOpen).toBe(true)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close drawer' }))
+
+    expect(mockLaneGridProps.current?.activeSignalId).toBeNull()
+    expect(mockContextDrawerProps.current?.anchorSignal).toBeNull()
+    expect(mockContextDrawerProps.current?.isOpen).toBe(false)
   })
 })

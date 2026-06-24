@@ -26,8 +26,10 @@ const VIRTUALIZE_THRESHOLD = 50
 export interface LaneColumnProps {
   laneKey: LaneKey
   signals: Signal[]
+  activeSignalId?: number | null  // which signal card is currently highlighted
   onCardClick: (signal: Signal) => void
-  isKeywordSearch?: boolean   // NEW: when true, shows keyword-search-specific empty state
+  isKeywordSearch?: boolean   // when true, shows keyword-search-specific empty state
+  isDrawerOpen?: boolean      // when true, freeze scroll (AC-8)
 }
 
 function EmptyLane({
@@ -72,7 +74,7 @@ function EmptyLane({
   )
 }
 
-export function LaneColumn({ laneKey, signals, onCardClick, isKeywordSearch }: LaneColumnProps) {
+export function LaneColumn({ laneKey, signals, activeSignalId, onCardClick, isKeywordSearch, isDrawerOpen }: LaneColumnProps) {
   const { token } = theme.useToken()
   const parentRef = useRef<HTMLDivElement>(null)
 
@@ -118,7 +120,8 @@ export function LaneColumn({ laneKey, signals, onCardClick, isKeywordSearch }: L
         ref={parentRef}
         style={{
           flex: 1,
-          overflowY: 'auto',
+          // Freeze lane scroll while drawer is open; browser preserves scroll position (AC-8)
+          overflowY: isDrawerOpen ? 'hidden' : 'auto',
           padding: '8px 0',
         }}
       >
@@ -143,7 +146,7 @@ export function LaneColumn({ laneKey, signals, onCardClick, isKeywordSearch }: L
                 >
                   <SignalCard
                     signal={signal}
-                    isActive={false}
+                    isActive={signal.id === activeSignalId}
                     categoryColor={CATEGORY_COLORS[signal.category]}
                     onClick={onCardClick}
                   />
@@ -157,7 +160,7 @@ export function LaneColumn({ laneKey, signals, onCardClick, isKeywordSearch }: L
             <div key={signal.id} style={{ padding: '4px 8px' }}>
               <SignalCard
                 signal={signal}
-                isActive={false}
+                isActive={signal.id === activeSignalId}
                 categoryColor={CATEGORY_COLORS[signal.category]}
                 onClick={onCardClick}
               />

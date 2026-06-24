@@ -68,5 +68,8 @@ export const strings = {
     allMahallas:     'Барча маҳаллалар',
     searchPlaceholder: 'Қидириш...',
   },
+  drawer: {
+    onlyAnchorMessage: 'Бу маҳаллада бошқа сигналлар топилмади',
+  },
 
 } as const
