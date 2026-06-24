@@ -117,5 +117,5 @@ development_status:
   # OpenAI-compatible providers, and rule-only testing.
   # ─────────────────────────────────────────────────────────────────────────
   epic-7: in-progress
-  7-1-provider-based-classifier-configuration: review
+  7-1-provider-based-classifier-configuration: done
   epic-7-retrospective: optional

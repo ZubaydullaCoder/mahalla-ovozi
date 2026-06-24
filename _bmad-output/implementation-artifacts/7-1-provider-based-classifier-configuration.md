@@ -1,6 +1,6 @@
 # Story 7.1: Provider-Based Classifier Configuration
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -351,3 +351,21 @@ GPT-5 Codex
 ### Change Log
 
 - 2026-06-24: Implemented provider-based classifier configuration with Gemini default, Ollama, OpenAI-compatible, and rule-only providers; added focused env/provider/batch tests and updated env sample.
+
+### Review Findings
+
+> Review performed: 2026-06-24. Layers: Blind Hunter, Edge Case Hunter, Acceptance Auditor. All ACs pass.
+
+**Patch findings — adjudicated and resolved:**
+
+- [x] [Review][Applied] `gemini.ts` + `ollama.ts` — Wrapped raw `JSON.parse` with descriptive error messages matching `openai-compatible.ts` convention. Tests updated. [gemini.ts:44, ollama.ts:68]
+- [x] [Review][Defer] `fetchWithTimeout` + `getErrorMessage` duplicated in `ollama.ts` / `openai-compatible.ts` — valid observation, low impact with only two providers and provider-specific log text; not a blocker per adjudication.
+- [x] [Review][Defer] No `default: throw` exhaustiveness guard in `classifyWithConfiguredProvider` switch — acceptable defensive hardening; TypeScript enum validation + compile-time exhaustiveness covers the gap for now.
+
+**Defer findings (3):**
+
+- [x] [Review][Defer] URL normalization helper pattern duplicated across `ollama.ts` and `openai-compatible.ts` — deferred, pre-existing pattern; low impact
+- [x] [Review][Defer] Gemini module-level mutable singleton (`aiClient`, `aiClientApiKey`) — deferred, no production risk today
+- [x] [Review][Defer] Ollama `format` field receives `zodToJsonSchema` output with `$schema` metadata — deferred, runtime environment dependency
+
+**All acceptance criteria passed.** All anti-patterns from story spec are correctly avoided.

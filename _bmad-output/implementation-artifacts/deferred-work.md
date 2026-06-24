@@ -15,3 +15,9 @@
 - `tsconfig.json` `exclude: ["node_modules"]` is redundant when `include` is explicitly set. Cosmetic cleanup opportunity; does not affect correctness.
 - No warning-level log or threshold check for anomalously large delete counts in `purgeOldSignals`. If `result.count` is unexpectedly large it could signal a broken index or runaway ingestion — a `warn` log above a threshold (e.g., 10 000) would aid ops alerting.
 
+## Deferred from: code review of 7-1-provider-based-classifier-configuration (2026-06-24)
+
+- URL normalization helper pattern (`buildOllamaEndpoint` / `buildChatCompletionsEndpoint`) duplicated across `ollama.ts` and `openai-compatible.ts` — could move to shared module; low impact, low risk.
+- Gemini module-level mutable singleton (`aiClient`, `aiClientApiKey`) — not concurrency-unsafe in practice given Node's single-threaded event loop, but anti-pattern; revisit if Gemini provider is tested under concurrent load.
+- Ollama `format` field receives `zodToJsonSchema` output including `$schema` metadata — Ollama-version-dependent behavior; worth documenting in ops runbook when Ollama is used in production.
+

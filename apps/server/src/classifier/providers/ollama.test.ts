@@ -127,7 +127,9 @@ describe('classifyWithOllama', () => {
       message: { content: '{bad json' },
     }))
 
-    await expect(classifyWithOllama('Suv yoq')).rejects.toThrow(SyntaxError)
+    await expect(classifyWithOllama('Suv yoq')).rejects.toThrow(
+      /Ollama classification returned invalid model content JSON/,
+    )
   })
 
   it('throws a clear timeout error and aborts the request', async () => {

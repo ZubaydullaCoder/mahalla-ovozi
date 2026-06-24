@@ -65,7 +65,7 @@ export async function classifyWithOllama(text: string): Promise<ProviderRawResul
     provider: 'ollama',
     model:    env.AI_MODEL,
     latencyMs,
-    rawJson:  JSON.parse(content),
+    rawJson:  parseModelJson(content),
   }
 }
 
@@ -111,6 +111,14 @@ async function parseResponseJson(response: Response): Promise<OllamaChatResponse
     return await response.json() as OllamaChatResponse
   } catch (err) {
     throw new Error(`Ollama classification returned invalid response JSON: ${getErrorMessage(err)}`)
+  }
+}
+
+function parseModelJson(content: string): unknown {
+  try {
+    return JSON.parse(content)
+  } catch (err) {
+    throw new Error(`Ollama classification returned invalid model content JSON: ${getErrorMessage(err)}`)
   }
 }
 

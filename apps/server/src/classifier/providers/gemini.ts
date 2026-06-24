@@ -41,7 +41,7 @@ export async function classifyWithGemini(text: string): Promise<ProviderRawResul
     provider:  'gemini',
     model:     env.AI_MODEL,
     latencyMs: Date.now() - startedAt,
-    rawJson:   JSON.parse(rawText),
+    rawJson:   parseGeminiJson(rawText),
   }
 }
 
@@ -52,6 +52,16 @@ function getGeminiClient(apiKey: string): GoogleGenAI {
   }
 
   return aiClient
+}
+
+function parseGeminiJson(text: string): unknown {
+  try {
+    return JSON.parse(text)
+  } catch (err) {
+    throw new Error(
+      `Gemini classification returned invalid JSON: ${err instanceof Error ? err.message : 'Unknown parse error'}`,
+    )
+  }
 }
 
 async function withTimeout<T>(promise: Promise<T>, controller: AbortController): Promise<T> {
