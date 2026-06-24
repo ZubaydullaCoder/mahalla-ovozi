@@ -87,7 +87,7 @@ development_status:
   4-2-keyword-search: done
   4-3-context-drawer: done
   4-4-context-drawer-ui: done
-  4-5-drawer-card-swap-and-filter-state-persistence: backlog
+  4-5-drawer-card-swap-and-filter-state-persistence: ready-for-dev
   epic-4-retrospective: optional
 
   # ─────────────────────────────────────────────────────────────────────────
