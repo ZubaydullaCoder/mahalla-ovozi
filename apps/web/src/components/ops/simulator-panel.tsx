@@ -1,5 +1,5 @@
 // apps/web/src/components/ops/simulator-panel.tsx
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Alert,
   Button,
@@ -62,6 +62,13 @@ export function SimulatorPanel() {
   const [error, setError]                     = useState<string | null>(null)
 
   const { data: mahallas, isLoading: mahallasLoading } = useMahallas()
+
+  // Auto-select first mahalla once list loads (no user selection yet)
+  useEffect(() => {
+    if (mahallas && mahallas.length > 0 && mahallaId === undefined) {
+      setMahallaId(mahallas[0]!.id)
+    }
+  }, [mahallas, mahallaId])
   const webhookMutation  = useSimulateWebhook()
   const messageMutation  = useSimulateMessage()
 

@@ -70,7 +70,9 @@ function renderPanel() {
 
 async function selectFirstMahalla(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('combobox'))
-  await user.click(await screen.findByText(MAHALLAS[0]!.name))
+  // Use role='option' to target the dropdown item specifically; avoids ambiguity
+  // when the first mahalla is auto-selected and its label also appears in the combobox display.
+  await user.click(await screen.findByRole('option', { name: MAHALLAS[0]!.name }))
 }
 
 async function fillRequiredFields(user: ReturnType<typeof userEvent.setup>, text = 'Suv yo\'q') {

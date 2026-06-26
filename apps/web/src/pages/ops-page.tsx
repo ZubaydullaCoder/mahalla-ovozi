@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Alert, ConfigProvider, Layout, Menu, Spin, Typography, theme, type MenuProps } from 'antd'
+import { mahallaTheme } from '../theme.ts'
 import { useOpsStatus } from '../api/ops.ts'
 import { HealthPanel } from '../components/ops/health-panel.tsx'
 import { KeywordRegistryPanel } from '../components/ops/keyword-registry-panel.tsx'
@@ -182,7 +183,9 @@ function OpsPageThemedContent() {
           </Layout.Sider>
         )}
         <Layout.Content style={{ minWidth: 0, padding: 24 }}>
-          {renderContent()}
+          <ConfigProvider theme={{ algorithm: theme.defaultAlgorithm, ...mahallaTheme }}>
+            {renderContent()}
+          </ConfigProvider>
         </Layout.Content>
       </Layout>
     </Layout>

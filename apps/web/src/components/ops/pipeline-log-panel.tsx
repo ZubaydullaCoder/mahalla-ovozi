@@ -243,7 +243,7 @@ function EventLogPanel() {
 
 export function PipelineLogPanel() {
   return (
-    <Space orientation="vertical" style={{ width: '100%' }}>
+    <Space orientation="vertical" style={{ width: '100%' }} size="middle">
       <BatchStatusPanel />
       <EventLogPanel />
     </Space>
