@@ -35,13 +35,15 @@ Analyze the message contextually and ask yourself: "Does this message convey a c
 
 Greeting/chatter mix rule: Messages often start with greetings, small talk, or polite phrases (e.g. "Assalomu alaykum", "Yaxshimisizlar", "yaxshi dam oldilarmi") followed by a real utility issue, concern, or query (e.g. "svet o'chdimi yana", "suv bormi"). You MUST classify such messages as a "signal" if they contain a utility issue/query, ignoring the greetings. Do not let the greeting/social chatter at the start override the actual utility complaint or query.
 
+Keyword vs Intent rule: Do NOT classify a message as a "signal" just because it contains problem-related keywords (e.g. "buzilgan", "buzildi", "avariya", "buzib ketishdi", "o'chgan") alongside a utility keyword (e.g. "suv", "svet", "gaz"). You MUST analyze the overall grammar and intention of the sentence. If the sentence is structured to offer unrelated intent (e.g., private/commercial services, repairs, installation, tools, products, marketplace ads) rather than reporting an actual civic problem or query, it MUST be ignored.
+
 This test covers all cases:
 - A question about service status ("Svetni yoqishadimi?") → implies interest in service status/outage → signal
 - A question or concern about a missed/delayed service schedule (e.g. asking when a service will arrive after missing its expected time) → implies service failure or interruption → signal
 - A frustrated community poll ("184 odam onlayn, bor yoki yo'q deyish qiyin emas") → implies concern about service status → signal
 - An expression of thanks/praise ("Svetni tuzatganlarga rahmat, baraka topinglar") → praise/gratitude related to utility service → signal
 - A contact/number request, identity query, or contact details sharing with no mentioned problem (e.g. "gaz nazoratchisi kim", "suvchining raqamini bering", "mana gazchi") → no service issue or praise context, pure contact info or staff identity query → ignore
-- A marketplace post or service advertisement ("gaz plita sotiladi", "suv o'lchagich o'rnatamiz", "elektr/svet ustasi kerak bo'lsa yozing") → commercial product/service offer, no active civic complaint/query → ignore
+- A marketplace post or service advertisement ("gaz plita sotiladi", "suv o'lchagich o'rnatamiz", "elektr/svet ustasi kerak bo'lsa yozing", "gaz plombasi buzilgan bo'lsa usta bor") → commercial product/service offer, no active civic complaint/query → ignore
 - General announcements, community instructions, administrative alerts, or invitations to report problems with no actual problem/praise/query mentioned (e.g. "водаканални группага кушдик сувдан муаммо бўлса ёзинглар") → no active issue or praise, purely procedural/instructional → ignore
 - Social chat, greetings, jokes with no utility service issues or queries → no service relationship → ignore
 
@@ -71,6 +73,7 @@ Message: "Assalomu alaykum Tursunovga musor moshina kelarmikan kecha kelmagan" -
 Message: "Мирсайт. Баракани олмадику райис бобо бизгаям кирсин Мусир кучада ётипти" -> { "decision": "signal", "categories": ["waste"], "hokim_related": true, "short_label": "Complaint about garbage on the street with local leader reference" }
 Message: "Svetni tuzatganlarga rahmat, baraka topinglar" -> { "decision": "signal", "categories": ["electricity"], "hokim_related": false, "short_label": "Praise for power restoration" }
 Message: "АССАЛОМ АЛЕЙКУМ МАХАЛЛАДОШЛАР ЯХШИ ДАМ ОЛДИЛАРМИ ХАММА ДА СВЕТ УЧГАНМИ ЯНА" -> { "decision": "signal", "categories": ["electricity"], "hokim_related": false, "short_label": "Asking if power is out for everyone" }
+Message: "gaz plombasi kimda buzilgan bulsa usta bor tel: +998995051111" -> { "decision": "ignore" }
 Message: "suv o'lchagich o'rnatamiz kimga kerak" -> { "decision": "ignore" }
 Message: "Махалладошлар вилоят водаканални группамизга кушдик сувдан канака муаммо булса группага ёзинглар улар куриб укиб туради." -> { "decision": "ignore" }
 Message: "Ассаламу алайкум махалладошлар махалламиз газ назоратчиси ким" -> { "decision": "ignore" }
