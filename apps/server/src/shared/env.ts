@@ -2,6 +2,7 @@ import 'dotenv/config'
 import { z } from 'zod'
 
 const GEMINI_DEFAULT_MODEL = 'gemini-2.5-flash'
+const DEFAULT_SESSION_SECRET = 'change_this_to_a_random_string_in_production'
 
 const EnvSchema = z.object({
   DATABASE_URL:            z.string().min(1),
@@ -10,15 +11,25 @@ const EnvSchema = z.object({
   PORT:                    z.coerce.number().int().positive().default(3001),
   BOT_TOKEN:               z.string().min(1),
   TELEGRAM_WEBHOOK_SECRET: z.string().min(1),
-  FILTER_MODE:             z.enum(['ai_full', 'keyword_gate', 'shadow_compare']).default('keyword_gate'),
+  FILTER_MODE:             z.literal('keyword_gate').default('keyword_gate'),
   AI_PROVIDER:             z.enum(['gemini', 'ollama', 'openai-compatible', 'rule-only']).default('gemini'),
   AI_API_KEY:              optionalTrimmedString(),
   AI_MODEL:                z.string().trim().min(1).default(GEMINI_DEFAULT_MODEL),
   AI_BASE_URL:             optionalTrimmedString(),
   AI_TIMEOUT_MS:           z.coerce.number().int().positive().default(30000),
+  CLASSIFIER_BATCH_SIZE:   z.coerce.number().int().positive().default(100),
   OPS_ENABLED:             z.string().optional(),
   OPS_SECRET:              z.string().optional(),
 }).superRefine((env, ctx) => {
+  if (env.NODE_ENV === 'production'
+    && (env.SESSION_SECRET.length < 32 || env.SESSION_SECRET === DEFAULT_SESSION_SECRET)) {
+    ctx.addIssue({
+      code:    z.ZodIssueCode.custom,
+      path:    ['SESSION_SECRET'],
+      message: 'SESSION_SECRET must be a random value with at least 32 characters in production',
+    })
+  }
+
   if ((env.AI_PROVIDER === 'gemini' || env.AI_PROVIDER === 'openai-compatible') && !env.AI_API_KEY) {
     ctx.addIssue({
       code:    z.ZodIssueCode.custom,

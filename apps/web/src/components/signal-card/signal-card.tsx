@@ -1,6 +1,7 @@
 // apps/web/src/components/signal-card/signal-card.tsx
 import { theme, Tooltip } from 'antd'
 import type { Signal } from '../../api/signals.ts'
+import { formatSignalTimestamp, getSignalSenderName } from '../../utils/signal-display.ts'
 
 export interface SignalCardProps {
   signal: Signal
@@ -9,49 +10,14 @@ export interface SignalCardProps {
   onClick: (signal: Signal) => void
 }
 
-// Sender fallback chain: displayName → @username → Резидент
-function getSenderName(signal: Signal): string {
-  if (signal.senderDisplayName) return signal.senderDisplayName
-  if (signal.senderUsername)    return `@${signal.senderUsername}`
-  return 'Резидент'
-}
-
-// Timestamp: relative ≤24h, absolute HH:MM >24h (UTC+5)
-function formatTimestamp(isoString: string): string {
-  const now = new Date()
-  const ts = new Date(isoString)
-  const diffMs = now.getTime() - ts.getTime()
-  const diffMin = Math.floor(diffMs / 60000)
-  const diffHr = Math.floor(diffMs / 3600000)
-
-  if (diffMs < 0) {
-    // Future timestamp (clock skew) — show absolute
-    const utc5 = new Date(ts.getTime() + 5 * 3600000)
-    const hh = String(utc5.getUTCHours()).padStart(2, '0')
-    const mm = String(utc5.getUTCMinutes()).padStart(2, '0')
-    return `${hh}:${mm}`
-  }
-  if (diffHr < 1 && diffMin < 60) {
-    return `${diffMin} дақ. олдин`
-  }
-  if (diffMs <= 24 * 3600000) {
-    return `${diffHr} соат олдин`
-  }
-  // >24h — show HH:MM absolute (UTC+5 local)
-  const utc5 = new Date(ts.getTime() + 5 * 3600000)
-  const hh = String(utc5.getUTCHours()).padStart(2, '0')
-  const mm = String(utc5.getUTCMinutes()).padStart(2, '0')
-  return `${hh}:${mm}`
-}
-
 const SENDER_TRUNCATE_LEN = 30
 
 export function SignalCard({ signal, isActive, categoryColor, onClick }: SignalCardProps) {
   const { token } = theme.useToken()
-  const senderName = getSenderName(signal)
+  const senderName = getSignalSenderName(signal)
   const isTruncated = senderName.length > SENDER_TRUNCATE_LEN
   const displaySender = isTruncated ? `${senderName.slice(0, SENDER_TRUNCATE_LEN)}…` : senderName
-  const timestamp = formatTimestamp(signal.telegramTimestamp)
+  const timestamp = formatSignalTimestamp(signal.telegramTimestamp)
 
   const bgColor = isActive
     ? `${categoryColor}0D`  // categoryColor at ~5% opacity (hex: 0D ≈ 5%)

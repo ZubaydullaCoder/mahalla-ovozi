@@ -40,7 +40,7 @@ describe('classifyWithOpenAiCompatible', () => {
           message: {
             content: JSON.stringify({
               decision:      'signal',
-              category:      'waste',
+              categories:    ['waste'],
               hokim_related: false,
               short_label:   'Waste issue',
             }),
@@ -87,7 +87,7 @@ describe('classifyWithOpenAiCompatible', () => {
       latencyMs: expect.any(Number),
       rawJson:   {
         decision:      'signal',
-        category:      'waste',
+        categories:    ['waste'],
         hokim_related: false,
         short_label:   'Waste issue',
       },

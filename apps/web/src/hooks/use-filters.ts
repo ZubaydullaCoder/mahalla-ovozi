@@ -48,7 +48,7 @@ export function computeApiParams(
     const yesterdayStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000)
     return {
       from: yesterdayStart.toISOString(),
-      to: todayStart.toISOString(), // exclusive upper bound = today's 00:00 UTC+5
+      to: new Date(todayStart.getTime() - 1).toISOString(),
     }
   }
 

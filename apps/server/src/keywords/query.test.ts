@@ -21,7 +21,7 @@ vi.mock('../shared/env.js', () => ({
     PORT:                    3001,
     BOT_TOKEN:               'mock-bot-token',
     TELEGRAM_WEBHOOK_SECRET: 'mock-secret',
-    FILTER_MODE:             'ai_full',
+    FILTER_MODE:             'keyword_gate',
     AI_API_KEY:              'test-key',
     AI_MODEL:                'gemini-2.5-flash',
   },

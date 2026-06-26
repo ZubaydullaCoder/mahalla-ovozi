@@ -5,7 +5,7 @@ vi.mock('../shared/env.js', () => ({
   env: {
     BOT_TOKEN:               'mock-bot-token',
     DATABASE_URL:            'postgresql://mock',
-    FILTER_MODE:             'ai_full',
+    FILTER_MODE:             'keyword_gate',
     NODE_ENV:                'test',
     PORT:                    3001,
     TELEGRAM_WEBHOOK_SECRET: 'mock-secret',

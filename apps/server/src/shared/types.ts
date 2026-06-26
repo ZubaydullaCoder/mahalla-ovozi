@@ -44,18 +44,10 @@ export interface BotConnectivity {
 }
 
 export interface HealthStatus {
-  lastBatchAt:             string | null
-  botConnectivity:         BotConnectivity[]
-  errorsLastRun:           string | null
-  status:                  'ok' | 'failed' | 'running' | 'never_run'
-  pendingRawMessages:      number
-  preFilterDiscards:       number
-  ignoredCount:            number
-  filterMode:              'ai_full' | 'keyword_gate' | 'shadow_compare'
-  keywordMatchedCount:     number
-  keywordSkippedCount:     number
-  keywordAiSignalCount:    number
-  keywordAiIgnoreCount:    number
-  noKeywordAiSignalCount:  number
-  noKeywordAiIgnoreCount:  number
+  status:            'current' | 'delayed' | 'no_data'
+  lastBatchAt:       string | null
+  lastBatchStatus:   'success' | 'failed' | null
+  messagesProcessed: number | null
+  signalsWritten:    number | null
+  queueDepth:        number
 }

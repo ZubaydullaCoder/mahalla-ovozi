@@ -1,7 +1,25 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import request from 'supertest'
 import express from 'express'
 import session from 'express-session'
+
+const mockUserFindUnique = vi.hoisted(() => vi.fn())
+
+vi.mock('../shared/db.js', () => ({
+  prisma: {
+    user: {
+      findUnique: mockUserFindUnique,
+    },
+  },
+}))
+
+vi.mock('../shared/logger.js', () => ({
+  logger: {
+    warn:  vi.fn(),
+    error: vi.fn(),
+  },
+}))
+
 import { requireAuth } from './middleware.js'
 
 function createTestApp() {
@@ -54,6 +72,15 @@ function createTestApp() {
 }
 
 describe('requireAuth middleware', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockUserFindUnique.mockResolvedValue({
+      id:          1,
+      district_id: 42,
+      is_active:   true,
+    })
+  })
+
   it('returns 401 when no session exists', async () => {
     const app = createTestApp()
     const res = await request(app).get('/api/test-protected')
@@ -76,6 +103,10 @@ describe('requireAuth middleware', () => {
 
     expect(res.status).toBe(200)
     expect(res.body.districtId).toBe(42)
+    expect(mockUserFindUnique).toHaveBeenCalledWith({
+      where:  { id: 1 },
+      select: { id: true, district_id: true, is_active: true },
+    })
   })
 
   it('returns 401 when session has userId but no districtId', async () => {
@@ -88,6 +119,68 @@ describe('requireAuth middleware', () => {
 
     expect(res.status).toBe(401)
     expect(res.body.message).toBe('Authentication required')
+  })
+
+  it('returns 401 when the session user no longer exists', async () => {
+    mockUserFindUnique.mockResolvedValueOnce(null)
+
+    const app = createTestApp()
+    const agent = request.agent(app)
+
+    await agent.post('/test/login').send({ userId: 1, districtId: 42 })
+
+    const res = await agent.get('/api/test-protected')
+
+    expect(res.status).toBe(401)
+    expect(res.body.message).toBe('Authentication required')
+  })
+
+  it('returns 401 when the session user is inactive', async () => {
+    mockUserFindUnique.mockResolvedValueOnce({
+      id:          1,
+      district_id: 42,
+      is_active:   false,
+    })
+
+    const app = createTestApp()
+    const agent = request.agent(app)
+
+    await agent.post('/test/login').send({ userId: 1, districtId: 42 })
+
+    const res = await agent.get('/api/test-protected')
+
+    expect(res.status).toBe(401)
+  })
+
+  it('returns 401 when the session district no longer matches the user', async () => {
+    mockUserFindUnique.mockResolvedValueOnce({
+      id:          1,
+      district_id: 7,
+      is_active:   true,
+    })
+
+    const app = createTestApp()
+    const agent = request.agent(app)
+
+    await agent.post('/test/login').send({ userId: 1, districtId: 42 })
+
+    const res = await agent.get('/api/test-protected')
+
+    expect(res.status).toBe(401)
+  })
+
+  it('returns 500 when session validation fails unexpectedly', async () => {
+    mockUserFindUnique.mockRejectedValueOnce(new Error('db down'))
+
+    const app = createTestApp()
+    const agent = request.agent(app)
+
+    await agent.post('/test/login').send({ userId: 1, districtId: 42 })
+
+    const res = await agent.get('/api/test-protected')
+
+    expect(res.status).toBe(500)
+    expect(res.body.message).toBe('Authentication check failed')
   })
 
   it('uses session districtId, ignores districtId from query params', async () => {

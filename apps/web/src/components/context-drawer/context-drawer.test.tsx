@@ -82,6 +82,29 @@ describe('ContextDrawer', () => {
     expect(screen.getByRole('article')).toBeInTheDocument()
   })
 
+  it('renders Telegram link in drawer cards when a message URL exists', () => {
+    const signalWithUrl: Signal = {
+      ...MOCK_SIGNAL,
+      telegramMessageUrl: 'https://t.me/c/9876543210/200',
+    }
+    mockUseSignalContext.mockReturnValue({ data: [signalWithUrl], isLoading: false })
+
+    renderDrawer({ anchorSignal: signalWithUrl })
+
+    const link = screen.getByRole('link', { name: 'Telegram' })
+    expect(link).toHaveAttribute('href', signalWithUrl.telegramMessageUrl)
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noreferrer')
+  })
+
+  it('does not render Telegram link when message URL is missing', () => {
+    mockUseSignalContext.mockReturnValue({ data: [MOCK_SIGNAL], isLoading: false })
+
+    renderDrawer()
+
+    expect(screen.queryByRole('link', { name: 'Telegram' })).not.toBeInTheDocument()
+  })
+
   // AC-9: Only-anchor empty state — message appears when context has only the anchor
   it('shows only-anchor message when context has only the anchor signal', () => {
     mockUseSignalContext.mockReturnValue({ data: [MOCK_SIGNAL], isLoading: false })

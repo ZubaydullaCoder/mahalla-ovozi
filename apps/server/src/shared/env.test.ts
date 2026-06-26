@@ -22,6 +22,7 @@ describe('parseEnv', () => {
     expect(env.AI_MODEL).toBe('gemini-2.5-flash')
     expect(env.AI_API_KEY).toBe('gemini-key')
     expect(env.AI_TIMEOUT_MS).toBe(30000)
+    expect(env.CLASSIFIER_BATCH_SIZE).toBe(100)
   })
 
   it('rejects Gemini configuration without an API key', () => {
@@ -114,11 +115,66 @@ describe('parseEnv', () => {
     })).toThrow()
   })
 
+  it('rejects removed filter modes', () => {
+    expect(() => parseEnv({
+      ...baseEnv,
+      FILTER_MODE: 'shadow_compare',
+      AI_API_KEY:  'gemini-key',
+    })).toThrow()
+
+    expect(() => parseEnv({
+      ...baseEnv,
+      FILTER_MODE: 'ai_full',
+      AI_API_KEY:  'gemini-key',
+    })).toThrow()
+  })
+
   it('rejects non-positive timeout values', () => {
     expect(() => parseEnv({
       ...baseEnv,
       AI_API_KEY:    'gemini-key',
       AI_TIMEOUT_MS: '0',
     })).toThrow()
+  })
+
+  it('coerces positive classifier batch size and rejects non-positive values', () => {
+    const env = parseEnv({
+      ...baseEnv,
+      AI_API_KEY:            'gemini-key',
+      CLASSIFIER_BATCH_SIZE: '25',
+    })
+
+    expect(env.CLASSIFIER_BATCH_SIZE).toBe(25)
+
+    expect(() => parseEnv({
+      ...baseEnv,
+      AI_API_KEY:            'gemini-key',
+      CLASSIFIER_BATCH_SIZE: '0',
+    })).toThrow()
+  })
+
+  it('requires a strong production session secret', () => {
+    expect(() => parseEnv({
+      ...baseEnv,
+      NODE_ENV:       'production',
+      SESSION_SECRET: 'short-secret',
+      AI_API_KEY:     'gemini-key',
+    })).toThrow(/SESSION_SECRET must be a random value/)
+
+    expect(() => parseEnv({
+      ...baseEnv,
+      NODE_ENV:       'production',
+      SESSION_SECRET: 'change_this_to_a_random_string_in_production',
+      AI_API_KEY:     'gemini-key',
+    })).toThrow(/SESSION_SECRET must be a random value/)
+
+    const env = parseEnv({
+      ...baseEnv,
+      NODE_ENV:       'production',
+      SESSION_SECRET: 'abcdefghijklmnopqrstuvwxyz123456',
+      AI_API_KEY:     'gemini-key',
+    })
+
+    expect(env.SESSION_SECRET).toBe('abcdefghijklmnopqrstuvwxyz123456')
   })
 })

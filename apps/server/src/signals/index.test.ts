@@ -21,8 +21,13 @@ const mockEnv = vi.hoisted(() => ({
 vi.mock('../shared/env.js', () => ({ env: mockEnv }))
 
 // Mock prisma (needed by query.ts import chain)
+const mockUserFindUnique = vi.hoisted(() => vi.fn())
+
 vi.mock('../shared/db.js', () => ({
   prisma: {
+    user: {
+      findUnique: mockUserFindUnique,
+    },
     signalMessage: {
       findMany:  vi.fn(),
       findFirst: vi.fn(),
@@ -133,6 +138,11 @@ describe('GET /api/signals', () => {
     mockQuerySignals.mockResolvedValue([{}])
     // Default: mapSignalRow returns MOCK_SIGNAL
     mockMapSignalRow.mockReturnValue(MOCK_SIGNAL)
+    mockUserFindUnique.mockResolvedValue({
+      id:          1,
+      district_id: SESSION_DISTRICT_ID,
+      is_active:   true,
+    })
   })
 
   // ── Authentication ──────────────────────────────────────────────────────────

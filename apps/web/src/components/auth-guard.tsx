@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
+import { getCurrentSession } from '../api/auth.ts'
 
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated'
 
@@ -11,24 +12,19 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const [status, setStatus] = useState<AuthStatus>('loading')
 
   useEffect(() => {
-    const controller = new AbortController()
+    let isMounted = true
 
-    fetch('/api/signals', {
-      method: 'GET',
-      credentials: 'same-origin',
-      signal: controller.signal,
-    })
-      .then((res) => {
-        setStatus(res.ok ? 'authenticated' : 'unauthenticated')
+    getCurrentSession()
+      .then(() => {
+        if (isMounted) setStatus('authenticated')
       })
-      .catch((err: unknown) => {
-        if (err instanceof DOMException && err.name === 'AbortError') return
+      .catch(() => {
         // Network error — treat as unauthenticated for safety.
-        setStatus('unauthenticated')
+        if (isMounted) setStatus('unauthenticated')
       })
 
     return () => {
-      controller.abort()
+      isMounted = false
     }
   }, [])
 

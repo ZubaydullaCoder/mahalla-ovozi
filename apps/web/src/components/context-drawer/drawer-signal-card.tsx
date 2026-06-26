@@ -3,6 +3,7 @@
 // DO NOT add onClick, onKeyDown, WebkitLineClamp, or tabIndex — this is intentional.
 import { theme } from 'antd'
 import type { Signal } from '../../api/signals.ts'
+import { formatSignalTimestamp, getSignalSenderName } from '../../utils/signal-display.ts'
 
 export interface DrawerSignalCardProps {
   signal: Signal
@@ -10,45 +11,10 @@ export interface DrawerSignalCardProps {
   categoryColor: string // hex — always service category color
 }
 
-// Sender fallback chain: displayName → @username → Резидент
-function getSenderName(signal: Signal): string {
-  if (signal.senderDisplayName) return signal.senderDisplayName
-  if (signal.senderUsername) return `@${signal.senderUsername}`
-  return 'Резидент'
-}
-
-// UTC+5 HH:MM absolute timestamp — consistent with DrawerSignalCard context
-function formatTimestamp(isoString: string): string {
-  const now = new Date()
-  const ts = new Date(isoString)
-  const diffMs = now.getTime() - ts.getTime()
-  const diffMin = Math.floor(diffMs / 60000)
-  const diffHr = Math.floor(diffMs / 3600000)
-
-  if (diffMs < 0) {
-    // Future timestamp (clock skew) — show absolute UTC+5
-    const utc5 = new Date(ts.getTime() + 5 * 3600000)
-    const hh = String(utc5.getUTCHours()).padStart(2, '0')
-    const mm = String(utc5.getUTCMinutes()).padStart(2, '0')
-    return `${hh}:${mm}`
-  }
-  if (diffHr < 1 && diffMin < 60) {
-    return `${diffMin} дақ. олдин`
-  }
-  if (diffMs <= 24 * 3600000) {
-    return `${diffHr} соат олдин`
-  }
-  // >24h — show HH:MM absolute (UTC+5 local)
-  const utc5 = new Date(ts.getTime() + 5 * 3600000)
-  const hh = String(utc5.getUTCHours()).padStart(2, '0')
-  const mm = String(utc5.getUTCMinutes()).padStart(2, '0')
-  return `${hh}:${mm}`
-}
-
 export function DrawerSignalCard({ signal, isActive, categoryColor }: DrawerSignalCardProps) {
   const { token } = theme.useToken()
-  const senderName = getSenderName(signal)
-  const timestamp = formatTimestamp(signal.telegramTimestamp)
+  const senderName = getSignalSenderName(signal)
+  const timestamp = formatSignalTimestamp(signal.telegramTimestamp)
 
   const bgColor = isActive
     ? `${categoryColor}0D` // categoryColor at ~5% opacity (hex: 0D ≈ 5%)
@@ -56,7 +22,7 @@ export function DrawerSignalCard({ signal, isActive, categoryColor }: DrawerSign
 
   const borderLeft = isActive ? `4px solid ${categoryColor}` : `4px solid transparent`
 
-  const hasFooter = signal.textSource === 'caption' || signal.hokimRelated
+  const hasFooter = signal.textSource === 'caption' || signal.hokimRelated || signal.telegramMessageUrl
 
   return (
     <div
@@ -101,7 +67,7 @@ export function DrawerSignalCard({ signal, isActive, categoryColor }: DrawerSign
         {signal.rawText}
       </div>
 
-      {/* Footer: CaptionBadge (📷) + HokimStar (★) */}
+      {/* Footer: source markers + Telegram link */}
       {hasFooter && (
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {signal.textSource === 'caption' && (
@@ -117,6 +83,16 @@ export function DrawerSignalCard({ signal, isActive, categoryColor }: DrawerSign
             <span aria-hidden="true" style={{ fontSize: 12, color: token.colorWarning }}>
               ★
             </span>
+          )}
+          {signal.telegramMessageUrl && (
+            <a
+              href={signal.telegramMessageUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{ fontSize: 12 }}
+            >
+              Telegram
+            </a>
           )}
         </div>
       )}

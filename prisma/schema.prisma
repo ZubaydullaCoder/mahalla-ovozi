@@ -67,6 +67,8 @@ model RawMessage {
   sender_username     String?  @db.VarChar(100)
   text                String
   text_source         String   @db.VarChar(10)
+  keyword_matched     Boolean  @default(false)
+  matched_keyword     String?  @db.VarChar(120)
   telegram_timestamp  DateTime
   created_at          DateTime @default(now())
 
@@ -75,6 +77,7 @@ model RawMessage {
   @@index([district_id])
   @@index([mahalla_id])
   @@index([created_at])
+  @@index([keyword_matched])
   @@map("raw_messages")
 }
 
@@ -103,6 +106,8 @@ model SignalMessage {
   @@index([district_id])
   @@index([category])
   @@index([telegram_timestamp])
+  @@index([district_id, telegram_timestamp])
+  @@index([district_id, mahalla_id, category, telegram_timestamp])
   @@index([created_at])
   @@index([hokim_related])
   @@index([keyword_matched])
@@ -150,6 +155,7 @@ model BatchHealth {
 
   @@index([district_id])
   @@index([started_at])
+  @@index([district_id, completed_at])
   @@map("batch_health")
 }
 

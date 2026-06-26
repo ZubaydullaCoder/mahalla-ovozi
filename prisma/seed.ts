@@ -24,6 +24,7 @@ async function main() {
   const mahallas: Array<{ name: string; chatId: bigint }> = [
     { name: 'Навбаҳор маҳалласи', chatId: -1001000000001n },
     { name: 'Олмазор маҳалласи',  chatId: -1001000000002n },
+    { name: 'Боғистон маҳалласи', chatId: -1001000000003n },
   ]
   for (const { name, chatId } of mahallas) {
     await prisma.mahalla.upsert({

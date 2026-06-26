@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mockDistrictFindFirst       = vi.hoisted(() => vi.fn())
 const mockMahallaFindUnique       = vi.hoisted(() => vi.fn())
+const mockRawMessageFindFirst     = vi.hoisted(() => vi.fn())
 const mockRawMessageCreate        = vi.hoisted(() => vi.fn())
 const mockPipelineEventFindFirst  = vi.hoisted(() => vi.fn())
 
@@ -12,7 +13,7 @@ vi.mock('../shared/db.js', () => ({
   prisma: {
     district:      { findFirst: mockDistrictFindFirst },
     mahalla:       { findUnique: mockMahallaFindUnique },
-    rawMessage:    { create: mockRawMessageCreate },
+    rawMessage:    { findFirst: mockRawMessageFindFirst, create: mockRawMessageCreate },
     pipelineEvent: { findFirst: mockPipelineEventFindFirst },
   },
 }))
@@ -28,6 +29,7 @@ vi.mock('../bot/filters/pipeline.js', () => ({ pipeline: mockPipeline }))
 // Import AFTER mocks
 import {
   nextSimulatedId,
+  resetSimulatedIdCounterForTest,
   simulateWebhook,
   injectSimulatedMessage,
 } from './simulator.js'
@@ -41,6 +43,10 @@ const MAHALLA_OTHER_DISTRICT = { district_id: 2, telegram_chat_id: BigInt(2001) 
 // ─── nextSimulatedId ─────────────────────────────────────────────────────────
 
 describe('nextSimulatedId()', () => {
+  beforeEach(() => {
+    resetSimulatedIdCounterForTest()
+  })
+
   it('returns unique, decrementing negative integers across calls', () => {
     // We can't control the global counter state from outside since it starts at -1
     // and other tests may have consumed IDs; instead we validate three consecutive
@@ -70,8 +76,10 @@ describe('nextSimulatedId()', () => {
 describe('injectSimulatedMessage()', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    resetSimulatedIdCounterForTest()
     mockDistrictFindFirst.mockResolvedValue(ACTIVE_DISTRICT)
     mockMahallaFindUnique.mockResolvedValue(MAHALLA_IN_DISTRICT)
+    mockRawMessageFindFirst.mockResolvedValue(null)
     mockRawMessageCreate.mockResolvedValue({ id: 42 })
   })
 
@@ -176,6 +184,20 @@ describe('injectSimulatedMessage()', () => {
     // All negative
     ids.forEach(id => expect(id).toBeLessThan(0))
   })
+
+  it('starts below the smallest existing simulated raw-message ID after restart', async () => {
+    mockRawMessageFindFirst.mockResolvedValueOnce({ telegram_update_id: -25 })
+
+    await injectSimulatedMessage({ mahallaId: 1, text: 'Message after restart' })
+
+    const callData = mockRawMessageCreate.mock.calls[0]?.[0]?.data as Record<string, unknown>
+    expect(callData.telegram_update_id).toBe(-26)
+    expect(mockRawMessageFindFirst).toHaveBeenCalledWith({
+      where:   { telegram_update_id: { lt: 0 } },
+      orderBy: { telegram_update_id: 'asc' },
+      select:  { telegram_update_id: true },
+    })
+  })
 })
 
 // ─── simulateWebhook() ────────────────────────────────────────────────────────
@@ -183,8 +205,10 @@ describe('injectSimulatedMessage()', () => {
 describe('simulateWebhook()', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    resetSimulatedIdCounterForTest()
     mockDistrictFindFirst.mockResolvedValue(ACTIVE_DISTRICT)
     mockMahallaFindUnique.mockResolvedValue(MAHALLA_IN_DISTRICT)
+    mockRawMessageFindFirst.mockResolvedValue(null)
     mockPipeline.mockResolvedValue(undefined)
     mockPipelineEventFindFirst.mockResolvedValue(null)
   })

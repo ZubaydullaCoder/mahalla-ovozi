@@ -1,4 +1,9 @@
-import type { LoginSuccessResponse, LogoutSuccessResponse, ApiErrorResponse } from '../types.ts'
+import type {
+  LoginSuccessResponse,
+  LogoutSuccessResponse,
+  CurrentSessionResponse,
+  ApiErrorResponse,
+} from '../types.ts'
 
 function fallbackError(status: number, message: string): ApiErrorResponse {
   return {
@@ -59,4 +64,21 @@ export async function logout(): Promise<LogoutSuccessResponse> {
   }
 
   return readJson<LogoutSuccessResponse>(res, { ok: true })
+}
+
+export async function getCurrentSession(): Promise<CurrentSessionResponse> {
+  const res = await fetch('/api/auth/me', {
+    method:      'GET',
+    credentials: 'same-origin',
+  })
+
+  if (!res.ok) {
+    const data = await readJson<ApiErrorResponse>(
+      res,
+      fallbackError(res.status, 'Authentication required'),
+    )
+    throw new AuthError(res.status, data)
+  }
+
+  return res.json() as Promise<CurrentSessionResponse>
 }

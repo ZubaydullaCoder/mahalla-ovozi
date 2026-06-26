@@ -5,7 +5,7 @@
  * Tests: F0 (missing sender), F1 (bot), F2 (no text/caption), F3 (trivial),
  *        idempotent upsert (AC-6), secret-token rejection (AC-7),
  *        edited_message discard (Task 8.4),
- *        keyword-gate routing (AC #1, #2, #3, #6) — Story 1.4
+ *        keyword-gate routing (AC #1, #6) — Story 1.4
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Update } from 'grammy/types'
@@ -22,7 +22,7 @@ const { mockEnv } = vi.hoisted(() => ({
     PORT:                    3001,
     BOT_TOKEN:               'mock-bot-token',
     TELEGRAM_WEBHOOK_SECRET: 'mock-secret',
-    FILTER_MODE:             'ai_full' as 'ai_full' | 'keyword_gate' | 'shadow_compare',
+    FILTER_MODE:             'keyword_gate' as const,
     AI_API_KEY:              'test-key',
     AI_MODEL:                'gemini-2.5-flash',
   },
@@ -196,7 +196,7 @@ describe('isTrivialContent (F3)', () => {
 describe('Idempotent upsert (AC-6)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockEnv.FILTER_MODE = 'ai_full'
+    mockEnv.FILTER_MODE = 'keyword_gate'
     mockFindUnique.mockResolvedValue({
       id:          1,
       district_id: 10,
@@ -204,7 +204,10 @@ describe('Idempotent upsert (AC-6)', () => {
       telegram_chat_id: BigInt(-1001234567890),
     })
     mockUpsert.mockResolvedValue({ id: 100 })
-    mockFindMany.mockResolvedValue([])       // no keywords → prefilter_pass event
+    mockFindMany.mockResolvedValue([
+      SUV_KEYWORD,
+      { ...SUV_KEYWORD, id: 2, phrase: 'tok' },
+    ])
     mockPipelineCreate.mockResolvedValue({})
   })
 
@@ -335,7 +338,7 @@ describe('Edited message handler (bot/index.ts)', () => {
 describe('pipeline — unmonitored group', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockEnv.FILTER_MODE = 'ai_full'
+    mockEnv.FILTER_MODE = 'keyword_gate'
     mockFindUnique.mockResolvedValue(null) // no mahalla match
     mockUpsert.mockResolvedValue({ id: 100 })
     mockFindMany.mockResolvedValue([])
@@ -355,10 +358,10 @@ describe('pipeline — unmonitored group', () => {
 describe('pipeline — caption capture (AC-2)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockEnv.FILTER_MODE = 'ai_full'
+    mockEnv.FILTER_MODE = 'keyword_gate'
     mockFindUnique.mockResolvedValue({ id: 1, district_id: 10, name: 'Yunusobod-1' })
     mockUpsert.mockResolvedValue({ id: 100 })
-    mockFindMany.mockResolvedValue([])       // empty keyword list
+    mockFindMany.mockResolvedValue([{ ...SUV_KEYWORD, phrase: 'text' }])
     mockPipelineCreate.mockResolvedValue({})
   })
 
@@ -392,7 +395,7 @@ describe('pipeline — caption capture (AC-2)', () => {
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Story 1.4 — Three-mode routing tests (AC #1, #2, #3, #6)
+// Story 1.4 — keyword-gate routing tests (AC #1, #6)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Standard mahalla fixture — includes name field needed by pipeline event detail */
@@ -400,78 +403,6 @@ const MAHALLA = { id: 1, district_id: 10, name: 'Yunusobod-1' }
 
 /** Keyword that matches the default test message text 'suv kelyapti' */
 const SUV_KEYWORD = { id: 1, district_id: 10, phrase: 'suv', is_active: true }
-
-describe('pipeline — ai_full mode (Story 1.4 AC #2)', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    mockEnv.FILTER_MODE = 'ai_full'
-    mockFindUnique.mockResolvedValue(MAHALLA)
-    mockUpsert.mockResolvedValue({ id: 100 })
-    mockPipelineCreate.mockResolvedValue({})
-  })
-
-  it('5.2 — ai_full with keyword match: message written + keyword_match event with raw_message_id set', async () => {
-    mockFindMany.mockResolvedValue([SUV_KEYWORD])
-    const update = makeUpdate({ text: 'suv kelyapti' }, 4001)
-
-    await pipeline(update)
-
-    expect(mockUpsert).toHaveBeenCalledOnce()
-    expect(mockPipelineCreate).toHaveBeenCalledOnce()
-    expect(mockPipelineCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          event_type:     'keyword_match',
-          raw_message_id: 100,
-          detail:         expect.objectContaining({
-            filterMode:     'ai_full',
-            keywordMatched: true,
-            matchedPhrase:  'suv',
-          }),
-        }),
-      }),
-    )
-  })
-
-  it('5.3 — ai_full without keyword match: message written + prefilter_pass event with keywordMatched:false', async () => {
-    mockFindMany.mockResolvedValue([SUV_KEYWORD])
-    const update = makeUpdate({ text: 'gaz yo\'q' }, 4002) // no 'suv' → no match
-
-    await pipeline(update)
-
-    expect(mockUpsert).toHaveBeenCalledOnce()
-    expect(mockPipelineCreate).toHaveBeenCalledOnce()
-    expect(mockPipelineCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          event_type:     'prefilter_pass',
-          raw_message_id: 100,
-          detail:         expect.objectContaining({
-            filterMode:     'ai_full',
-            keywordMatched: false,
-          }),
-        }),
-      }),
-    )
-  })
-
-  it('5.8a — ai_full with empty keyword list: message written + prefilter_pass event', async () => {
-    mockFindMany.mockResolvedValue([]) // empty keyword list
-    const update = makeUpdate({ text: 'some civic text' }, 4003)
-
-    await pipeline(update)
-
-    expect(mockUpsert).toHaveBeenCalledOnce()
-    expect(mockPipelineCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          event_type:     'prefilter_pass',
-          raw_message_id: 100,
-        }),
-      }),
-    )
-  })
-})
 
 describe('pipeline — keyword_gate mode (Story 1.4 AC #1)', () => {
   beforeEach(() => {
@@ -489,6 +420,14 @@ describe('pipeline — keyword_gate mode (Story 1.4 AC #1)', () => {
     await pipeline(update)
 
     expect(mockUpsert).toHaveBeenCalledOnce()
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          keyword_matched: true,
+          matched_keyword: 'suv',
+        }),
+      }),
+    )
     expect(mockPipelineCreate).toHaveBeenCalledOnce()
     expect(mockPipelineCreate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -546,69 +485,13 @@ describe('pipeline — keyword_gate mode (Story 1.4 AC #1)', () => {
   })
 })
 
-describe('pipeline — shadow_compare mode (Story 1.4 AC #3)', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    mockEnv.FILTER_MODE = 'shadow_compare'
-    mockFindUnique.mockResolvedValue(MAHALLA)
-    mockUpsert.mockResolvedValue({ id: 100 })
-    mockPipelineCreate.mockResolvedValue({})
-  })
-
-  it('5.6 — shadow_compare with keyword match: message written + keyword_match event with raw_message_id set', async () => {
-    mockFindMany.mockResolvedValue([SUV_KEYWORD])
-    const update = makeUpdate({ text: 'suv kelyapti' }, 6001)
-
-    await pipeline(update)
-
-    expect(mockUpsert).toHaveBeenCalledOnce()
-    expect(mockPipelineCreate).toHaveBeenCalledOnce()
-    expect(mockPipelineCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          event_type:     'keyword_match',
-          raw_message_id: 100,
-          detail:         expect.objectContaining({
-            filterMode:     'shadow_compare',
-            keywordMatched: true,
-            matchedPhrase:  'suv',
-          }),
-        }),
-      }),
-    )
-  })
-
-  it('5.7 — shadow_compare without keyword match: message written + prefilter_pass event with keywordMatched:false', async () => {
-    mockFindMany.mockResolvedValue([SUV_KEYWORD])
-    const update = makeUpdate({ text: 'gaz yo\'q' }, 6002) // no 'suv' → no match
-
-    await pipeline(update)
-
-    // In shadow_compare, message IS written even without a match
-    expect(mockUpsert).toHaveBeenCalledOnce()
-    expect(mockPipelineCreate).toHaveBeenCalledOnce()
-    expect(mockPipelineCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          event_type:     'prefilter_pass',
-          raw_message_id: 100,
-          detail:         expect.objectContaining({
-            filterMode:     'shadow_compare',
-            keywordMatched: false,
-          }),
-        }),
-      }),
-    )
-  })
-})
-
 describe('pipeline — districtId sourced from mahalla, never request body (AC #5)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockEnv.FILTER_MODE = 'ai_full'
+    mockEnv.FILTER_MODE = 'keyword_gate'
     mockFindUnique.mockResolvedValue(MAHALLA)
     mockUpsert.mockResolvedValue({ id: 100 })
-    mockFindMany.mockResolvedValue([])
+    mockFindMany.mockResolvedValue([SUV_KEYWORD])
     mockPipelineCreate.mockResolvedValue({})
   })
 
@@ -629,7 +512,7 @@ describe('pipeline — districtId sourced from mahalla, never request body (AC #
 // CR Patch tests — error handling and DRY (CR Pass 2, 2026-06-10)
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('pipeline — getActiveKeywords DB error: fail-open (CR Patch P1)', () => {
+describe('pipeline — getActiveKeywords DB error: fail-closed', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockEnv.FILTER_MODE = 'keyword_gate'
@@ -638,30 +521,30 @@ describe('pipeline — getActiveKeywords DB error: fail-open (CR Patch P1)', () 
     mockPipelineCreate.mockResolvedValue({})
   })
 
-  it('does not throw when getActiveKeywords rejects — writes the message fail-open', async () => {
+  it('does not throw when getActiveKeywords rejects and does not write raw message', async () => {
     mockFindMany.mockRejectedValue(new Error('DB connection error'))
     const update = makeUpdate({ text: 'suv bor' }, 8001)
 
     await expect(pipeline(update)).resolves.not.toThrow()
-    expect(mockUpsert).toHaveBeenCalled()
+    expect(mockUpsert).not.toHaveBeenCalled()
   })
 
-  it('bypasses keyword_gate on DB error — writes raw message and prefilter_pass event', async () => {
+  it('records keyword_skip event on DB error with keyword lookup failure detail', async () => {
     mockFindMany.mockRejectedValue(new Error('DB connection error'))
     const update = makeUpdate({ text: 'suv bor' }, 8002)
 
     await pipeline(update)
 
-    expect(mockUpsert).toHaveBeenCalled()
+    expect(mockUpsert).not.toHaveBeenCalled()
     expect(mockPipelineCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          event_type:     'prefilter_pass',
-          raw_message_id: 100,
+          event_type:     'keyword_skip',
+          raw_message_id: null,
           detail: expect.objectContaining({
             filterMode:          'keyword_gate',
             keywordLookupFailed: true,
-            reason:              'Keyword lookup failed; fail-open in keyword_gate mode',
+            reason:              'Keyword lookup failed; message not written in keyword_gate mode',
           }),
         }),
       }),
@@ -672,15 +555,15 @@ describe('pipeline — getActiveKeywords DB error: fail-open (CR Patch P1)', () 
 describe('pipeline — pipelineEvent.create DB error: does not crash pipeline (CR Patch P2)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockEnv.FILTER_MODE = 'ai_full'
+    mockEnv.FILTER_MODE = 'keyword_gate'
     mockFindUnique.mockResolvedValue(MAHALLA)
     mockUpsert.mockResolvedValue({ id: 100 })
-    mockFindMany.mockResolvedValue([])
+    mockFindMany.mockResolvedValue([SUV_KEYWORD])
   })
 
   it('does not throw when pipelineEvent.create rejects — raw_message already written', async () => {
     mockPipelineCreate.mockRejectedValue(new Error('pipelineEvent insert failed'))
-    const update = makeUpdate({ text: 'some text' }, 9001)
+    const update = makeUpdate({ text: 'suv bor' }, 9001)
 
     // Must not throw even though pipelineEvent.create failed
     await expect(pipeline(update)).resolves.not.toThrow()
@@ -688,7 +571,7 @@ describe('pipeline — pipelineEvent.create DB error: does not crash pipeline (C
 
   it('raw_message upsert still called when pipelineEvent.create rejects', async () => {
     mockPipelineCreate.mockRejectedValue(new Error('pipelineEvent insert failed'))
-    const update = makeUpdate({ text: 'some text' }, 9002)
+    const update = makeUpdate({ text: 'suv bor' }, 9002)
 
     await pipeline(update)
 

@@ -7,13 +7,48 @@ import { pipeline } from '../bot/filters/pipeline.js'
 
 // In-process counter for simulated telegram_update_id values.
 // Real Telegram update IDs are always positive. Simulated ones use a
-// descending negative sequence starting from -1, staying well within
-// Int32 range (-2,147,483,648). For Phase 1 testing volumes this
-// counter will never approach the boundary.
+// descending negative sequence. Runtime simulation initializes the counter
+// below the smallest existing simulated raw-message ID to avoid restart
+// collisions.
 let simulatedUpdateIdCounter = -1
+let simulatedCounterInitialized = false
+let simulatedCounterInitPromise: Promise<void> | null = null
 
 export function nextSimulatedId(): number {
   return simulatedUpdateIdCounter--
+}
+
+export function resetSimulatedIdCounterForTest(startAt = -1): void {
+  simulatedUpdateIdCounter = startAt
+  simulatedCounterInitialized = false
+  simulatedCounterInitPromise = null
+}
+
+async function initializeSimulatedIdCounter(): Promise<void> {
+  if (simulatedCounterInitialized) {
+    return
+  }
+
+  simulatedCounterInitPromise ??= (async () => {
+    const existing = await prisma.rawMessage.findFirst({
+      where:   { telegram_update_id: { lt: 0 } },
+      orderBy: { telegram_update_id: 'asc' },
+      select:  { telegram_update_id: true },
+    })
+
+    if (existing) {
+      simulatedUpdateIdCounter = Math.min(simulatedUpdateIdCounter, existing.telegram_update_id - 1)
+    }
+
+    simulatedCounterInitialized = true
+  })()
+
+  await simulatedCounterInitPromise
+}
+
+async function reserveSimulatedId(): Promise<number> {
+  await initializeSimulatedIdCounter()
+  return nextSimulatedId()
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -55,7 +90,7 @@ export async function simulateWebhook(params: SimulateWebhookInput): Promise<Sim
   })
   if (!mahalla || mahalla.district_id !== district.id) throw new Error('Mahalla not found in active district')
 
-  const simId = nextSimulatedId()
+  const simId = await reserveSimulatedId()
   const textSource = params.textSource ?? 'text'
   const messageBase = {
     message_id: Math.abs(simId),
@@ -135,7 +170,7 @@ export async function injectSimulatedMessage(params: SimulateMessageInput): Prom
   })
   if (!mahalla || mahalla.district_id !== district.id) throw new Error('Mahalla not found in active district')
 
-  const simId = nextSimulatedId()
+  const simId = await reserveSimulatedId()
 
   const raw = await prisma.rawMessage.create({
     data: {

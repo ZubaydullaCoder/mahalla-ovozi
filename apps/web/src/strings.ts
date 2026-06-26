@@ -39,6 +39,8 @@ export const strings = {
   app: {
     title: 'Маҳалла Овози',
     unsupportedScreen: 'Маҳалла Овози фақат компьютер экранида ишлайди',
+    logout: 'Чиқиш',
+    logoutError: 'Чиқишда хатолик юз берди',
   },
   dashboard: {
     lanes: {

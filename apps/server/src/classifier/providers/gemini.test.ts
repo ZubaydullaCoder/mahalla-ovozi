@@ -41,7 +41,7 @@ describe('classifyWithGemini', () => {
     genaiMocks.generateContent.mockResolvedValue({
       text: JSON.stringify({
         decision:      'signal',
-        category:      'water',
+        categories:    ['water'],
         hokim_related: false,
         short_label:   'No water',
       }),
@@ -70,7 +70,7 @@ describe('classifyWithGemini', () => {
       latencyMs: expect.any(Number),
       rawJson:   {
         decision:      'signal',
-        category:      'water',
+        categories:    ['water'],
         hokim_related: false,
         short_label:   'No water',
       },

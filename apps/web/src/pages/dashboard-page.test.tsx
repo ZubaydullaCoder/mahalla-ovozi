@@ -5,6 +5,8 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import { ConfigProvider } from 'antd'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
 import { DashboardPage } from './dashboard-page.tsx'
 import type { DashboardHealthStatus } from '../api/health.ts'
 import type { Signal } from '../api/signals.ts'
@@ -193,9 +195,14 @@ function buildHealthData(
 }
 
 function renderPage() {
+  const queryClient = new QueryClient()
   render(
     <ConfigProvider>
-      <DashboardPage />
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <DashboardPage />
+        </MemoryRouter>
+      </QueryClientProvider>
     </ConfigProvider>,
   )
 }

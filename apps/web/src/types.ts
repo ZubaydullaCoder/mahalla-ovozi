@@ -8,6 +8,12 @@ export interface LogoutSuccessResponse {
   ok: true
 }
 
+export interface CurrentSessionResponse {
+  authenticated: true
+  userId:        number
+  districtId:    number
+}
+
 export interface ApiErrorResponse {
   statusCode: number
   error: string

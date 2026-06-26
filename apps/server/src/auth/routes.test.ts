@@ -76,6 +76,7 @@ describe('POST /api/auth/login', () => {
   beforeEach(() => {
     app = createTestApp()
     vi.clearAllMocks()
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser)
   })
 
   afterEach(() => {
@@ -188,6 +189,7 @@ describe('POST /api/auth/logout', () => {
   beforeEach(() => {
     app = createTestApp()
     vi.clearAllMocks()
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser)
   })
 
   it('returns 200 when authenticated user logs out', async () => {
@@ -244,5 +246,58 @@ describe('POST /api/auth/logout', () => {
   it('returns 200 even when called without an active session (idempotent)', async () => {
     const res = await request(app).post('/api/auth/logout')
     expect(res.status).toBe(200)
+  })
+})
+
+describe('GET /api/auth/me', () => {
+  let app: ReturnType<typeof createTestApp>
+
+  beforeEach(() => {
+    app = createTestApp()
+    vi.clearAllMocks()
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser)
+  })
+
+  it('returns authenticated session identity for a valid session', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(mockUser)
+    vi.mocked(argon2.verify).mockResolvedValueOnce(true)
+
+    const agent = request.agent(app)
+    await agent.post('/api/auth/login').send({ username: 'operator', password: 'devpassword' })
+
+    const res = await agent.get('/api/auth/me')
+
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({
+      authenticated: true,
+      userId:        mockUser.id,
+      districtId:    mockUser.district_id,
+    })
+  })
+
+  it('returns 401 without an authenticated session', async () => {
+    const res = await request(app).get('/api/auth/me')
+
+    expect(res.status).toBe(401)
+    expect(res.body).toMatchObject({
+      statusCode: 401,
+      error:      'Unauthorized',
+      message:    'Authentication required',
+    })
+  })
+
+  it('returns 401 when the session user is no longer active', async () => {
+    vi.mocked(argon2.verify).mockResolvedValueOnce(true)
+    vi.mocked(prisma.user.findUnique)
+      .mockResolvedValueOnce(mockUser)
+      .mockResolvedValueOnce({ ...mockUser, is_active: false })
+
+    const agent = request.agent(app)
+    await agent.post('/api/auth/login').send({ username: 'operator', password: 'devpassword' })
+
+    const res = await agent.get('/api/auth/me')
+
+    expect(res.status).toBe(401)
+    expect(res.body.message).toBe('Authentication required')
   })
 })

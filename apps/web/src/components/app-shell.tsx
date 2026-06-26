@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react'
-import { theme } from 'antd'
+import { Button, message, theme } from 'antd'
+import { useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
+import { logout } from '../api/auth.ts'
 import { strings } from '../strings.ts'
 
 interface AppShellProps {
@@ -9,6 +12,18 @@ interface AppShellProps {
 
 export function AppShell({ filterBar, children }: AppShellProps) {
   const { token } = theme.useToken()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+
+  async function handleLogout() {
+    try {
+      await logout()
+      queryClient.clear()
+      navigate('/login', { replace: true })
+    } catch {
+      message.error(strings.app.logoutError)
+    }
+  }
 
   return (
     <div className="app-shell">
@@ -26,11 +41,16 @@ export function AppShell({ filterBar, children }: AppShellProps) {
           padding: '0 24px',
         }}
       >
-        {filterBar ?? (
-          <span style={{ color: token.colorText, fontWeight: 500 }}>
-            {strings.app.title}
-          </span>
-        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {filterBar ?? (
+            <span style={{ color: token.colorText, fontWeight: 500 }}>
+              {strings.app.title}
+            </span>
+          )}
+        </div>
+        <Button size="small" onClick={() => void handleLogout()}>
+          {strings.app.logout}
+        </Button>
       </div>
 
       {/* Lane grid zone — fills remaining viewport height */}

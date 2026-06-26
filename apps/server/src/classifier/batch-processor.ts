@@ -1,11 +1,14 @@
-import { Prisma, type RawMessage } from '../generated/prisma/client.js'
 import { prisma } from '../shared/db.js'
 import { env } from '../shared/env.js'
 import { logger } from '../shared/logger.js'
-import { classifyMessage } from './ai-client.js'
-import type { ClassifierOutput } from './schema.js'
+import { writeBatchHealth, type BatchStatus } from './batch-health.js'
+import { writeClassifierEvent } from './events.js'
+import { aggregateIntakeMetrics, zeroIntakeMetrics } from './intake-metrics.js'
+import { persistSignals } from './persist-signals.js'
+import { classifyMessageWithRetry } from './retry.js'
 
-type BatchStatus = 'ok' | 'failed'
+export { aggregateIntakeMetrics } from './intake-metrics.js'
+export { classifyMessageWithRetry } from './retry.js'
 
 export type BatchResult = {
   status: BatchStatus
@@ -15,60 +18,8 @@ export type BatchResult = {
   error_message: string | null
 }
 
-type IntakeMetrics = {
-  pre_filter_discards: number
-  keyword_matched_count: number
-  keyword_skipped_count: number
-  keyword_ai_signal_count: number
-  keyword_ai_ignore_count: number
-  no_keyword_ai_signal_count: number
-  no_keyword_ai_ignore_count: number
-}
-
-type PipelineEventCountRow = {
-  event_type: string
-  count: bigint
-}
-
 type ClassifyBatchOptions = {
   sleep?: (ms: number) => Promise<void>
-}
-
-type PersistSignalsResult = {
-  signalsWritten: number
-  lastSignalId: number | null
-}
-
-const zeroIntakeMetrics: IntakeMetrics = {
-  pre_filter_discards:        0,
-  keyword_matched_count:      0,
-  keyword_skipped_count:      0,
-  keyword_ai_signal_count:    0,
-  keyword_ai_ignore_count:    0,
-  no_keyword_ai_signal_count: 0,
-  no_keyword_ai_ignore_count: 0,
-}
-
-export async function classifyMessageWithRetry(
-  text: string,
-  maxAttempts = 3,
-  sleepFn: (ms: number) => Promise<void> = sleep,
-): Promise<ClassifierOutput> {
-  let lastError: unknown
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    try {
-      return await classifyMessage(text)
-    } catch (err) {
-      lastError = err
-      if (attempt < maxAttempts) {
-        logger.warn({ attempt, err }, 'AI classification attempt failed; retrying')
-        await sleepFn(100 * 2 ** (attempt - 1))
-      }
-    }
-  }
-
-  throw lastError
 }
 
 export async function classifyBatch(
@@ -102,6 +53,7 @@ export async function classifyBatch(
     const rawMessages = await prisma.rawMessage.findMany({
       where:   { district_id: districtId },
       orderBy: { id: 'asc' },
+      take:    env.CLASSIFIER_BATCH_SIZE,
     })
 
     messagesFetched = rawMessages.length
@@ -190,9 +142,6 @@ export async function classifyBatch(
 
     logger.error({ districtId, err }, 'Classify batch failed')
 
-    // P-1: writeBatchHealth may itself throw when the DB is down (the same
-    // condition that caused the outer error). Wrap it to prevent a secondary
-    // unhandled rejection from shadowing the original failure.
     try {
       await writeBatchHealth({
         districtId,
@@ -222,210 +171,6 @@ export async function classifyBatch(
       error_message:    errorMessage,
     }
   }
-}
-
-export async function aggregateIntakeMetrics(params: {
-  districtId: number
-  from: Date
-  to: Date
-}): Promise<IntakeMetrics> {
-  const rows = await prisma.$queryRaw<Array<PipelineEventCountRow>>`
-    SELECT event_type, COUNT(DISTINCT telegram_update_id) AS count
-    FROM pipeline_events
-    WHERE district_id = ${params.districtId}
-      AND created_at >= ${params.from}
-      AND created_at < ${params.to}
-    GROUP BY event_type
-  `
-
-  const countByType = Object.fromEntries(
-    rows.map((row) => [row.event_type, Number(row.count)]),
-  )
-
-  return {
-    // Stage 1 pre-filter discards are not persisted to pipeline_events yet.
-    pre_filter_discards:        0,
-    keyword_matched_count:      countByType.keyword_match ?? 0,
-    keyword_skipped_count:      countByType.keyword_skip ?? 0,
-    // These require joining classifier outcomes to keyword events; reserved for a later story.
-    keyword_ai_signal_count:    0,
-    keyword_ai_ignore_count:    0,
-    no_keyword_ai_signal_count: 0,
-    no_keyword_ai_ignore_count: 0,
-  }
-}
-
-async function persistSignals(
-  rawMessage: RawMessage,
-  aiResult: Extract<ClassifierOutput, { decision: 'signal' }>,
-  categories: string[],
-): Promise<PersistSignalsResult> {
-  const baseSignalRow = {
-    telegram_update_id:  rawMessage.telegram_update_id,
-    telegram_message_id: rawMessage.telegram_message_id,
-    district_id:         rawMessage.district_id,
-    mahalla_id:          rawMessage.mahalla_id,
-    sender_display_name: rawMessage.sender_display_name,
-    sender_username:     rawMessage.sender_username,
-    telegram_timestamp:  rawMessage.telegram_timestamp,
-    raw_text:            rawMessage.text,
-    text_source:         rawMessage.text_source,
-    hokim_related:       aiResult.hokim_related ?? false,
-    keyword_matched:     false,
-    matched_keyword:     null,
-    short_label:         aiResult.short_label ?? null,
-    classified_at:       new Date(),
-  }
-
-  try {
-    return await prisma.$transaction(async (tx) => {
-      // 1. Fetch pre-existing signals for these categories to prevent unique constraint violation
-      const existingSignals = await tx.signalMessage.findMany({
-        where: {
-          telegram_update_id: rawMessage.telegram_update_id,
-          category: { in: categories },
-        },
-        select: { category: true, id: true },
-      })
-
-      const existingCategories = new Set(existingSignals.map((s) => s.category))
-      let lastSignalId: number | null = existingSignals.length > 0 ? existingSignals[existingSignals.length - 1].id : null
-      let signalsWritten = 0
-
-      // 2. Create signals for categories that do not exist yet
-      for (const category of categories) {
-        if (!existingCategories.has(category)) {
-          const created = await tx.signalMessage.create({
-            data: {
-              ...baseSignalRow,
-              category,
-            },
-          })
-          lastSignalId = created.id
-          signalsWritten += 1
-        }
-      }
-
-      // 3. Delete the raw message
-      try {
-        await tx.rawMessage.delete({ where: { id: rawMessage.id } })
-      } catch (err) {
-        if (!isPrismaRecordNotFoundError(err)) {
-          throw err
-        }
-        logger.info(
-          { rawMessageId: rawMessage.id },
-          'Raw message already deleted by concurrent process — idempotent',
-        )
-      }
-
-      return { signalsWritten, lastSignalId }
-    })
-  } catch (err) {
-    if (isPrismaUniqueConstraintError(err)) {
-      logger.info(
-        { rawMessageId: rawMessage.id, updateId: rawMessage.telegram_update_id },
-        'Signal already exists for categories; deleting raw_message only',
-      )
-      try {
-        await prisma.rawMessage.delete({ where: { id: rawMessage.id } })
-      } catch (deleteErr) {
-        if (!isPrismaRecordNotFoundError(deleteErr)) {
-          throw deleteErr
-        }
-      }
-      return { signalsWritten: 0, lastSignalId: null }
-    }
-    throw err
-  }
-}
-
-async function writeClassifierEvent(params: {
-  eventType: 'classifier_signal' | 'classifier_ignore' | 'classifier_error'
-  rawMessage: RawMessage
-  signalId: number | null
-  detail: Record<string, unknown>
-}): Promise<void> {
-  try {
-    await prisma.pipelineEvent.create({
-      data: {
-        event_type:         params.eventType,
-        district_id:        params.rawMessage.district_id,
-        mahalla_id:         params.rawMessage.mahalla_id,
-        telegram_update_id: params.rawMessage.telegram_update_id,
-        raw_message_id:     params.rawMessage.id,
-        signal_id:          params.signalId,
-        detail: {
-          telegramUpdateId:  params.rawMessage.telegram_update_id,
-          telegramMessageId: params.rawMessage.telegram_message_id,
-          rawMessageId:      params.rawMessage.id,
-          signalId:          params.signalId,
-          mahallaId:         params.rawMessage.mahalla_id,
-          textSource:        params.rawMessage.text_source,
-          textSnippet:       params.rawMessage.text.slice(0, 160),
-          ...params.detail,
-        },
-      },
-    })
-  } catch (err) {
-    logger.error(
-      { rawMessageId: params.rawMessage.id, eventType: params.eventType, err },
-      'classifier pipelineEvent.create failed',
-    )
-  }
-}
-
-async function writeBatchHealth(params: {
-  districtId: number
-  status: BatchStatus
-  startedAt: Date
-  completedAt: Date
-  intakeWindowFrom: Date | null
-  intakeWindowTo: Date
-  messagesFetched: number
-  signalsWritten: number
-  ignoredCount: number
-  intakeMetrics: IntakeMetrics
-  errorMessage: string | null
-}): Promise<void> {
-  await prisma.batchHealth.create({
-    data: {
-      district_id:                params.districtId,
-      status:                     params.status,
-      started_at:                 params.startedAt,
-      completed_at:               params.completedAt,
-      intake_window_from:         params.intakeWindowFrom,
-      intake_window_to:           params.intakeWindowTo,
-      messages_fetched:           params.messagesFetched,
-      signals_written:            params.signalsWritten,
-      ignored_count:              params.ignoredCount,
-      pre_filter_discards:        params.intakeMetrics.pre_filter_discards,
-      filter_mode:                env.FILTER_MODE,
-      keyword_matched_count:      params.intakeMetrics.keyword_matched_count,
-      keyword_skipped_count:      params.intakeMetrics.keyword_skipped_count,
-      keyword_ai_signal_count:    params.intakeMetrics.keyword_ai_signal_count,
-      keyword_ai_ignore_count:    params.intakeMetrics.keyword_ai_ignore_count,
-      no_keyword_ai_signal_count: params.intakeMetrics.no_keyword_ai_signal_count,
-      no_keyword_ai_ignore_count: params.intakeMetrics.no_keyword_ai_ignore_count,
-      error_message:              params.errorMessage,
-    },
-  })
-}
-
-function isPrismaUniqueConstraintError(err: unknown): boolean {
-  return (
-    err instanceof Error &&
-    (err.constructor.name === 'PrismaClientKnownRequestError' || err.name === 'PrismaClientKnownRequestError') &&
-    (err as any).code === 'P2002'
-  )
-}
-
-function isPrismaRecordNotFoundError(err: unknown): boolean {
-  return (
-    err instanceof Error &&
-    (err.constructor.name === 'PrismaClientKnownRequestError' || err.name === 'PrismaClientKnownRequestError') &&
-    (err as any).code === 'P2025'
-  )
 }
 
 function getErrorMessage(err: unknown): string {

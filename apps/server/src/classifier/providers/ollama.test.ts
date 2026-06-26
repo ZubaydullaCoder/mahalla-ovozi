@@ -35,7 +35,7 @@ describe('classifyWithOllama', () => {
       message: {
         content: JSON.stringify({
           decision:      'signal',
-          category:      'gas',
+          categories:    ['gas'],
           hokim_related: false,
           short_label:   'Gas issue',
         }),
@@ -74,7 +74,7 @@ describe('classifyWithOllama', () => {
       latencyMs: expect.any(Number),
       rawJson:   {
         decision:      'signal',
-        category:      'gas',
+        categories:    ['gas'],
         hokim_related: false,
         short_label:   'Gas issue',
       },

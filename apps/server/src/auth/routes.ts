@@ -1,7 +1,9 @@
-import { Router, type IRouter } from 'express'
+import { Router, type IRouter, type Request } from 'express'
 import * as argon2 from 'argon2'
 import { prisma } from '../shared/db.js'
 import { logger } from '../shared/logger.js'
+import { getAuthenticatedSession } from './middleware.js'
+import { getSessionClearCookieOptions, SESSION_COOKIE_NAME } from './session-cookie.js'
 
 // Rate limit: block the 6th attempt after 5 failed attempts per username per 60-second window
 const failedLoginAttempts = new Map<string, { count: number; windowStart: number }>()
@@ -50,6 +52,19 @@ function clearFailedLogins(username: string): void {
   failedLoginAttempts.delete(username)
 }
 
+function regenerateSession(req: Request): Promise<void> {
+  return new Promise((resolve, reject) => {
+    req.session.regenerate((err) => {
+      if (err) {
+        reject(err)
+        return
+      }
+
+      resolve()
+    })
+  })
+}
+
 const router: IRouter = Router()
 
 router.post('/login', async (req, res) => {
@@ -89,7 +104,8 @@ router.post('/login', async (req, res) => {
 
     clearFailedLogins(username)
 
-    // Successful login — set session
+    await regenerateSession(req)
+
     req.session.userId = user.id
     req.session.districtId = user.district_id
 
@@ -101,15 +117,41 @@ router.post('/login', async (req, res) => {
   }
 })
 
-router.post('/logout', (req, res) => {
-  const sessionName = 'connect.sid' // default express-session cookie name
-  const clearCookieOptions = {
-    path: '/',
-    httpOnly: true,
-    sameSite: 'strict' as const,
-    secure: false,
-  }
+router.get('/me', async (req, res) => {
+  try {
+    const session = await getAuthenticatedSession(req)
 
+    if (!session) {
+      req.session.destroy((err) => {
+        if (err) {
+          logger.warn({ err }, 'Failed to destroy invalid session during session probe')
+        }
+      })
+
+      res.status(401).json({
+        statusCode: 401,
+        error: 'Unauthorized',
+        message: 'Authentication required',
+      })
+      return
+    }
+
+    res.status(200).json({
+      authenticated: true,
+      userId:        session.userId,
+      districtId:    session.districtId,
+    })
+  } catch (err) {
+    logger.error({ err, userId: req.session.userId, districtId: req.session.districtId }, 'Session probe failed')
+    res.status(500).json({
+      statusCode: 500,
+      error:      'Internal Server Error',
+      message:    'Authentication check failed',
+    })
+  }
+})
+
+router.post('/logout', (req, res) => {
   req.session.destroy((err) => {
     if (err) {
       logger.error({ err }, 'Session destroy failed during logout')
@@ -117,7 +159,7 @@ router.post('/logout', (req, res) => {
       return
     }
 
-    res.clearCookie(sessionName, clearCookieOptions)
+    res.clearCookie(SESSION_COOKIE_NAME, getSessionClearCookieOptions())
     res.status(200).json({ ok: true })
   })
 })

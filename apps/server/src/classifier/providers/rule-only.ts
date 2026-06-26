@@ -60,7 +60,7 @@ export async function classifyWithRuleOnly(text: string): Promise<ProviderRawRes
     latencyMs: Date.now() - startedAt,
     rawJson:   {
       decision:      'signal',
-      category:      matchedRule.category,
+      categories:    [matchedRule.category],
       hokim_related: hokimRelated,
       short_label:   matchedRule.shortLabel,
     },

@@ -1,13 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const prismaMocks = vi.hoisted(() => ({
-  signalMessageDeleteMany: vi.fn(),
+  signalMessageDeleteMany:  vi.fn(),
+  pipelineEventDeleteMany:  vi.fn(),
+  batchHealthDeleteMany:    vi.fn(),
 }))
 
 vi.mock('../shared/db.js', () => ({
   prisma: {
     signalMessage: {
       deleteMany: prismaMocks.signalMessageDeleteMany,
+    },
+    pipelineEvent: {
+      deleteMany: prismaMocks.pipelineEventDeleteMany,
+    },
+    batchHealth: {
+      deleteMany: prismaMocks.batchHealthDeleteMany,
     },
   },
 }))
@@ -29,6 +37,9 @@ describe('purgeOldSignals', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers()
+    prismaMocks.signalMessageDeleteMany.mockResolvedValue({ count: 0 })
+    prismaMocks.pipelineEventDeleteMany.mockResolvedValue({ count: 0 })
+    prismaMocks.batchHealthDeleteMany.mockResolvedValue({ count: 0 })
   })
 
   afterEach(() => {
@@ -47,16 +58,29 @@ describe('purgeOldSignals', () => {
     expect(prisma.signalMessage.deleteMany).toHaveBeenCalledWith({
       where: { created_at: { lt: expectedCutoff } },
     })
+    expect(prisma.pipelineEvent.deleteMany).toHaveBeenCalledWith({
+      where: { created_at: { lt: expectedCutoff } },
+    })
+    expect(prisma.batchHealth.deleteMany).toHaveBeenCalledWith({
+      where: { started_at: { lt: expectedCutoff } },
+    })
   })
 
   it('logs info with deleted count and event key on success', async () => {
     vi.mocked(prisma.signalMessage.deleteMany).mockResolvedValueOnce({ count: 12 })
+    vi.mocked(prisma.pipelineEvent.deleteMany).mockResolvedValueOnce({ count: 8 })
+    vi.mocked(prisma.batchHealth.deleteMany).mockResolvedValueOnce({ count: 3 })
 
     await purgeOldSignals()
 
     expect(logger.info).toHaveBeenCalledWith(
-      { deleted: 12, event: 'retention_purge' },
-      'Signal retention purge complete',
+      {
+        deletedSignals:        12,
+        deletedPipelineEvents: 8,
+        deletedBatchHealth:    3,
+        event:                 'retention_purge',
+      },
+      'Retention purge complete',
     )
   })
 
@@ -66,8 +90,13 @@ describe('purgeOldSignals', () => {
     await purgeOldSignals()
 
     expect(logger.info).toHaveBeenCalledWith(
-      { deleted: 0, event: 'retention_purge' },
-      'Signal retention purge complete',
+      {
+        deletedSignals:        0,
+        deletedPipelineEvents: 0,
+        deletedBatchHealth:    0,
+        event:                 'retention_purge',
+      },
+      'Retention purge complete',
     )
   })
 

@@ -205,6 +205,8 @@ describe('SignalsBrowserPanel', () => {
           mahallaName:      'Raw Mahalla',
           text:             "Gaz yo'q uyda",
           textSource:       'text' as const,
+          keywordMatched:   true,
+          matchedKeyword:   'gaz',
           telegramTimestamp: '2026-06-22T10:00:00.000Z',
           isSimulated:      true,
         }],

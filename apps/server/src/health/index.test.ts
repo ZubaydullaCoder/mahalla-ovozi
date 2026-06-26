@@ -25,11 +25,13 @@ vi.mock('../shared/env.js', () => ({ env: mockEnv }))
 
 const mockBatchHealthFindFirst = vi.hoisted(() => vi.fn())
 const mockRawMessageCount      = vi.hoisted(() => vi.fn())
+const mockUserFindUnique       = vi.hoisted(() => vi.fn())
 
 vi.mock('../shared/db.js', () => ({
   prisma: {
     batchHealth: { findFirst: mockBatchHealthFindFirst },
     rawMessage:  { count:     mockRawMessageCount },
+    user:        { findUnique: mockUserFindUnique },
   },
 }))
 
@@ -78,6 +80,11 @@ describe('GET /api/health', () => {
   beforeEach(() => {
     app = createTestApp()
     vi.clearAllMocks()
+    mockUserFindUnique.mockResolvedValue({
+      id:          1,
+      district_id: SESSION_DISTRICT_ID,
+      is_active:   true,
+    })
   })
 
   afterEach(() => {

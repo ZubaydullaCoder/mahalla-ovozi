@@ -113,14 +113,14 @@ export async function pipeline(update: Update): Promise<void> {
   // Load active keywords for this district, run matcher against message text.
   // districtId is ALWAYS from mahalla.district_id — never from request body (AC #5).
   let activeKeywords: Awaited<ReturnType<typeof getActiveKeywords>> = []
-  let keywordLookupFailed = false
+  let keywordLookupError: unknown = null
   try {
     activeKeywords = await getActiveKeywords(mahalla.district_id)
   } catch (err) {
-    keywordLookupFailed = true
+    keywordLookupError = err
     logger.error(
       { updateId, mahallaId: mahalla.id, districtId: mahalla.district_id, err },
-      'getActiveKeywords failed — bypassing keyword gate (fail-open)',
+      'getActiveKeywords failed — message not written (keyword_gate fail-closed)',
     )
   }
   const matchResult = matchesAnyKeyword(rawText, activeKeywords)
@@ -153,6 +153,8 @@ export async function pipeline(update: Update): Promise<void> {
       sender_username:     from.username ?? null,
       text:                rawText,
       text_source,
+      keyword_matched:     matchResult.matched,
+      matched_keyword:     matchResult.phrase,
       telegram_timestamp:  new Date(update.message!.date * 1000),
     },
   })
@@ -162,94 +164,40 @@ export async function pipeline(update: Update): Promise<void> {
     try {
       await prisma.pipelineEvent.create({ data })
     } catch (err) {
-      logger.error({ updateId, eventType: data.event_type, err }, 'pipelineEvent.create failed — message already written')
+      logger.error({ updateId, eventType: data.event_type, err }, 'pipelineEvent.create failed')
     }
   }
 
-  if (filterMode === 'keyword_gate') {
-    if (keywordLookupFailed) {
-      const rawMessage = await upsertRawMessage()
+  if (keywordLookupError) {
+    await createPipelineEvent({
+      event_type:         'keyword_skip',
+      district_id:        mahalla.district_id,
+      mahalla_id:         mahalla.id,
+      telegram_update_id: update.update_id,
+      raw_message_id:     null,
+      detail: {
+        ...baseDetail,
+        keywordLookupFailed: true,
+        reason:              'Keyword lookup failed; message not written in keyword_gate mode',
+      },
+    })
 
-      await createPipelineEvent({
-        event_type:         'prefilter_pass',
-        district_id:        mahalla.district_id,
-        mahalla_id:         mahalla.id,
-        telegram_update_id: update.update_id,
-        raw_message_id:     rawMessage.id,
-        detail: {
-          ...baseDetail,
-          keywordLookupFailed: true,
-          reason:              'Keyword lookup failed; fail-open in keyword_gate mode',
-        },
-      })
-
-      logger.warn(
-        {
-          updateId,
-          chatId:    chatId.toString(),
-          mahallaId: mahalla.id,
-          filterMode,
-        },
-        'Keyword lookup failed — message written to raw_messages fail-open',
-      )
-    } else if (matchResult.matched) {
-      // keyword_gate + keyword match → write to raw_messages, record keyword_match event
-      const rawMessage = await upsertRawMessage()
-
-      await createPipelineEvent({
-        event_type:         'keyword_match',
-        district_id:        mahalla.district_id,
-        mahalla_id:         mahalla.id,
-        telegram_update_id: update.update_id,
-        raw_message_id:     rawMessage.id,
-        detail:             baseDetail,
-      })
-
-      logger.info(
-        {
-          updateId,
-          chatId:        chatId.toString(),
-          mahallaId:     mahalla.id,
-          filterMode,
-          keywordMatched: true,
-          matchedPhrase:  matchResult.phrase,
-        },
-        'Keyword match — message written to raw_messages',
-      )
-    } else {
-      // keyword_gate + no match → skip upsert, record keyword_skip event, return
-      await createPipelineEvent({
-        event_type:         'keyword_skip',
-        district_id:        mahalla.district_id,
-        mahalla_id:         mahalla.id,
-        telegram_update_id: update.update_id,
-        raw_message_id:     null,
-        detail: {
-          ...baseDetail,
-          reason: 'No keyword match in keyword_gate mode',
-        },
-      })
-
-      logger.info(
-        {
-          updateId,
-          chatId:    chatId.toString(),
-          mahallaId: mahalla.id,
-          filterMode: 'keyword_gate',
-        },
-        'Keyword skip — message not written (keyword_gate, no match)',
-      )
-      return
-    }
-  } else {
-    // ai_full or shadow_compare → always write to raw_messages
+    logger.warn(
+      {
+        updateId,
+        chatId:    chatId.toString(),
+        mahallaId: mahalla.id,
+        filterMode,
+      },
+      'Keyword lookup failed — message not written',
+    )
+    return
+  } else if (matchResult.matched) {
+    // keyword_gate + keyword match -> write to raw_messages, record keyword_match event
     const rawMessage = await upsertRawMessage()
 
-    // Determine event type by keyword match status
-    const eventType = matchResult.matched ? 'keyword_match' : 'prefilter_pass'
-
     await createPipelineEvent({
-      event_type:         eventType,
+      event_type:         'keyword_match',
       district_id:        mahalla.district_id,
       mahalla_id:         mahalla.id,
       telegram_update_id: update.update_id,
@@ -260,15 +208,37 @@ export async function pipeline(update: Update): Promise<void> {
     logger.info(
       {
         updateId,
-        chatId:         chatId.toString(),
-        mahallaId:      mahalla.id,
-        districtId:     mahalla.district_id,
-        text_source,
+        chatId:        chatId.toString(),
+        mahallaId:     mahalla.id,
         filterMode,
-        keywordMatched: matchResult.matched,
+        keywordMatched: true,
         matchedPhrase:  matchResult.phrase,
       },
-      'Message ingested to raw_messages',
+      'Keyword match — message written to raw_messages',
     )
+  } else {
+    // keyword_gate + no match -> skip upsert, record keyword_skip event, return
+    await createPipelineEvent({
+      event_type:         'keyword_skip',
+      district_id:        mahalla.district_id,
+      mahalla_id:         mahalla.id,
+      telegram_update_id: update.update_id,
+      raw_message_id:     null,
+      detail: {
+        ...baseDetail,
+        reason: 'No keyword match in keyword_gate mode',
+      },
+    })
+
+    logger.info(
+      {
+        updateId,
+        chatId:    chatId.toString(),
+        mahallaId: mahalla.id,
+        filterMode,
+      },
+      'Keyword skip — message not written (keyword_gate, no match)',
+    )
+    return
   }
 }

@@ -9,9 +9,10 @@ const mockEnv = vi.hoisted(() => ({
     PORT:                    3001,
     BOT_TOKEN:               'mock-bot-token',
     TELEGRAM_WEBHOOK_SECRET: 'mock-secret',
-    FILTER_MODE:             'keyword_gate' as 'ai_full' | 'keyword_gate' | 'shadow_compare',
+    FILTER_MODE:             'keyword_gate' as const,
     AI_API_KEY:              'test-key',
     AI_MODEL:                'gemini-2.5-flash',
+    CLASSIFIER_BATCH_SIZE:   100,
   },
 }))
 
@@ -88,6 +89,8 @@ const rawMessage = {
   sender_username:     'ali',
   text:                'Suvimiz yoq',
   text_source:         'text',
+  keyword_matched:     true,
+  matched_keyword:     'suv',
   telegram_timestamp:  new Date('2026-06-11T01:00:00.000Z'),
   created_at:          new Date('2026-06-11T01:01:00.000Z'),
 }
@@ -139,6 +142,7 @@ describe('classifyBatch', () => {
     expect(prismaMocks.rawMessageFindMany).toHaveBeenCalledWith({
       where:   { district_id: 1 },
       orderBy: { id: 'asc' },
+      take:    100,
     })
     expect(prismaMocks.signalMessageCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -149,8 +153,8 @@ describe('classifyBatch', () => {
         raw_text:            rawMessage.text,
         category:            'water',
         hokim_related:       false,
-        keyword_matched:     false,
-        matched_keyword:     null,
+        keyword_matched:     true,
+        matched_keyword:     'suv',
         short_label:         'Water outage',
       }),
     })
@@ -330,6 +334,17 @@ describe('classifyBatch', () => {
         error_message:              null,
       }),
     })
+  })
+
+  it('limits each run to the configured classifier batch size', async () => {
+    mockEnv.env.CLASSIFIER_BATCH_SIZE = 25
+    aiMocks.classifyMessage.mockResolvedValue({ decision: 'ignore' })
+
+    await classifyBatch(1)
+
+    expect(prismaMocks.rawMessageFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 25 }),
+    )
   })
 })
 

@@ -44,6 +44,16 @@ function RawMessagesSection() {
       render: (_: unknown, r: RawMessageRow) => <Tag>{r.textSource}</Tag>,
     },
     {
+      title: 'Keyword', key: 'keyword', width: 80,
+      render: (_: unknown, r: RawMessageRow) => (
+        <Tag color={r.keywordMatched ? 'success' : 'default'}>{r.keywordMatched ? 'yes' : 'no'}</Tag>
+      ),
+    },
+    {
+      title: 'Matched kw', key: 'matchedKw', width: 120,
+      render: (_: unknown, r: RawMessageRow) => r.matchedKeyword ?? '-',
+    },
+    {
       title: 'Captured at', key: 'ts', width: 150,
       render: (_: unknown, r: RawMessageRow) =>
         new Date(r.telegramTimestamp).toLocaleString('en-GB', { timeZone: 'UTC' }),

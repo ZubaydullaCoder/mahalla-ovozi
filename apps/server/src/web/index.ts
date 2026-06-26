@@ -13,11 +13,16 @@ import { authRouter, requireAuth } from '../auth/index.js'
 import { signalsRouter } from '../signals/index.js'
 import { healthRouter } from '../health/index.js'
 import { opsRouter } from '../ops/index.js'
+import { getSessionCookieOptions } from '../auth/session-cookie.js'
 
 const app = express()
 
 const PgStore = connectPgSimple(session)
 const pgPool = new Pool({ connectionString: env.DATABASE_URL })
+
+if (env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1)
+}
 
 app.use(morgan('dev'))
 app.use(session({
@@ -29,12 +34,7 @@ app.use(session({
   secret: env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: {
-    httpOnly: true,
-    secure: false,
-    sameSite: 'strict',
-    maxAge: 8 * 60 * 60 * 1000,
-  },
+  cookie: getSessionCookieOptions(),
 }))
 app.use(express.json())
 app.use(webhookRouter)

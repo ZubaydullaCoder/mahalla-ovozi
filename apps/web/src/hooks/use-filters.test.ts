@@ -79,9 +79,10 @@ describe('computeApiParams', () => {
 
         const todayStart = getUTC5DayStart(fakeNow)
         const yesterdayStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000)
+        const yesterdayEnd = new Date(todayStart.getTime() - 1)
 
         expect(result!.from).toBe(yesterdayStart.toISOString())
-        expect(result!.to).toBe(todayStart.toISOString())
+        expect(result!.to).toBe(yesterdayEnd.toISOString())
       })
 
       it('yesterday from < to', () => {
@@ -89,16 +90,23 @@ describe('computeApiParams', () => {
         expect(new Date(result.from) < new Date(result.to)).toBe(true)
       })
 
-      it('yesterday window is exactly 24 hours', () => {
+      it('yesterday window covers the previous day with an inclusive upper bound', () => {
         const result = computeApiParams('yesterday', null)!
         const diffMs = new Date(result.to).getTime() - new Date(result.from).getTime()
-        expect(diffMs).toBe(24 * 60 * 60 * 1000)
+        expect(diffMs).toBe(24 * 60 * 60 * 1000 - 1)
       })
 
-      it('yesterday.to equals today UTC+5 00:00', () => {
+      it('yesterday.to is one millisecond before today UTC+5 00:00', () => {
         const result = computeApiParams('yesterday', null)!
         const todayStart = getUTC5DayStart(fakeNow)
-        expect(result.to).toBe(todayStart.toISOString())
+        expect(result.to).toBe(new Date(todayStart.getTime() - 1).toISOString())
+      })
+
+      it('today UTC+5 midnight is outside yesterday range', () => {
+        const result = computeApiParams('yesterday', null)!
+        const todayStart = getUTC5DayStart(fakeNow)
+
+        expect(todayStart.getTime()).toBeGreaterThan(new Date(result.to).getTime())
       })
     })
 
@@ -159,7 +167,7 @@ describe('computeApiParams', () => {
       expect(todayStart.toISOString()).toBe('2026-06-15T19:00:00.000Z')
       // Yesterday from = 2026-06-14 19:00:00 UTC
       expect(result.from).toBe('2026-06-14T19:00:00.000Z')
-      expect(result.to).toBe('2026-06-15T19:00:00.000Z')
+      expect(result.to).toBe('2026-06-15T18:59:59.999Z')
     })
 
     it('just before UTC+5 midnight: 2026-06-15 23:59 UTC+5 → todayStart = 2026-06-14 19:00 UTC', () => {
@@ -175,7 +183,7 @@ describe('computeApiParams', () => {
       expect(todayStart.toISOString()).toBe('2026-06-14T19:00:00.000Z')
       // Yesterday from = 2026-06-13 19:00:00 UTC
       expect(result.from).toBe('2026-06-13T19:00:00.000Z')
-      expect(result.to).toBe('2026-06-14T19:00:00.000Z')
+      expect(result.to).toBe('2026-06-14T18:59:59.999Z')
     })
   })
 })

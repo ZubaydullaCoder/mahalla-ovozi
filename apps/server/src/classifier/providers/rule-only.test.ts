@@ -33,7 +33,7 @@ describe('classifyWithRuleOnly', () => {
       latencyMs: expect.any(Number),
       rawJson:   {
         decision:      'signal',
-        category:      'gas',
+        categories:    ['gas'],
         hokim_related: true,
         short_label:   'Possible gas issue',
       },

@@ -1302,6 +1302,8 @@ const RAW_MESSAGE_ROW = {
   sender_username:     null,
   text:                "Gaz yo'q",
   text_source:         'text',
+  keyword_matched:     true,
+  matched_keyword:     'suv',
   telegram_timestamp:  new Date('2026-06-22T10:00:00.000Z'),
   sender_is_bot:       false,
   created_at:          new Date('2026-06-22T10:00:00.000Z'),
@@ -1491,6 +1493,8 @@ describe('GET /api/ops/raw-messages', () => {
       mahallaId:   2,
       mahallaName: '\u041d\u0430\u0432\u0431\u0430\u04b3\u043e\u0440 \u043c\u0430\u04b3\u0430\u043b\u043b\u0430\u0441\u0438',
       textSource:  'text',
+      keywordMatched: true,
+      matchedKeyword: 'suv',
       isSimulated: true,
     })
     expect(res.body.items[0].telegramTimestamp).toBe(RAW_MESSAGE_ROW.telegram_timestamp.toISOString())
