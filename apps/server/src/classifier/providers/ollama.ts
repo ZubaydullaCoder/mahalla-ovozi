@@ -28,6 +28,7 @@ export async function classifyWithOllama(text: string): Promise<ProviderRawResul
         model:    env.AI_MODEL,
         messages: [{ role: 'user', content: buildPlainPrompt(text) }],
         stream:   false,
+        think:    false,
         format:   zodToJsonSchema(ClassifierOutputSchema),
         options:  {
           temperature: 0,

@@ -39,6 +39,7 @@ export function AppShell({ filterBar, children }: AppShellProps) {
           display: 'flex',
           alignItems: 'center',
           padding: '0 24px',
+          gap: 16,
         }}
       >
         <div style={{ flex: 1, minWidth: 0 }}>
