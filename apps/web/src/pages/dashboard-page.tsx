@@ -124,6 +124,7 @@ export function DashboardPage() {
   return (
     <>
       <AppShell
+        showOpsLink
         filterBar={
           <FilterBar
             filterState={filterState}

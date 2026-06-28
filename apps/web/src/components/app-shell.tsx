@@ -1,13 +1,16 @@
 import type { ReactNode } from 'react'
 import { message, theme } from 'antd'
-import { useQueryClient } from '@tanstack/react-query'
+import { type QueryClient, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { logout } from '../api/auth.ts'
 import { strings } from '../strings.ts'
 
 interface AppShellProps {
-  filterBar?: ReactNode // Slot for FilterBar
-  children: ReactNode  // Slot for LaneGrid
+  filterBar?: ReactNode       // Slot for FilterBar (Dashboard) or Segmented nav (Ops)
+  children: ReactNode        // Slot for LaneGrid or Ops panel content
+  showOpsLink?: boolean      // When true, renders an "Ops" nav button before the logout button
+  contentOverflow?: 'hidden' | 'auto' // Content zone overflow; defaults to 'hidden' (dashboard)
+  additionalLogoutQueryClients?: QueryClient[] // Extra isolated caches to clear on logout
 }
 
 // Logo SVG — chat-bubble icon matching Mahalla Ovozi brand (adapted from reference)
@@ -53,7 +56,13 @@ function LogoutIcon() {
   )
 }
 
-export function AppShell({ filterBar, children }: AppShellProps) {
+export function AppShell({
+  filterBar,
+  children,
+  showOpsLink,
+  contentOverflow,
+  additionalLogoutQueryClients = [],
+}: AppShellProps) {
   const { token } = theme.useToken()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -62,6 +71,9 @@ export function AppShell({ filterBar, children }: AppShellProps) {
     try {
       await logout()
       queryClient.clear()
+      additionalLogoutQueryClients.forEach((client) => {
+        if (client !== queryClient) client.clear()
+      })
       navigate('/login', { replace: true })
     } catch {
       message.error(strings.app.logoutError)
@@ -116,6 +128,41 @@ export function AppShell({ filterBar, children }: AppShellProps) {
           {filterBar}
         </div>
 
+        {/* Ops nav link — visible only when showOpsLink is true (Dashboard → Ops) */}
+        {showOpsLink && (
+          <button
+            id="header-ops-link"
+            type="button"
+            onClick={() => navigate('/ops')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '6px 14px',
+              border: `1px solid ${token.colorBorder}`,
+              borderRadius: token.borderRadius,
+              background: token.colorBgElevated,
+              fontSize: 13,
+              fontWeight: 500,
+              color: token.colorTextSecondary,
+              cursor: 'pointer',
+              fontFamily: token.fontFamily,
+              transition: 'background 150ms, color 150ms',
+              flexShrink: 0,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = token.colorBgLayout
+              e.currentTarget.style.color = token.colorText
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = token.colorBgElevated
+              e.currentTarget.style.color = token.colorTextSecondary
+            }}
+          >
+            Ops
+          </button>
+        )}
+
         {/* Logout button — styled per reference */}
         <button
           type="button"
@@ -131,7 +178,7 @@ export function AppShell({ filterBar, children }: AppShellProps) {
             background: token.colorBgElevated,
             fontSize: 13,
             fontWeight: 500,
-            color: '#64748B',
+            color: token.colorTextSecondary,
             cursor: 'pointer',
             fontFamily: token.fontFamily,
             transition: 'background 150ms, color 150ms',
@@ -139,13 +186,13 @@ export function AppShell({ filterBar, children }: AppShellProps) {
           }}
           onMouseEnter={(e) => {
             const btn = e.currentTarget
-            btn.style.background = '#F1F5F9'
+            btn.style.background = token.colorBgLayout
             btn.style.color = token.colorText
           }}
           onMouseLeave={(e) => {
             const btn = e.currentTarget
             btn.style.background = token.colorBgElevated
-            btn.style.color = '#64748B'
+            btn.style.color = token.colorTextSecondary
           }}
         >
           <LogoutIcon />
@@ -153,11 +200,11 @@ export function AppShell({ filterBar, children }: AppShellProps) {
         </button>
       </div>
 
-      {/* Lane grid zone — fills remaining viewport height */}
+      {/* Content zone — fills remaining viewport height; overflow controlled by caller */}
       <div
         style={{
           height: 'calc(100vh - 56px)',
-          overflow: 'hidden',
+          overflow: contentOverflow ?? 'hidden',
           background: token.colorBgLayout,
         }}
       >

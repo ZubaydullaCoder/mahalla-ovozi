@@ -3,6 +3,8 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, waitFor, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import '@testing-library/jest-dom/vitest'
+import { MemoryRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { OpsPage } from './ops-page.tsx'
 
 // AntD Form/Grid uses window.matchMedia — polyfill required in jsdom
@@ -62,19 +64,30 @@ describe('OpsPage', () => {
       'raw-messages': { status: 200, body: { items: [], total: 0 } },
     })
 
-    render(<OpsPage />)
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={new QueryClient()}>
+          <OpsPage />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    )
 
-    expect(await screen.findByText('MAHALLA OVOZI — DEVELOPER OPS CONSOLE [Phase 1]')).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: 'Simulator' })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: 'Pipeline Log' })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: 'Keyword Registry' })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: 'Signals Browser' })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: 'Health' })).toBeInTheDocument()
+    // Segmented nav is rendered (replaces the old dark sidebar Menu) — checked by specific id
+    // (The page also contains SimulatorPanel's Segmented + Radio.Group, so role query is ambiguous)
+    await screen.findByText(/Webhook Simulation/) // wait for ops to be accessible and SimulatorPanel loaded
+    expect(document.getElementById('ops-section-nav')).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Simulator' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Pipeline Log' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Keyword Registry' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Signals Browser' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Health' })).toBeInTheDocument()
     // SimulatorPanel is now implemented — check for the mode toggle instead of placeholder
     expect(await screen.findByText(/Webhook Simulation/)).toBeInTheDocument()
     expect(document.title).toBe('Ops Console – Mahalla Ovozi [Phase 1] — Simulator')
 
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Health' }))
+    // AntD Segmented hides the input with pointer-events:none; click the parent label instead
+    const healthRadio = screen.getByRole('radio', { name: 'Health' })
+    await userEvent.click(healthRadio.closest('label')!)
 
     // HealthPanel is now implemented — Infrastructure Health section is rendered
     await waitFor(() => {
@@ -87,7 +100,13 @@ describe('OpsPage', () => {
   it('shows the disabled banner and hides panels when the ops API returns 404', async () => {
     mockFetch({ 'batch-status': { status: 404, body: { error: 'Not found' } } })
 
-    render(<OpsPage />)
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={new QueryClient()}>
+          <OpsPage />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    )
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Ops Console is disabled. Set OPS_ENABLED=true in .env and restart the server.',
@@ -95,6 +114,38 @@ describe('OpsPage', () => {
 
     await waitFor(() => {
       expect(screen.queryByText(/Webhook Simulation/)).not.toBeInTheDocument()
+    })
+  })
+
+  it('clears the parent app query cache when logging out from the ops shell', async () => {
+    mockFetch({
+      'auth/logout': {
+        status: 200,
+        body:   { ok: true },
+      },
+      'batch-status': {
+        status: 200,
+        body:   { schedulerStatus: 'idle', lastBatchAt: null, lastBatchDuration: null, queueDepth: 0, lastBatchResult: null, recentErrors: [] },
+      },
+    })
+
+    const appQueryClient = new QueryClient()
+    appQueryClient.setQueryData(['signals'], [{ id: 1 }])
+    expect(appQueryClient.getQueryCache().findAll()).toHaveLength(1)
+
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={appQueryClient}>
+          <OpsPage />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    )
+
+    await screen.findByText(/Webhook Simulation/)
+    await userEvent.click(screen.getByRole('button', { name: 'Чиқиш' }))
+
+    await waitFor(() => {
+      expect(appQueryClient.getQueryCache().findAll()).toHaveLength(0)
     })
   })
 })

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { Alert, ConfigProvider, Layout, Menu, Spin, Typography, theme, type MenuProps } from 'antd'
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query'
+import { Alert, ConfigProvider, Segmented, Spin, Typography, theme } from 'antd'
 import { mahallaTheme } from '../theme.ts'
 import { useOpsStatus } from '../api/ops.ts'
+import { AppShell } from '../components/app-shell.tsx'
 import { HealthPanel } from '../components/ops/health-panel.tsx'
 import { KeywordRegistryPanel } from '../components/ops/keyword-registry-panel.tsx'
 import { PipelineLogPanel } from '../components/ops/pipeline-log-panel.tsx'
@@ -53,9 +54,9 @@ const opsSections: Array<{
   },
 ]
 
-const menuItems: MenuProps['items'] = opsSections.map(section => ({
-  key: section.key,
+const segmentedOptions = opsSections.map(section => ({
   label: section.label,
+  value: section.key,
 }))
 
 function findSection(key: OpsSectionKey) {
@@ -63,22 +64,22 @@ function findSection(key: OpsSectionKey) {
 }
 
 export function OpsPage() {
+  const appQueryClient = useQueryClient()
+
   return (
     <QueryClientProvider client={opsQueryClient}>
-      <OpsPageContent />
+      <ConfigProvider theme={mahallaTheme}>
+        <OpsPageContent appQueryClient={appQueryClient} />
+      </ConfigProvider>
     </QueryClientProvider>
   )
 }
 
-function OpsPageContent() {
-  return (
-    <ConfigProvider theme={{ algorithm: theme.darkAlgorithm }}>
-      <OpsPageThemedContent />
-    </ConfigProvider>
-  )
+interface OpsPageContentProps {
+  appQueryClient: QueryClient
 }
 
-function OpsPageThemedContent() {
+function OpsPageContent({ appQueryClient }: OpsPageContentProps) {
   const [activeSectionKey, setActiveSectionKey] = useState<OpsSectionKey>('simulator')
   const activeSection = findSection(activeSectionKey)
   const { data: opsStatus, isLoading, isError, error } = useOpsStatus()
@@ -88,9 +89,23 @@ function OpsPageThemedContent() {
     document.title = `${strings.ops.documentTitle} — ${activeSection.label}`
   }, [activeSection.label])
 
-  const handleSectionChange: MenuProps['onClick'] = ({ key }) => {
-    setActiveSectionKey(key as OpsSectionKey)
-  }
+  // Ops is accessible when loaded successfully and not disabled/forbidden
+  const isAccessible =
+    !isLoading &&
+    !isError &&
+    opsStatus?.isEnabled !== false &&
+    !opsStatus?.isForbidden
+
+  // Horizontal Segmented nav — only shown when ops is accessible
+  const segmentedNav = isAccessible ? (
+    <Segmented
+      id="ops-section-nav"
+      value={activeSectionKey}
+      onChange={v => setActiveSectionKey(v as OpsSectionKey)}
+      options={segmentedOptions}
+      size="small"
+    />
+  ) : undefined
 
   const renderContent = () => {
     if (isLoading) {
@@ -132,62 +147,41 @@ function OpsPageThemedContent() {
     }
 
     return (
-      <div
-        style={{
-          height: '100%',
-          overflow: 'auto',
-          padding: 24,
-          border: `1px solid ${token.colorBorderSecondary}`,
-          background: token.colorBgContainer,
-        }}
-      >
-        <Typography.Title level={2} style={{ marginTop: 0 }}>
+      <>
+        <Typography.Title level={2} style={{ marginTop: 0, marginBottom: 20 }}>
           {activeSection.label}
         </Typography.Title>
         {activeSection.panel}
-      </div>
+      </>
     )
   }
 
   return (
-    <Layout style={{ minHeight: '100vh', background: token.colorBgLayout }}>
-      <Layout.Header
+    <AppShell
+      filterBar={segmentedNav}
+      contentOverflow="auto"
+      additionalLogoutQueryClients={[appQueryClient]}
+    >
+      {/* Ops content zone: shared app board bg, panel in an elevated card */}
+      <div
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          borderBottom: `1px solid ${token.colorBorderSecondary}`,
-          background: token.colorBgElevated,
+          padding: 24,
+          minHeight: '100%',
+          background: token.colorBgLayout,
         }}
       >
-        <Typography.Title level={1} style={{ margin: 0, fontSize: 20 }}>
-          {strings.ops.pageTitle}
-        </Typography.Title>
-      </Layout.Header>
-      <Layout hasSider style={{ minHeight: 'calc(100vh - 64px)' }}>
-        {opsStatus?.isEnabled === false ? null : (
-          <Layout.Sider
-            width={248}
-            style={{
-              borderRight: `1px solid ${token.colorBorderSecondary}`,
-              background: token.colorBgElevated,
-            }}
-          >
-            <Menu
-              mode="inline"
-              theme="dark"
-              items={menuItems}
-              selectedKeys={[activeSection.key]}
-              onClick={handleSectionChange}
-              style={{ height: '100%', borderInlineEnd: 0, paddingTop: 8 }}
-            />
-          </Layout.Sider>
-        )}
-        <Layout.Content style={{ minWidth: 0, padding: 24 }}>
-          <ConfigProvider theme={{ algorithm: theme.defaultAlgorithm, ...mahallaTheme }}>
-            {renderContent()}
-          </ConfigProvider>
-        </Layout.Content>
-      </Layout>
-    </Layout>
+        <div
+          style={{
+            borderRadius: token.borderRadius,
+            background: token.colorBgContainer,
+            boxShadow: token.boxShadow,
+            border: `1px solid ${token.colorBorder}`,
+            padding: 24,
+          }}
+        >
+          {renderContent()}
+        </div>
+      </div>
+    </AppShell>
   )
 }
