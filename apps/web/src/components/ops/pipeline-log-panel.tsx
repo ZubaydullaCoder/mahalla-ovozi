@@ -6,6 +6,7 @@ import {
   Card,
   Descriptions,
   Empty,
+  Popconfirm,
   Space,
   Spin,
   Switch,
@@ -18,6 +19,8 @@ import {
   usePipelineEvents,
   useBatchStatus,
   useTriggerBatch,
+  useDeleteSimulatedPipelineEvents,
+  useDeleteAllPipelineEvents,
 } from '../../api/ops.ts'
 import type { PipelineEvent } from '../../api/ops.ts'
 
@@ -34,6 +37,19 @@ const EVENT_COLOR: Record<string, string> = {
   prefilter_pass:    'success',
   keyword_match:     'processing',
   keyword_skip:      'gold',
+  classifier_signal: 'success',
+  classifier_ignore: 'default',
+  classifier_error:  'error',
+}
+
+// Merged event type labels for grouped keyword_match + classifier_* rows
+const MERGED_LABEL: Record<string, string> = {
+  classifier_signal: 'KEYWORD → SIGNAL',
+  classifier_ignore: 'KEYWORD → IGNORED',
+  classifier_error:  'KEYWORD → ERROR',
+}
+
+const MERGED_COLOR: Record<string, string> = {
   classifier_signal: 'success',
   classifier_ignore: 'default',
   classifier_error:  'error',
@@ -63,8 +79,74 @@ function getEventDetail(event: PipelineEvent) {
     mahalla:          typeof detail['mahallaName'] === 'string' ? detail['mahallaName'] : null,
     telegramUpdateId: event.telegramUpdateId ?? detail['telegramUpdateId'],
     rawMessageId:     event.rawMessageId ?? detail['rawMessageId'],
-    classifyReason:    typeof detail['classifyReason'] === 'string' ? detail['classifyReason'] : null,
+    classifyReason:   typeof detail['classifyReason'] === 'string' ? detail['classifyReason'] : null,
   }
+}
+
+// ── Display row type ───────────────────────────────────────────────────────────
+// Either a plain PipelineEvent or a merged row (keyword_match + classifier_*)
+interface MergedPipelineRow extends PipelineEvent {
+  _merged?: PipelineEvent
+}
+
+/**
+ * Groups pipeline events client-side.
+ * Events arrive from server ordered desc; we reverse to asc for grouping,
+ * merge keyword_match + classifier pairs, then re-reverse for display.
+ */
+function groupPipelineEvents(events: PipelineEvent[]): MergedPipelineRow[] {
+  // Work in ascending order
+  const asc = [...events].reverse()
+
+  // Group by rawMessageId (or telegramUpdateId as fallback)
+  const grouped = new Map<string, PipelineEvent[]>()
+  const order: string[] = []
+
+  for (const event of asc) {
+    const key =
+      event.rawMessageId != null
+        ? `raw-${event.rawMessageId}`
+        : event.telegramUpdateId != null
+          ? `update-${event.telegramUpdateId}`
+          : `solo-${event.id}`
+    if (!grouped.has(key)) {
+      grouped.set(key, [])
+      order.push(key)
+    }
+    grouped.get(key)!.push(event)
+  }
+
+  const result: MergedPipelineRow[] = []
+
+  for (const key of order) {
+    const group = grouped.get(key)!
+    const kwMatch    = group.find(e => e.eventType === 'keyword_match')
+    const classifier = group.find(e => e.eventType.startsWith('classifier_'))
+
+    if (kwMatch && classifier) {
+      // Collapse into one merged row (use keyword_match as base)
+      result.push({ ...kwMatch, _merged: classifier })
+      // Emit any other events in the group (e.g. prefilter_pass) as flat rows
+      for (const e of group) {
+        if (e.id !== kwMatch.id && e.id !== classifier.id) {
+          result.push(e)
+        }
+      }
+    } else {
+      // No grouping — emit all flat
+      for (const e of group) {
+        result.push(e)
+      }
+    }
+  }
+
+  // Return newest first by the visible event timestamp. Merged rows represent
+  // the classifier outcome, so they sort by the classifier event timestamp.
+  return result.sort((a, b) => {
+    const aCreatedAt = a._merged?.createdAt ?? a.createdAt
+    const bCreatedAt = b._merged?.createdAt ?? b.createdAt
+    return Date.parse(bCreatedAt) - Date.parse(aCreatedAt)
+  })
 }
 
 // ── BatchStatusPanel ──────────────────────────────────────────────────────────
@@ -73,7 +155,8 @@ function BatchStatusPanel() {
   const { data, isLoading } = useBatchStatus()
   const triggerMutation = useTriggerBatch()
 
-  const result = data?.lastBatchResult
+  const result     = data?.lastBatchResult
+  const latestError = data?.recentErrors?.[0]
 
   return (
     <Card title="Batch Processor Status" size="small">
@@ -115,12 +198,13 @@ function BatchStatusPanel() {
               </>
             )}
           </Descriptions>
-          {data?.recentErrors && data.recentErrors.length > 0 && (
+          {latestError && (
             <Alert
               type="error"
-              title={`${data.recentErrors.length} recent error(s)`}
-              description={data.recentErrors[0]?.message}
+              message={`Latest error · ${new Date(latestError.occurredAt ?? '').toLocaleTimeString('en-GB', { timeZone: 'UTC' })}`}
+              description={latestError.message}
               style={{ marginTop: 8 }}
+              showIcon
             />
           )}
           <Button
@@ -147,8 +231,12 @@ function BatchStatusPanel() {
 function EventLogPanel() {
   const [autoRefresh, setAutoRefresh] = useState(true)
   const { data: events, isLoading, isError, refetch, isFetching } = usePipelineEvents(autoRefresh)
+  const deleteSimulated = useDeleteSimulatedPipelineEvents()
+  const deleteAll       = useDeleteAllPipelineEvents()
 
-  const columns: TableColumnsType<PipelineEvent> = [
+  const displayRows = events ? groupPipelineEvents(events) : []
+
+  const columns: TableColumnsType<MergedPipelineRow> = [
     {
       title: 'Time',
       key:   'time',
@@ -162,20 +250,35 @@ function EventLogPanel() {
     {
       title: 'Type',
       key:   'type',
-      width: 150,
-      render: (_value, event) => (
-        <Tag color={EVENT_COLOR[event.eventType] ?? 'default'} style={{ minWidth: 110, textAlign: 'center' }}>
-          {event.eventType.toUpperCase().replace(/_/g, ' ')}
-        </Tag>
-      ),
+      width: 170,
+      render: (_value, event) => {
+        if (event._merged) {
+          const mergedType = event._merged.eventType
+          return (
+            <Tag
+              color={MERGED_COLOR[mergedType] ?? 'default'}
+              style={{ minWidth: 130, textAlign: 'center' }}
+            >
+              {MERGED_LABEL[mergedType] ?? mergedType.toUpperCase()}
+            </Tag>
+          )
+        }
+        return (
+          <Tag color={EVENT_COLOR[event.eventType] ?? 'default'} style={{ minWidth: 110, textAlign: 'center' }}>
+            {event.eventType.toUpperCase().replace(/_/g, ' ')}
+          </Tag>
+        )
+      },
     },
     {
       title: 'AI Reason',
       key:   'aiReason',
       width: 170,
       render: (_value, event) => {
-        if (!event.eventType.startsWith('classifier_')) return null
-        const detail = getEventDetail(event)
+        // Show AI reason from merged classifier or from direct classifier event
+        const classifierEvent = event._merged ?? (event.eventType.startsWith('classifier_') ? event : null)
+        if (!classifierEvent) return null
+        const detail = getEventDetail(classifierEvent)
         return detail.classifyReason ? (
           <Typography.Text type="secondary" style={{ fontSize: 11, fontStyle: 'italic' }}>
             {detail.classifyReason}
@@ -232,19 +335,43 @@ function EventLogPanel() {
           <Button size="small" loading={isFetching} onClick={() => void refetch()}>
             Refresh
           </Button>
+          <Popconfirm
+            title="Clear simulated pipeline events?"
+            description="This removes all pipeline events where telegram_update_id < 0."
+            okText="Clear Simulated"
+            okButtonProps={{ danger: true }}
+            cancelText="Cancel"
+            onConfirm={() => deleteSimulated.mutate()}
+          >
+            <Button size="small" danger loading={deleteSimulated.isPending}>
+              Clear Simulated
+            </Button>
+          </Popconfirm>
+          <Popconfirm
+            title="Clear ALL pipeline events?"
+            description="This permanently removes all pipeline events for the active district."
+            okText="Clear All"
+            okButtonProps={{ danger: true }}
+            cancelText="Cancel"
+            onConfirm={() => deleteAll.mutate()}
+          >
+            <Button size="small" danger loading={deleteAll.isPending}>
+              Clear All
+            </Button>
+          </Popconfirm>
         </Space>
       }
     >
       {isLoading && <Spin />}
       {isError && <Alert type="error" title="Failed to load pipeline events" />}
-      {!isLoading && !isError && (!events || events.length === 0) && (
+      {!isLoading && !isError && (!displayRows || displayRows.length === 0) && (
         <Empty description="No pipeline events" image={Empty.PRESENTED_IMAGE_SIMPLE} />
       )}
-      {events && events.length > 0 && (
-        <Table<PipelineEvent>
+      {displayRows && displayRows.length > 0 && (
+        <Table<MergedPipelineRow>
           size="small"
           rowKey="id"
-          dataSource={events}
+          dataSource={displayRows}
           columns={columns}
           pagination={false}
           tableLayout="fixed"

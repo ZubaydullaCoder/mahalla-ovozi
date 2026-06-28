@@ -15,6 +15,8 @@ export {
 export type { PipelineEvent } from './ops/pipeline.ts'
 export {
   useBatchStatus,
+  useDeleteAllPipelineEvents,
+  useDeleteSimulatedPipelineEvents,
   usePipelineEvents,
   useTriggerBatch,
 } from './ops/pipeline.ts'
@@ -35,6 +37,8 @@ export type {
 export {
   useDeleteAllRawMessages,
   useDeleteAllSignals,
+  useDeleteRawMessage,
+  useDeleteSignal,
   useDeleteSimulatedRawMessages,
   useDeleteSimulatedSignals,
   useOpsSignals,

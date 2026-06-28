@@ -23,7 +23,7 @@ describe('classifier prompt', () => {
   it('includes multi-category classification guidance', () => {
     const prompt = buildPlainPrompt('Svet ham gaz ham yoq')
 
-    expect(prompt).toContain('Multi-category output is allowed only when multiple distinct services are clearly involved')
+    expect(prompt).toContain('Multi-category output is allowed only when multiple distinct public utility service issues are clearly involved')
   })
 
   it('requires schema-matching JSON only', () => {

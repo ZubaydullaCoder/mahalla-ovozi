@@ -102,45 +102,7 @@ export function registerBrowserRoutes(router: IRouter): void {
     }
   })
 
-  router.delete('/raw-messages/simulated', async (_req, res) => {
-    try {
-      const district = await getActiveDistrict()
-      if (!district) return res.status(503).json({ error: 'No active district' })
-
-      const result = await prisma.rawMessage.deleteMany({
-        where: {
-          district_id:        district.id,
-          telegram_update_id: { lt: 0 },
-        },
-      })
-      return res.json({ deleted: result.count })
-    } catch (err) {
-      logger.error({ err }, 'Ops delete simulated raw-messages failed')
-      return res.status(500).json({ statusCode: 500, error: 'Internal Server Error', message: 'Delete simulated raw messages failed' })
-    }
-  })
-
-  router.delete('/raw-messages', async (req, res) => {
-    if (req.query['confirm'] !== 'DELETE_ALL_RAW') {
-      return res.status(400).json({
-        statusCode: 400,
-        error:      'Bad Request',
-        message:    'Missing or wrong confirm param. Pass ?confirm=DELETE_ALL_RAW to proceed.',
-      })
-    }
-    try {
-      const district = await getActiveDistrict()
-      if (!district) return res.status(503).json({ error: 'No active district' })
-
-      const result = await prisma.rawMessage.deleteMany({
-        where: { district_id: district.id },
-      })
-      return res.json({ deleted: result.count })
-    } catch (err) {
-      logger.error({ err }, 'Ops delete all raw-messages failed')
-      return res.status(500).json({ statusCode: 500, error: 'Internal Server Error', message: 'Delete all raw messages failed' })
-    }
-  })
+  // ── Signal deletes — static routes BEFORE parameterised /:id ─────────────────
 
   router.delete('/signals/simulated', async (_req, res) => {
     try {
@@ -181,10 +143,98 @@ export function registerBrowserRoutes(router: IRouter): void {
       return res.status(500).json({ statusCode: 500, error: 'Internal Server Error', message: 'Delete all signals failed' })
     }
   })
+
+  router.delete('/signals/:id', async (req, res) => {
+    const id = parsePositiveIntegerPathParam(req.params['id'])
+    if (id === null) {
+      return res.status(400).json({ statusCode: 400, error: 'Bad Request', message: 'Invalid signal id' })
+    }
+    try {
+      const district = await getActiveDistrict()
+      if (!district) return res.status(503).json({ error: 'No active district' })
+
+      const result = await prisma.signalMessage.deleteMany({
+        where: { id, district_id: district.id },
+      })
+      if (result.count === 0) return res.status(404).json({ statusCode: 404, error: 'Not Found', message: 'Signal not found or not in active district' })
+      return res.json({ deleted: result.count })
+    } catch (err) {
+      logger.error({ err }, 'Ops delete signal by id failed')
+      return res.status(500).json({ statusCode: 500, error: 'Internal Server Error', message: 'Delete signal failed' })
+    }
+  })
+
+  // ── Raw-message deletes — static routes BEFORE parameterised /:id ─────────────
+
+  router.delete('/raw-messages/simulated', async (_req, res) => {
+    try {
+      const district = await getActiveDistrict()
+      if (!district) return res.status(503).json({ error: 'No active district' })
+
+      const result = await prisma.rawMessage.deleteMany({
+        where: {
+          district_id:        district.id,
+          telegram_update_id: { lt: 0 },
+        },
+      })
+      return res.json({ deleted: result.count })
+    } catch (err) {
+      logger.error({ err }, 'Ops delete simulated raw-messages failed')
+      return res.status(500).json({ statusCode: 500, error: 'Internal Server Error', message: 'Delete simulated raw messages failed' })
+    }
+  })
+
+  router.delete('/raw-messages', async (req, res) => {
+    if (req.query['confirm'] !== 'DELETE_ALL_RAW') {
+      return res.status(400).json({
+        statusCode: 400,
+        error:      'Bad Request',
+        message:    'Missing or wrong confirm param. Pass ?confirm=DELETE_ALL_RAW to proceed.',
+      })
+    }
+    try {
+      const district = await getActiveDistrict()
+      if (!district) return res.status(503).json({ error: 'No active district' })
+
+      const result = await prisma.rawMessage.deleteMany({
+        where: { district_id: district.id },
+      })
+      return res.json({ deleted: result.count })
+    } catch (err) {
+      logger.error({ err }, 'Ops delete all raw-messages failed')
+      return res.status(500).json({ statusCode: 500, error: 'Internal Server Error', message: 'Delete all raw messages failed' })
+    }
+  })
+
+  router.delete('/raw-messages/:id', async (req, res) => {
+    const id = parsePositiveIntegerPathParam(req.params['id'])
+    if (id === null) {
+      return res.status(400).json({ statusCode: 400, error: 'Bad Request', message: 'Invalid raw-message id' })
+    }
+    try {
+      const district = await getActiveDistrict()
+      if (!district) return res.status(503).json({ error: 'No active district' })
+
+      const result = await prisma.rawMessage.deleteMany({
+        where: { id, district_id: district.id },
+      })
+      if (result.count === 0) return res.status(404).json({ statusCode: 404, error: 'Not Found', message: 'Raw message not found or not in active district' })
+      return res.json({ deleted: result.count })
+    } catch (err) {
+      logger.error({ err }, 'Ops delete raw-message by id failed')
+      return res.status(500).json({ statusCode: 500, error: 'Internal Server Error', message: 'Delete raw message failed' })
+    }
+  })
 }
 
 function parseDateFilter(value: unknown): Date | undefined {
   if (typeof value !== 'string') return undefined
   const parsedDate = new Date(value)
   return Number.isNaN(parsedDate.getTime()) ? undefined : parsedDate
+}
+
+function parsePositiveIntegerPathParam(value: string | undefined): number | null {
+  if (value === undefined || !/^[1-9]\d*$/.test(value)) return null
+  const parsed = Number(value)
+  return Number.isSafeInteger(parsed) ? parsed : null
 }

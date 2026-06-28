@@ -58,3 +58,31 @@ export function useBatchStatus() {
     refetchInterval: 5000,
   })
 }
+
+async function deleteSimulatedPipelineEvents(): Promise<{ deleted: number }> {
+  const res = await fetch('/api/ops/pipeline-events/simulated', { method: 'DELETE', credentials: 'same-origin' })
+  if (!res.ok) throw new Error(`DELETE /api/ops/pipeline-events/simulated failed: ${res.status}`)
+  return res.json() as Promise<{ deleted: number }>
+}
+
+async function deleteAllPipelineEvents(): Promise<{ deleted: number }> {
+  const res = await fetch('/api/ops/pipeline-events?confirm=CLEAR_PIPELINE_EVENTS', { method: 'DELETE', credentials: 'same-origin' })
+  if (!res.ok) throw new Error(`DELETE /api/ops/pipeline-events failed: ${res.status}`)
+  return res.json() as Promise<{ deleted: number }>
+}
+
+export function useDeleteSimulatedPipelineEvents() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: deleteSimulatedPipelineEvents,
+    onSuccess:  () => qc.invalidateQueries({ queryKey: [...OPS_QUERY_KEY, 'pipeline-events'] }),
+  })
+}
+
+export function useDeleteAllPipelineEvents() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: deleteAllPipelineEvents,
+    onSuccess:  () => qc.invalidateQueries({ queryKey: [...OPS_QUERY_KEY, 'pipeline-events'] }),
+  })
+}

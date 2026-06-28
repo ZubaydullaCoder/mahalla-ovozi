@@ -94,6 +94,12 @@ async function deleteAllSignals(): Promise<{ deleted: number }> {
   return res.json() as Promise<{ deleted: number }>
 }
 
+async function deleteSignalById(id: number): Promise<{ deleted: number }> {
+  const res = await fetch(`/api/ops/signals/${id}`, { method: 'DELETE', credentials: 'same-origin' })
+  if (!res.ok) throw new Error(`DELETE /api/ops/signals/${id} failed: ${res.status}`)
+  return res.json() as Promise<{ deleted: number }>
+}
+
 async function deleteSimulatedRawMessages(): Promise<{ deleted: number }> {
   const res = await fetch('/api/ops/raw-messages/simulated', { method: 'DELETE', credentials: 'same-origin' })
   if (!res.ok) throw new Error(`DELETE /api/ops/raw-messages/simulated failed: ${res.status}`)
@@ -103,6 +109,12 @@ async function deleteSimulatedRawMessages(): Promise<{ deleted: number }> {
 async function deleteAllRawMessages(): Promise<{ deleted: number }> {
   const res = await fetch('/api/ops/raw-messages?confirm=DELETE_ALL_RAW', { method: 'DELETE', credentials: 'same-origin' })
   if (!res.ok) throw new Error(`DELETE /api/ops/raw-messages failed: ${res.status}`)
+  return res.json() as Promise<{ deleted: number }>
+}
+
+async function deleteRawMessageById(id: number): Promise<{ deleted: number }> {
+  const res = await fetch(`/api/ops/raw-messages/${id}`, { method: 'DELETE', credentials: 'same-origin' })
+  if (!res.ok) throw new Error(`DELETE /api/ops/raw-messages/${id} failed: ${res.status}`)
   return res.json() as Promise<{ deleted: number }>
 }
 
@@ -157,5 +169,26 @@ export function useDeleteAllRawMessages() {
   return useMutation({
     mutationFn: deleteAllRawMessages,
     onSuccess:  () => qc.invalidateQueries({ queryKey: [...OPS_QUERY_KEY, 'raw-messages'] }),
+  })
+}
+
+export function useDeleteSignal() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => deleteSignalById(id),
+    onSuccess:  () => qc.invalidateQueries({ queryKey: [...OPS_QUERY_KEY, 'signals'] }),
+  })
+}
+
+export function useDeleteRawMessage() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => deleteRawMessageById(id),
+    onSuccess:  async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: [...OPS_QUERY_KEY, 'raw-messages'] }),
+        qc.invalidateQueries({ queryKey: [...OPS_QUERY_KEY, 'batch-status'] }),
+      ])
+    },
   })
 }

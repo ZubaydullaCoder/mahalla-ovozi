@@ -33,15 +33,19 @@ window.getComputedStyle = (element: Element) => originalGetComputedStyle(element
 
 // ─── Mock ops API hooks ────────────────────────────────────────────────────────
 
-const mockUsePipelineEvents = vi.fn()
-const mockUseBatchStatus    = vi.fn()
-const mockUseTriggerBatch   = vi.fn()
+const mockUsePipelineEvents              = vi.fn()
+const mockUseBatchStatus                 = vi.fn()
+const mockUseTriggerBatch                = vi.fn()
+const mockUseDeleteSimulatedPipelineEvents = vi.fn()
+const mockUseDeleteAllPipelineEvents     = vi.fn()
 
 vi.mock('../../api/ops.ts', () => ({
-  OPS_QUERY_KEY:       ['ops'],
-  usePipelineEvents:   (autoRefresh: boolean) => mockUsePipelineEvents(autoRefresh),
-  useBatchStatus:      () => mockUseBatchStatus(),
-  useTriggerBatch:     () => mockUseTriggerBatch(),
+  OPS_QUERY_KEY:                     ['ops'],
+  usePipelineEvents:                 (autoRefresh: boolean) => mockUsePipelineEvents(autoRefresh),
+  useBatchStatus:                    () => mockUseBatchStatus(),
+  useTriggerBatch:                   () => mockUseTriggerBatch(),
+  useDeleteSimulatedPipelineEvents:  () => mockUseDeleteSimulatedPipelineEvents(),
+  useDeleteAllPipelineEvents:        () => mockUseDeleteAllPipelineEvents(),
 }))
 
 import { PipelineLogPanel } from './pipeline-log-panel.tsx'
@@ -144,6 +148,42 @@ const RAW_ONLY_EVENT = {
   createdAt:        '2026-06-22T07:00:00.000Z',
 }
 
+const GROUPED_EVENTS = [
+  {
+    id:               201,
+    eventType:        'classifier_signal',
+    districtId:       1,
+    mahallaId:        2,
+    telegramUpdateId: 501,
+    rawMessageId:     301,
+    signalId:         701,
+    detail:           { textSnippet: "Suv yo'q", classifyReason: 'water outage complaint' },
+    createdAt:        '2026-06-22T10:05:00.000Z',
+  },
+  {
+    id:               202,
+    eventType:        'keyword_match',
+    districtId:       1,
+    mahallaId:        2,
+    telegramUpdateId: 501,
+    rawMessageId:     301,
+    signalId:         null,
+    detail:           { textSnippet: "Suv yo'q", mahallaName: 'Навбаҳор' },
+    createdAt:        '2026-06-22T10:01:00.000Z',
+  },
+  {
+    id:               203,
+    eventType:        'prefilter_pass',
+    districtId:       1,
+    mahallaId:        2,
+    telegramUpdateId: 501,
+    rawMessageId:     301,
+    signalId:         null,
+    detail:           { textSnippet: "Suv yo'q", mahallaName: 'Навбаҳор' },
+    createdAt:        '2026-06-22T10:00:00.000Z',
+  },
+]
+
 const BATCH_STATUS = {
   schedulerStatus:   'idle' as const,
   lastBatchAt:       '2026-06-22T09:00:00.000Z',
@@ -202,6 +242,8 @@ function setupDefaultMocks() {
   mockUsePipelineEvents.mockReturnValue(createQueryResult({ data: [] }))
   mockUseBatchStatus.mockReturnValue(createQueryResult({ data: BATCH_STATUS }))
   mockUseTriggerBatch.mockReturnValue(createMutationMock())
+  mockUseDeleteSimulatedPipelineEvents.mockReturnValue(createMutationMock())
+  mockUseDeleteAllPipelineEvents.mockReturnValue(createMutationMock())
 }
 
 beforeEach(() => {
@@ -323,6 +365,17 @@ describe('PipelineLogPanel — known event types', () => {
     expect(screen.getByText('CLASSIFIER IGNORE')).toBeInTheDocument()
     expect(screen.getByText('CLASSIFIER ERROR')).toBeInTheDocument()
     expect(screen.getByText(/Gaz plita sotib olamiz/)).toBeInTheDocument()
+  })
+
+  it('merges keyword and classifier events while preserving newest-first display order', () => {
+    mockUsePipelineEvents.mockReturnValue(createQueryResult({ data: GROUPED_EVENTS }))
+    renderPanel()
+
+    const bodyText = document.body.textContent ?? ''
+    expect(screen.getByText('KEYWORD → SIGNAL')).toBeInTheDocument()
+    expect(screen.queryByText('CLASSIFIER SIGNAL')).not.toBeInTheDocument()
+    expect(screen.getByText('water outage complaint')).toBeInTheDocument()
+    expect(bodyText.indexOf('KEYWORD → SIGNAL')).toBeLessThan(bodyText.indexOf('PREFILTER PASS'))
   })
 })
 

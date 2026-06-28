@@ -34,6 +34,8 @@ const mockUseOpsSignals              = vi.fn()
 const mockUseRawMessages             = vi.fn()
 const mockUseDeleteSimulatedSignals  = vi.fn()
 const mockUseDeleteSimulatedRawMsgs  = vi.fn()
+const mockUseDeleteSignal            = vi.fn()
+const mockUseDeleteRawMessage        = vi.fn()
 const mockUseMahallas                = vi.fn()
 
 vi.mock('../../api/ops.ts', () => ({
@@ -41,6 +43,8 @@ vi.mock('../../api/ops.ts', () => ({
   useRawMessages:             (page: number) => mockUseRawMessages(page),
   useDeleteSimulatedSignals:  () => mockUseDeleteSimulatedSignals(),
   useDeleteSimulatedRawMessages: () => mockUseDeleteSimulatedRawMsgs(),
+  useDeleteSignal:            () => mockUseDeleteSignal(),
+  useDeleteRawMessage:        () => mockUseDeleteRawMessage(),
   useMahallas:                () => mockUseMahallas(),
 }))
 
@@ -79,6 +83,8 @@ function setupDefaultMocks() {
   mockUseRawMessages.mockReturnValue(DEFAULT_QUERY_RESULT)
   mockUseDeleteSimulatedSignals.mockReturnValue(DEFAULT_MUTATION_RESULT)
   mockUseDeleteSimulatedRawMsgs.mockReturnValue(DEFAULT_MUTATION_RESULT)
+  mockUseDeleteSignal.mockReturnValue(DEFAULT_MUTATION_RESULT)
+  mockUseDeleteRawMessage.mockReturnValue(DEFAULT_MUTATION_RESULT)
   mockUseMahallas.mockReturnValue({ data: [] })
 }
 
@@ -193,6 +199,7 @@ describe('SignalsBrowserPanel', () => {
     renderPanel()
     expect(screen.getByText('Test Mahalla')).toBeInTheDocument()
     expect(screen.getByText('Suv muammo bor')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete signal 1' })).toBeInTheDocument()
   })
 
   it('renders raw messages table with data rows', () => {
@@ -216,6 +223,7 @@ describe('SignalsBrowserPanel', () => {
     renderPanel()
     expect(screen.getByText('Raw Mahalla')).toBeInTheDocument()
     expect(screen.getByText("Gaz yo'q uyda")).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete raw message 5' })).toBeInTheDocument()
   })
 
   it('shows empty state when no signals present', () => {

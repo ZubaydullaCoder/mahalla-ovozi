@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import {
   Alert, Badge, Button, Card, Empty, Popconfirm,
-  Radio, Select, Space, Spin, Table, Tag, Typography,
+  Radio, Select, Space, Spin, Table, Tag, Tooltip, Typography,
 } from 'antd'
 import type { TableColumnsType } from 'antd'
 import {
@@ -10,6 +10,8 @@ import {
   useRawMessages,
   useDeleteSimulatedSignals,
   useDeleteSimulatedRawMessages,
+  useDeleteSignal,
+  useDeleteRawMessage,
   useMahallas,
   type OpsSignal,
   type RawMessageRow,
@@ -23,10 +25,13 @@ const CATEGORY_COLORS: Record<string, string> = {
   waste:       'green',
 }
 
+const SIMULATED_DELETE_TOOLTIP = 'Deletes only rows where telegram_update_id < 0 (simulated/demo messages). Real Telegram messages are not affected.'
+
 function RawMessagesSection() {
   const [page, setPage] = useState(1)
   const { data, isLoading, isError, refetch, isFetching } = useRawMessages(page)
-  const deleteSimulated = useDeleteSimulatedRawMessages()
+  const deleteSimulated  = useDeleteSimulatedRawMessages()
+  const deleteRawMessage = useDeleteRawMessage()
 
   const columns: TableColumnsType<RawMessageRow> = [
     { title: 'ID',      dataIndex: 'id',       key: 'id',       width: 60 },
@@ -63,6 +68,28 @@ function RawMessagesSection() {
       render: (_: unknown, r: RawMessageRow) =>
         r.isSimulated ? <Badge status="warning" text="Sim" /> : null,
     },
+    {
+      title: 'Action', key: 'action', width: 70, fixed: 'right',
+      render: (_: unknown, r: RawMessageRow) => (
+        <Popconfirm
+          title="Delete this raw message?"
+          okText="Delete"
+          okButtonProps={{ danger: true }}
+          cancelText="Cancel"
+          onConfirm={() => deleteRawMessage.mutate(r.id)}
+        >
+          <Button
+            size="small"
+            danger
+            loading={deleteRawMessage.isPending}
+            aria-label={`Delete raw message ${r.id}`}
+            title={`Delete raw message ${r.id}`}
+          >
+            ×
+          </Button>
+        </Popconfirm>
+      ),
+    },
   ]
 
   return (
@@ -74,17 +101,19 @@ function RawMessagesSection() {
           <Button size="small" loading={isFetching} onClick={() => void refetch()}>
             Refresh
           </Button>
-          <Popconfirm
-            title="Delete all simulated raw messages?"
-            okText="Delete"
-            okButtonProps={{ danger: true }}
-            cancelText="Cancel"
-            onConfirm={() => deleteSimulated.mutate()}
-          >
-            <Button size="small" danger loading={deleteSimulated.isPending}>
-              Delete Simulated
-            </Button>
-          </Popconfirm>
+          <Tooltip title={SIMULATED_DELETE_TOOLTIP}>
+            <Popconfirm
+              title="Delete all simulated raw messages?"
+              okText="Delete"
+              okButtonProps={{ danger: true }}
+              cancelText="Cancel"
+              onConfirm={() => deleteSimulated.mutate()}
+            >
+              <Button size="small" danger loading={deleteSimulated.isPending}>
+                Delete Simulated
+              </Button>
+            </Popconfirm>
+          </Tooltip>
         </Space>
       }
     >
@@ -96,6 +125,7 @@ function RawMessagesSection() {
           columns={columns}
           rowKey="id"
           size="small"
+          scroll={{ x: 'max-content' }}
           pagination={{
             current:  page,
             pageSize: 50,
@@ -116,6 +146,7 @@ function SignalsBrowserSection() {
   const { data: mahallas }    = useMahallas()
   const { data, isLoading, isError, refetch, isFetching } = useOpsSignals(filters, page)
   const deleteSimulated = useDeleteSimulatedSignals()
+  const deleteSignal    = useDeleteSignal()
 
   const columns: TableColumnsType<OpsSignal> = [
     { title: 'ID',       dataIndex: 'id',          key: 'id',       width: 60 },
@@ -156,6 +187,28 @@ function SignalsBrowserSection() {
       render: (_: unknown, r: OpsSignal) =>
         new Date(r.classifiedAt).toLocaleString('en-GB', { timeZone: 'UTC' }),
     },
+    {
+      title: 'Action', key: 'action', width: 70, fixed: 'right',
+      render: (_: unknown, r: OpsSignal) => (
+        <Popconfirm
+          title="Delete this signal?"
+          okText="Delete"
+          okButtonProps={{ danger: true }}
+          cancelText="Cancel"
+          onConfirm={() => deleteSignal.mutate(r.id)}
+        >
+          <Button
+            size="small"
+            danger
+            loading={deleteSignal.isPending}
+            aria-label={`Delete signal ${r.id}`}
+            title={`Delete signal ${r.id}`}
+          >
+            ×
+          </Button>
+        </Popconfirm>
+      ),
+    },
   ]
 
   function handleFilterChange(patch: Partial<OpsSignalsFilters>) {
@@ -172,17 +225,19 @@ function SignalsBrowserSection() {
           <Button size="small" loading={isFetching} onClick={() => void refetch()}>
             Refresh
           </Button>
-          <Popconfirm
-            title="Delete all simulated signals (telegram_update_id < 0)?"
-            okText="Delete"
-            okButtonProps={{ danger: true }}
-            cancelText="Cancel"
-            onConfirm={() => deleteSimulated.mutate()}
-          >
-            <Button size="small" danger loading={deleteSimulated.isPending}>
-              Delete Simulated
-            </Button>
-          </Popconfirm>
+          <Tooltip title={SIMULATED_DELETE_TOOLTIP}>
+            <Popconfirm
+              title="Delete all simulated signals (telegram_update_id < 0)?"
+              okText="Delete"
+              okButtonProps={{ danger: true }}
+              cancelText="Cancel"
+              onConfirm={() => deleteSimulated.mutate()}
+            >
+              <Button size="small" danger loading={deleteSimulated.isPending}>
+                Delete Simulated
+              </Button>
+            </Popconfirm>
+          </Tooltip>
         </Space>
       }
     >

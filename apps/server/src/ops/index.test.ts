@@ -47,6 +47,7 @@ const mockSignalMessageCount      = vi.hoisted(() => vi.fn())
 const mockSignalMessageDeleteMany = vi.hoisted(() => vi.fn())
 const mockRawMessageFindMany      = vi.hoisted(() => vi.fn())
 const mockRawMessageDeleteMany    = vi.hoisted(() => vi.fn())
+const mockPipelineEventDeleteMany = vi.hoisted(() => vi.fn())
 
 vi.mock('../shared/db.js', () => ({
   prisma: {
@@ -54,7 +55,7 @@ vi.mock('../shared/db.js', () => ({
     batchHealth:   { findFirst: mockBatchHealthFindFirst, findMany: mockBatchHealthFindMany },
     rawMessage:    { count: mockRawMessageCount, findMany: mockRawMessageFindMany, deleteMany: mockRawMessageDeleteMany },
     mahalla:       { findMany: mockMahallaFindMany },
-    pipelineEvent: { findMany: mockPipelineEventFindMany },
+    pipelineEvent: { findMany: mockPipelineEventFindMany, deleteMany: mockPipelineEventDeleteMany },
     keyword: {
       findMany:  mockKeywordFindMany,
       findFirst: mockKeywordFindFirst,
@@ -200,6 +201,7 @@ function resetMocks() {
   mockSignalMessageDeleteMany.mockResolvedValue({ count: 0 })
   mockRawMessageFindMany.mockResolvedValue([])
   mockRawMessageDeleteMany.mockResolvedValue({ count: 0 })
+  mockPipelineEventDeleteMany.mockResolvedValue({ count: 0 })
 }
 
 // ─── Guard tests ──────────────────────────────────────────────────────────────
@@ -1718,5 +1720,153 @@ describe('DELETE /api/ops/signals (delete all)', () => {
     const res = await request(app).delete('/api/ops/signals?confirm=DELETE_ALL_SIGNALS')
     expect(res.status).toBe(500)
     expect(res.body).toMatchObject({ message: 'Delete all signals failed' })
+  })
+})
+
+// ── DELETE /api/ops/signals/:id ───────────────────────────────────────────────
+
+describe('DELETE /api/ops/signals/:id', () => {
+  let app: ReturnType<typeof createTestApp>
+  beforeEach(() => { resetMocks(); app = createTestApp() })
+
+  it('returns 200 and { deleted: 1 } when signal found in district', async () => {
+    mockSignalMessageDeleteMany.mockResolvedValue({ count: 1 })
+    const res = await request(app).delete('/api/ops/signals/42')
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ deleted: 1 })
+    expect(mockSignalMessageDeleteMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: 42, district_id: ACTIVE_DISTRICT.id }),
+      })
+    )
+  })
+
+  it('returns 404 when signal not found or belongs to another district', async () => {
+    mockSignalMessageDeleteMany.mockResolvedValue({ count: 0 })
+    const res = await request(app).delete('/api/ops/signals/999')
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 400 for invalid (non-numeric) id', async () => {
+    const res = await request(app).delete('/api/ops/signals/abc')
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 400 for id with numeric prefix junk', async () => {
+    const res = await request(app).delete('/api/ops/signals/42abc')
+    expect(res.status).toBe(400)
+    expect(mockSignalMessageDeleteMany).not.toHaveBeenCalled()
+  })
+
+  it('returns 503 when no active district', async () => {
+    mockDistrictFindFirst.mockResolvedValue(null)
+    const res = await request(app).delete('/api/ops/signals/1')
+    expect(res.status).toBe(503)
+  })
+})
+
+// ── DELETE /api/ops/raw-messages/:id ─────────────────────────────────────────
+
+describe('DELETE /api/ops/raw-messages/:id', () => {
+  let app: ReturnType<typeof createTestApp>
+  beforeEach(() => { resetMocks(); app = createTestApp() })
+
+  it('returns 200 and { deleted: 1 } when raw-message found in district', async () => {
+    mockRawMessageDeleteMany.mockResolvedValue({ count: 1 })
+    const res = await request(app).delete('/api/ops/raw-messages/7')
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ deleted: 1 })
+    expect(mockRawMessageDeleteMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: 7, district_id: ACTIVE_DISTRICT.id }),
+      })
+    )
+  })
+
+  it('returns 404 when raw-message not found or belongs to another district', async () => {
+    mockRawMessageDeleteMany.mockResolvedValue({ count: 0 })
+    const res = await request(app).delete('/api/ops/raw-messages/999')
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 400 for invalid (non-numeric) id', async () => {
+    const res = await request(app).delete('/api/ops/raw-messages/abc')
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 400 for id with numeric prefix junk', async () => {
+    const res = await request(app).delete('/api/ops/raw-messages/7junk')
+    expect(res.status).toBe(400)
+    expect(mockRawMessageDeleteMany).not.toHaveBeenCalled()
+  })
+
+  it('returns 503 when no active district', async () => {
+    mockDistrictFindFirst.mockResolvedValue(null)
+    const res = await request(app).delete('/api/ops/raw-messages/1')
+    expect(res.status).toBe(503)
+  })
+})
+
+// ── DELETE /api/ops/pipeline-events/simulated ─────────────────────────────────
+
+describe('DELETE /api/ops/pipeline-events/simulated', () => {
+  let app: ReturnType<typeof createTestApp>
+  beforeEach(() => { resetMocks(); app = createTestApp() })
+
+  it('returns 200 and { deleted: N } on success', async () => {
+    mockPipelineEventDeleteMany.mockResolvedValue({ count: 3 })
+    const res = await request(app).delete('/api/ops/pipeline-events/simulated')
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ deleted: 3 })
+    expect(mockPipelineEventDeleteMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          district_id:        ACTIVE_DISTRICT.id,
+          telegram_update_id: { lt: 0 },
+        }),
+      })
+    )
+  })
+
+  it('returns 503 when no active district', async () => {
+    mockDistrictFindFirst.mockResolvedValue(null)
+    const res = await request(app).delete('/api/ops/pipeline-events/simulated')
+    expect(res.status).toBe(503)
+  })
+})
+
+// ── DELETE /api/ops/pipeline-events ──────────────────────────────────────────
+
+describe('DELETE /api/ops/pipeline-events', () => {
+  let app: ReturnType<typeof createTestApp>
+  beforeEach(() => { resetMocks(); app = createTestApp() })
+
+  it('returns 400 without confirm param', async () => {
+    const res = await request(app).delete('/api/ops/pipeline-events')
+    expect(res.status).toBe(400)
+    expect(res.body).toMatchObject({ message: expect.stringContaining('confirm') })
+  })
+
+  it('returns 400 with wrong confirm param', async () => {
+    const res = await request(app).delete('/api/ops/pipeline-events?confirm=WRONG')
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 200 and { deleted: N } with correct confirm param', async () => {
+    mockPipelineEventDeleteMany.mockResolvedValue({ count: 10 })
+    const res = await request(app).delete('/api/ops/pipeline-events?confirm=CLEAR_PIPELINE_EVENTS')
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ deleted: 10 })
+    expect(mockPipelineEventDeleteMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ district_id: ACTIVE_DISTRICT.id }),
+      })
+    )
+  })
+
+  it('returns 503 when no active district', async () => {
+    mockDistrictFindFirst.mockResolvedValue(null)
+    const res = await request(app).delete('/api/ops/pipeline-events?confirm=CLEAR_PIPELINE_EVENTS')
+    expect(res.status).toBe(503)
   })
 })
