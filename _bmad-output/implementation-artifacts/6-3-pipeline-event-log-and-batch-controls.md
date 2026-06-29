@@ -4,6 +4,8 @@ Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
+> **Current implementation note (2026-06-29):** This completed story records the original manual batch trigger integration. Current behavior keeps the Ops button as a diagnostic/safety control, but it calls `triggerClassifierDrain('manual')`; normal Telegram intake now triggers background classification automatically after keyword-matched `raw_messages` persistence.
+
 ## Story
 
 As a **developer/operator**,

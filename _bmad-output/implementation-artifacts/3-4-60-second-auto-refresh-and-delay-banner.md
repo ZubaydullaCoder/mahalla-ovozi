@@ -4,6 +4,8 @@ Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
+> **Current implementation note (2026-06-29):** This completed story records the original 60-second dashboard refresh design. Current behavior keeps `/api/health` polling at 60 seconds but refreshes dashboard signals via `useSignals()` every 10 seconds so newly classified `signal_messages` appear without manual browser refresh.
+
 ## Story
 
 As a **hokim or staff member**,

@@ -43,7 +43,7 @@ Every element must communicate its interactivity through visual design alone —
 
 | Feedback Type | Component | Color | Position | Dismissible |
 |---|---|---|---|---|
-| Pipeline delay (>20min) | AntD `Alert type="warning"` | Amber `#D97706` | Fixed below filter bar, above lane grid | No — auto-clears when data refreshes |
+| Pipeline delay (health delayed) | AntD `Alert type="warning"` | Amber `#D97706` | Fixed below filter bar, above lane grid | No — auto-clears when health refreshes |
 | Mahalla filter active | Chip active state | `colorPrimary` border + `#EEF0FD` bg | Filter bar | Yes — click chip or ✕ |
 | Time range active | Chip active state | Same as above | Filter bar | Yes — click different preset |
 | Search active | `Input.Search` with clear ✕ | AntD default | Filter bar right | Yes — click ✕ |

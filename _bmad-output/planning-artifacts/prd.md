@@ -44,7 +44,7 @@ The core insight is that Telegram groups are where civic signals surface earlies
 
 Mahalla Ovozi's differentiation is its discipline: it solves exactly one problem and refuses all scope creep. No issue cards. No resolution workflow. No confidence scores. No automated truth claims. The product's value is a clean, evidence-backed signal stream that lets a busy non-technical leader scan what residents are saying in 60 seconds, not 60 minutes.
 
-The 20-minute AI batch pipeline keeps the system fast enough for live monitoring while controlling unnecessary AI cost. Phase 1 uses keyword-gated AI classification as the only active development and demo/pilot filtering method: structural pre-filters remove obvious non-signal updates, manually managed keywords determine which messages enter the AI queue, and AI classifies only keyword-matched messages. Based on owner analysis of real mahalla Telegram groups showing low signal density, this keeps cost and dashboard noise under control. Full AI classification may be reconsidered later only by explicit owner decision if keyword gating underperforms.
+The near-real-time AI drain pipeline keeps the system fast enough for live monitoring while controlling unnecessary AI cost. Phase 1 uses keyword-gated AI classification as the only active development and demo/pilot filtering method: structural pre-filters remove obvious non-signal updates, manually managed keywords determine which messages enter the AI queue, and AI classifies only keyword-matched messages. When a keyword-matched raw message is saved, a background classifier drain is triggered asynchronously; AI never runs inside the Telegram webhook request. A lightweight cron fallback still protects against missed triggers and restarts. Based on owner analysis of real mahalla Telegram groups showing low signal density, this keeps cost and dashboard noise under control. Full AI classification may be reconsidered later only by explicit owner decision if keyword gating underperforms.
 
 ---
 
@@ -84,7 +84,7 @@ Secondary business success indicators:
 ### Technical Success
 
 - Telegram bot captures all in-scope text messages from monitored groups reliably
-- 20-minute batch processing runs without failure in normal operating conditions
+- Near-real-time background classification runs without blocking Telegram webhook intake in normal operating conditions
 - Ignored messages are deleted after classification; signal messages are retained correctly
 - System recovers from temporary AI API failures without data loss
 - Admin/operator can verify system health without reading application logs
@@ -105,7 +105,7 @@ Keyword coverage is validated manually during Phase 1 with real/test group data.
 | Outcome | Threshold |
 |---|---|
 | Bot uptime during pilot | No unplanned downtime >24h (updates lost) |
-| Batch processing | Runs every 20 min without manual intervention |
+| Background classification | Keyword-matched messages trigger background drain without manual intervention; 1-minute cron fallback remains available |
 | Signal retention | No signal messages lost after classification |
 | Dashboard availability | No outages during working hours |
 | Pilot duration | 2–4 weeks of real-group operation before review |
@@ -277,7 +277,7 @@ Mahalla Ovozi's frontend is a **single-page application (SPA)** — a React (or 
 
 **State management:** Local component state + React Query (or SWR) for server-state caching. No global state manager needed at MVP scale.
 
-**API communication:** REST. Phase 1 local validation may use HTTP; Phase 2 pilot deployment must use HTTPS. Dashboard auto-refresh polling interval: 60 seconds (sufficient given 20-min batch cadence). No WebSocket for MVP.
+**API communication:** REST. Phase 1 local validation may use HTTP; Phase 2 pilot deployment must use HTTPS. Dashboard signal auto-refresh polling interval: 10 seconds; health polling remains 60 seconds. No WebSocket for MVP.
 
 **Auth flow:** Session cookie issued on login. `httpOnly` is always required; `secure` is required for Phase 2 pilot deployment. Protected routes redirect to login if no valid session.
 
@@ -326,7 +326,7 @@ WCAG 2.1 AA is the internal MVP quality target for semantic HTML, keyboard navig
 - Telegram context action: stored signals can expose a Telegram message link when the viewer has group access
 - Filters: time range (1h / 3h / 6h / Today / Yesterday / custom up to 7 days), mahalla, keyword search
 - Telegram bot: text and text-caption capture from monitored supergroups via webhook; media binaries are ignored for MVP
-- 20-minute AI batch pipeline: structural pre-filter + keyword gate + configurable AI classification model selected after implementation-time validation
+- Near-real-time AI drain pipeline: structural pre-filter + keyword gate + asynchronous background classifier drain + configurable AI classification model selected after implementation-time validation
 - Signal-only storage: raw messages deleted post-classification, signals retained 90 days
 - "Signals may be delayed" dashboard indicator (non-technical, hokim-visible)
 - Admin health endpoint and Ops Console: last batch time, queue status, bot connectivity, recent processing errors, discard counts, active keyword-gate state, and keyword registry (operator-only)
@@ -381,7 +381,7 @@ WCAG 2.1 AA is the internal MVP quality target for semantic HTML, keyboard navig
 
 ### AI Classification Pipeline
 
-- **FR20:** The system processes captured messages in batches at a configurable interval (default: every 20 minutes)
+- **FR20:** The system processes keyword-matched captured messages through an asynchronous background classifier drain triggered after raw message persistence, with a configurable lightweight cron fallback (default: every 1 minute)
 - **FR21:** The system applies a centralized conservative pre-filter before AI classification to remove structural noise such as bot-originated messages, unsupported non-text updates, empty text, pure emoji/reactions, and bot commands; exact thresholds must be validated with real mahalla data
 - **FR21a:** The system uses developer/operator-managed `keyword_gate` filtering as the only current active filtering method; filtering mode controls are not visible or controllable in the hokim/staff dashboard
 - **FR21b:** The system stores manually managed keyword phrases in one centralized Ops Console database registry; AI does not auto-generate or modify keywords
@@ -417,7 +417,7 @@ WCAG 2.1 AA is the internal MVP quality target for semantic HTML, keyboard navig
 - **NFR1:** Dashboard initial page load completes in under 3 seconds on a standard office network connection
 - **NFR2:** Lane filter and search operations produce visible results within 300ms (client-side, on already-fetched data)
 - **NFR3:** Context drawer opens within 500ms of a signal item being selected
-- **NFR4:** Dashboard auto-refresh polling occurs every 60 seconds without perceptible page disruption or full reload
+- **NFR4:** Dashboard signal auto-refresh polling occurs every 10 seconds without perceptible page disruption or full reload; dashboard health polling occurs every 60 seconds
 
 ### Security
 

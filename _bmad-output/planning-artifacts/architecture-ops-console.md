@@ -396,8 +396,8 @@ interface Keyword {
 
 ### Purpose
 
-Shows the state of the 20-minute classification scheduler and allows the developer to trigger
-a batch manually without waiting for the next scheduled run.
+Shows the state of the classifier drain worker and allows the developer to trigger
+a manual drain for diagnostics, fallback recovery, or Ops simulator/raw queue validation.
 
 ### UI
 
@@ -443,24 +443,24 @@ Response: {
 
 POST /api/ops/trigger-batch
 Response: { triggered: true }
-// Server starts classifyBatch() asynchronously; does not wait for completion
+// Server starts triggerClassifierDrain('manual') asynchronously; does not wait for completion
 ```
 
 ### Manual Trigger Implementation
 
 ```typescript
 // apps/server/src/ops/routes.ts
-router.post('/trigger-batch', async (_req, res) => {
+router.post('/trigger-batch', (_req, res) => {
   if (isBatchRunning()) {
-    return res.status(409).json({ error: 'Batch already running' })
+    return res.json({ status: 'locked' })
   }
   // Fire and forget — SPA polls /batch-status for completion
-  runClassifyBatchWithLock('manual').catch(err => logger.error({ err }, 'Manual batch trigger failed'))
+  void triggerClassifierDrain('manual').catch(err => logger.error({ err }, 'Manual batch trigger failed'))
   res.json({ triggered: true })
 })
 ```
 
-`node-cron` and manual triggers must use the same lock helper. Do not keep a route-local
+Webhook auto-trigger, startup drain, fallback cron, and manual triggers must use the same drain/lock helper. Do not keep a route-local
 `batchRunning` flag; it can drift from the scheduler state.
 
 ---

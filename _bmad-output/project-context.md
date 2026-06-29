@@ -2,7 +2,7 @@
 project: mahalla-ovozi
 status: active
 purpose: AI agent implementation context
-last_updated: 2026-06-13
+last_updated: 2026-06-29
 ---
 
 # Project Context
@@ -61,6 +61,10 @@ Do not migrate package manager, framework, ORM, auth approach, database, or UI f
 ## Backend Rules
 
 Keep Telegram intake, structural pre-filtering, keyword matching, and routing centralized in the bot/filtering pipeline.
+
+Telegram webhook intake must stay fast: it validates, structurally filters, applies `keyword_gate`, saves keyword-matched raw messages, triggers the classifier drain asynchronously, and returns without running AI classification inside the webhook request.
+
+The classifier uses a sequential drain worker: `triggerClassifierDrain()` reuses the existing in-process guard and PostgreSQL advisory lock, processes `raw_messages` oldest-first in `CLASSIFIER_BATCH_SIZE` batches, repeats until the queue is empty, and stops after a failed batch so retryable rows are not hot-looped. Webhook, startup, cron fallback, and manual Ops triggers all use this same drain/lock path.
 
 Manual keywords belong in the centralized PostgreSQL-backed registry. Do not scatter keyword lists across prompts, frontend code, environment variables, or multiple modules.
 

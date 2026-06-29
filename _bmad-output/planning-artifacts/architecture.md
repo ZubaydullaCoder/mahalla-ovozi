@@ -54,7 +54,7 @@ processing, Uzbek NLP, district-scoped multi-user auth, Developer Ops Console.
 1. **District-scoped data isolation** — middleware guard on all API routes
 2. **Filtering centralization** — structural pre-filtering and keyword matching stay in one intake/classification path
 3. **Uzbek Cyrillic string enforcement** — typed `strings.ts` dictionary + Vitest check
-4. **Health state propagation** — `batch_health` → `/api/health` → 60s poll → amber banner
+4. **Health state propagation** — `batch_health` → `/api/health` → 60s health poll → amber banner
 5. **Idempotency** — `telegram_update_id` unique in `raw_messages`; composite `(telegram_update_id, category)` unique in `signal_messages` (one row per service category per update); `$transaction([signalCreate, rawDelete])` per category write
 6. **Security secrets** — five env-only secrets (DATABASE_URL included); webhook validated via grammY `secretToken` option
 7. **AI output validation** — Zod discriminated union before every write; invalid = retry or log, never silently accepted
@@ -173,7 +173,7 @@ mahalla-ovozi/
 │   │       │   ├── matcher.ts        ← deterministic manual keyword phrase matcher
 │   │       │   └── query.ts          ← active keyword registry queries
 │   │       ├── classifier/
-│   │       │   ├── index.ts          ← classifyBatch() public function
+│   │       │   ├── index.ts          ← triggerClassifierDrain(), lock, compatibility wrapper
 │   │       │   ├── ai-client.ts      ← provider-selected classifyMessage() entry point
 │   │       │   ├── providers/        ← Gemini, Ollama, OpenAI-compatible, and rule-only providers
 │   │       │   ├── prompt.ts         ← classification prompt template + few-shot examples
@@ -198,7 +198,8 @@ mahalla-ovozi/
 │   │       │   ├── simulator.ts      ← injectMessage() — writes directly to raw_messages
 │   │       │   └── keyword-routes.ts ← Ops-only keyword registry CRUD
 │   │       └── web/
-│   │           └── index.ts          ← Express server entry; registers all routers + starts server
+│   │           ├── index.ts          ← Express server entry; registers all routers + starts server
+│   │           └── scheduler.ts      ← classifier fallback cron, startup drain, retention cron
 │   └── web/
 │       ├── package.json
 │       ├── tsconfig.json             ← extends root
@@ -211,7 +212,7 @@ mahalla-ovozi/
 │           ├── types.ts              ← API response interface types (mirrors server types)
 │           ├── router.tsx            ← React Router v6: /login, /, /ops routes
 │           ├── api/
-│           │   ├── signals.ts        ← useSignals() TanStack Query hook
+│           │   ├── signals.ts        ← useSignals() TanStack Query hook (10s refetchInterval)
 │           │   ├── mahallas.ts       ← useMahallas() hook
 │           │   ├── health.ts         ← useHealth() hook (60s refetchInterval)
 │           │   └── auth.ts           ← login(), logout() mutations
@@ -1034,18 +1035,38 @@ ngrok http 3001  # or: cloudflared tunnel
 ### Scheduler (in-process, no Redis)
 
 ```typescript
-// apps/server/src/web/index.ts — scheduler registered at server startup
+// apps/server/src/web/scheduler.ts — scheduler registered at server startup
 import cron from 'node-cron'
-import { runClassifyBatchWithLock } from '../classifier/index.ts'
+import { env } from '../shared/env.ts'
+import { logger } from '../shared/logger.ts'
+import { purgeOldSignals, triggerClassifierDrain } from '../classifier/index.ts'
 
-// Classification batch — every 20 minutes
-cron.schedule('*/20 * * * *', async () => {
-  await runClassifyBatchWithLock('cron')
-})
+export function registerScheduler(): void {
+  // Classification fallback drain — default every minute via CLASSIFIER_CRON
+  cron.schedule(env.CLASSIFIER_CRON, () => {
+    void triggerClassifierDrain('cron').catch((err: unknown) => {
+      logger.error({ err }, 'Unhandled error in classifier drain cron')
+    })
+  })
 
-// Signal retention purge — daily at 03:00 UTC
-cron.schedule('0 3 * * *', async () => {
-  await purgeOldSignals()
+  // Signal retention purge — daily at 03:00 UTC
+  cron.schedule('0 3 * * *', () => {
+    void purgeOldSignals().catch((err: unknown) => {
+      logger.error({ err }, 'Unhandled error in retention purge cron')
+    })
+  }, { timezone: 'UTC' })
+}
+
+export function triggerStartupDrain(): void {
+  void triggerClassifierDrain('startup').catch((err: unknown) => {
+    logger.error({ err }, 'Startup classifier drain trigger failed')
+  })
+}
+
+// apps/server/src/web/index.ts triggers one startup drain after listen()
+registerScheduler()
+app.listen(port, () => {
+  triggerStartupDrain()
 })
 ```
 
@@ -1062,6 +1083,9 @@ AI_API_KEY=                  # required for gemini and openai-compatible; not re
 AI_MODEL=gemini-2.5-flash    # provider model; examples: gemini-2.5-flash, gemma3, gpt-4.1-mini
 AI_BASE_URL=                 # optional; local Ollama or OpenAI-compatible base URL
 AI_TIMEOUT_MS=30000          # per-classification AI timeout
+CLASSIFIER_BATCH_SIZE=100    # max raw messages processed per batch
+CLASSIFIER_AUTO_TRIGGER_ENABLED=true # trigger drain after keyword-matched webhook intake
+CLASSIFIER_CRON=* * * * *    # lightweight fallback cron; default every minute
 FILTER_MODE=keyword_gate     # current active filtering method
 OPS_ENABLED=false            # true only during Phase 1 local validation
 OPS_SECRET=                  # optional; required if accessing Ops Console over a tunnel/non-localhost
@@ -1220,21 +1244,23 @@ POST /webhook → grammY → pipeline.ts structural pre-filter
         ↓                     ↓ (keyword_gate no-match: keyword_skip counted, no AI)
   raw_messages (PostgreSQL; eligible AI messages only)
         ↓
-  node-cron (every 20 min) → classifyBatch()
+  fire-and-forget triggerClassifierDrain('webhook')
+        ↓
+  drain worker: advisory lock → classifyBatch() repeatedly until queue empty
         ↓
   ai-client.ts → selected classifier provider → ClassifierOutputSchema.safeParse()
         ↓
   signal_messages written | raw_messages deleted | batch_health/filter diagnostics updated
         ↓
-SPA GET /api/signals (60s poll) ← signals/query.ts reads signal_messages
+SPA GET /api/signals (10s poll) ← signals/query.ts reads signal_messages
 SPA GET /api/health  (60s poll) ← health/query.ts reads batch_health
 SPA GET /api/signals/:id/context ← category + mahalla_id + time_range
 
 [Message Simulator (Ops Console)]
         ↓
 POST /api/ops/simulate-message → ops/simulator.ts → raw_messages
-        ↓ (same pipeline from here)
-  node-cron or manual trigger → classifyBatch() → ...
+        ↓ (same classifier path from here)
+  startup drain, fallback cron, or manual Ops trigger → triggerClassifierDrain() → ...
 ```
 
 ---
@@ -1265,7 +1291,7 @@ All 16 NFRs addressed:
 Express v4 + grammY `webhookCallback(bot, 'express', { secretToken })` — confirmed ✅
 Prisma v7.8.0 + `@prisma/adapter-pg` driver adapter — confirmed ✅
 AntD v6.x + React Router v6.30.x + TanStack Query v5 — compatible ✅
-node-cron v4.x + `*/20 * * * *` syntax — confirmed ✅
+node-cron v4.x + `* * * * *` fallback cron syntax and timezone option — confirmed ✅
 Gemini structured output remains supported through `@google/genai`; Ollama and OpenAI-compatible providers use HTTP structured JSON where supported and always validate through `ClassifierOutputSchema`.
 
 ---

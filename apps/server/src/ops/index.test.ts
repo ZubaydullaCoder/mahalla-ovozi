@@ -22,11 +22,11 @@ vi.mock('../shared/env.js', () => ({ env: mockEnv }))
 
 // isBatchRunning mock
 const mockIsBatchRunning = vi.hoisted(() => vi.fn().mockReturnValue(false))
-const mockRunClassifyBatchWithLock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+const mockTriggerClassifierDrain = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 vi.mock('../classifier/index.js', () => ({
-  isBatchRunning:           mockIsBatchRunning,
-  runClassifyBatchWithLock: mockRunClassifyBatchWithLock,
-  purgeOldSignals:          vi.fn(),
+  isBatchRunning:         mockIsBatchRunning,
+  triggerClassifierDrain: mockTriggerClassifierDrain,
+  purgeOldSignals:        vi.fn(),
 }))
 
 // Prisma mock
@@ -184,7 +184,7 @@ function resetMocks() {
   mockInjectSimulatedMessage.mockResolvedValue(42)
   // Pipeline event defaults
   mockPipelineEventFindMany.mockResolvedValue([])
-  mockRunClassifyBatchWithLock.mockResolvedValue(undefined)
+  mockTriggerClassifierDrain.mockResolvedValue(undefined)
   // Keyword defaults
   mockKeywordFindMany.mockResolvedValue([])
   mockKeywordFindFirst.mockResolvedValue(null)
@@ -880,7 +880,7 @@ describe('POST /api/ops/trigger-batch', () => {
     const res = await request(app).post('/api/ops/trigger-batch')
     expect(res.status).toBe(200)
     expect(res.body).toEqual({ triggered: true })
-    expect(mockRunClassifyBatchWithLock).toHaveBeenCalledWith('manual')
+    expect(mockTriggerClassifierDrain).toHaveBeenCalledWith('manual')
   })
 
   it('returns { status: "locked" } when isBatchRunning() is true', async () => {
@@ -888,12 +888,12 @@ describe('POST /api/ops/trigger-batch', () => {
     const res = await request(app).post('/api/ops/trigger-batch')
     expect(res.status).toBe(200)
     expect(res.body).toEqual({ status: 'locked' })
-    expect(mockRunClassifyBatchWithLock).not.toHaveBeenCalled()
+    expect(mockTriggerClassifierDrain).not.toHaveBeenCalled()
   })
 
   it('does not await the batch — returns immediately', async () => {
-    // Make runClassifyBatchWithLock take a very long time (never resolves in test)
-    mockRunClassifyBatchWithLock.mockReturnValue(new Promise(() => { /* never resolves */ }))
+    // Make triggerClassifierDrain take a very long time (never resolves in test)
+    mockTriggerClassifierDrain.mockReturnValue(new Promise(() => { /* never resolves */ }))
     const start = Date.now()
     const res   = await request(app).post('/api/ops/trigger-batch')
     const elapsed = Date.now() - start

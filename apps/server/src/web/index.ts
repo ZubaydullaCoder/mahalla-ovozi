@@ -1,6 +1,5 @@
 import express from 'express'
 import morgan from 'morgan'
-import cron from 'node-cron'
 import session from 'express-session'
 import connectPgSimple from 'connect-pg-simple'
 import { Pool } from 'pg'
@@ -8,12 +7,12 @@ import { env } from '../shared/env.js'
 import { logger } from '../shared/logger.js'
 import webhookRouter from '../bot/webhook.js'
 import { prisma } from '../shared/db.js'
-import { purgeOldSignals, runClassifyBatchWithLock } from '../classifier/index.js'
 import { authRouter, requireAuth } from '../auth/index.js'
 import { signalsRouter } from '../signals/index.js'
 import { healthRouter } from '../health/index.js'
 import { opsRouter } from '../ops/index.js'
 import { getSessionCookieOptions } from '../auth/session-cookie.js'
+import { registerScheduler, triggerStartupDrain } from './scheduler.js'
 
 const app = express()
 
@@ -65,20 +64,9 @@ app.get('/api/mahallas', async (req, res) => {
   }
 })
 
-cron.schedule('*/20 * * * *', () => {
-  runClassifyBatchWithLock('cron').catch((err: unknown) => {
-    logger.error({ err }, 'Unhandled error in classify batch cron')
-  })
-})
-
-cron.schedule('0 3 * * *', () => {
-  purgeOldSignals().catch((err: unknown) => {
-    logger.error({ err }, 'Unhandled error in retention purge cron')
-  })
-}, {
-  timezone: 'UTC',
-})
+registerScheduler()
 
 app.listen(env.PORT, () => {
   logger.info({ port: env.PORT }, 'Server started')
+  triggerStartupDrain()
 })

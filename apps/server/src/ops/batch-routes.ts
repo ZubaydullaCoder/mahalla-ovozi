@@ -1,7 +1,7 @@
 import type { IRouter } from 'express'
 import { prisma } from '../shared/db.js'
 import { logger } from '../shared/logger.js'
-import { isBatchRunning, runClassifyBatchWithLock } from '../classifier/index.js'
+import { isBatchRunning, triggerClassifierDrain } from '../classifier/index.js'
 import { getActiveDistrict } from './route-helpers.js'
 
 export function registerBatchRoutes(router: IRouter): void {
@@ -101,7 +101,7 @@ export function registerBatchRoutes(router: IRouter): void {
     if (isBatchRunning()) {
       return res.json({ status: 'locked' })
     }
-    runClassifyBatchWithLock('manual').catch((err: unknown) =>
+    void triggerClassifierDrain('manual').catch((err: unknown) =>
       logger.error({ err }, 'Manual batch trigger failed')
     )
     return res.json({ triggered: true })

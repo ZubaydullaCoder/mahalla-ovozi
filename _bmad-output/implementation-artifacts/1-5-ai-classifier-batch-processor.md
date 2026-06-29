@@ -4,6 +4,8 @@ Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
+> **Current implementation note (2026-06-29):** This completed story records the original 20-minute batch design. Current behavior is superseded by the near-real-time classifier drain worker: keyword-matched webhook intake saves `raw_messages` and triggers `triggerClassifierDrain('webhook')` asynchronously; startup, manual Ops, and `CLASSIFIER_CRON` fallback triggers use the same drain/lock path; `CLASSIFIER_BATCH_SIZE` is still preserved per batch; failed AI classifications stay retryable in `raw_messages`.
+
 ## Story
 
 As a **developer/operator**,

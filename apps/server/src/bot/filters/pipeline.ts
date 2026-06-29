@@ -4,6 +4,7 @@ import { prisma } from '../../shared/db.js'
 import { env } from '../../shared/env.js'
 import { matchesAnyKeyword } from '../../keywords/matcher.js'
 import { getActiveKeywords } from '../../keywords/query.js'
+import { triggerClassifierDrain } from '../../classifier/index.js'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Exported filter predicates — individually testable pure functions
@@ -216,6 +217,12 @@ export async function pipeline(update: Update): Promise<void> {
       },
       'Keyword match — message written to raw_messages',
     )
+
+    if (env.CLASSIFIER_AUTO_TRIGGER_ENABLED) {
+      void triggerClassifierDrain('webhook').catch((err: unknown) => {
+        logger.error({ updateId, rawMessageId: rawMessage.id, err }, 'Webhook classifier drain trigger failed')
+      })
+    }
   } else {
     // keyword_gate + no match -> skip upsert, record keyword_skip event, return
     await createPipelineEvent({

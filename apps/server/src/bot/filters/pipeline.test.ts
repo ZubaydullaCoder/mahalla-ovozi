@@ -25,6 +25,7 @@ const { mockEnv } = vi.hoisted(() => ({
     FILTER_MODE:             'keyword_gate' as const,
     AI_API_KEY:              'test-key',
     AI_MODEL:                'gemini-2.5-flash',
+    CLASSIFIER_AUTO_TRIGGER_ENABLED: true,
   },
 }))
 
@@ -55,6 +56,12 @@ vi.mock('../../shared/db.js', () => ({
 // ─────────────────────────────────────────────────────────────────────────────
 vi.mock('../../shared/logger.js', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), error: vi.fn() },
+}))
+
+const mockTriggerClassifierDrain = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+
+vi.mock('../../classifier/index.js', () => ({
+  triggerClassifierDrain: mockTriggerClassifierDrain,
 }))
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -204,6 +211,7 @@ describe('Idempotent upsert (AC-6)', () => {
       telegram_chat_id: BigInt(-1001234567890),
     })
     mockUpsert.mockResolvedValue({ id: 100 })
+    mockTriggerClassifierDrain.mockResolvedValue(undefined)
     mockFindMany.mockResolvedValue([
       SUV_KEYWORD,
       { ...SUV_KEYWORD, id: 2, phrase: 'tok' },
@@ -341,6 +349,7 @@ describe('pipeline — unmonitored group', () => {
     mockEnv.FILTER_MODE = 'keyword_gate'
     mockFindUnique.mockResolvedValue(null) // no mahalla match
     mockUpsert.mockResolvedValue({ id: 100 })
+    mockTriggerClassifierDrain.mockResolvedValue(undefined)
     mockFindMany.mockResolvedValue([])
     mockPipelineCreate.mockResolvedValue({})
   })
@@ -361,6 +370,7 @@ describe('pipeline — caption capture (AC-2)', () => {
     mockEnv.FILTER_MODE = 'keyword_gate'
     mockFindUnique.mockResolvedValue({ id: 1, district_id: 10, name: 'Yunusobod-1' })
     mockUpsert.mockResolvedValue({ id: 100 })
+    mockTriggerClassifierDrain.mockResolvedValue(undefined)
     mockFindMany.mockResolvedValue([{ ...SUV_KEYWORD, phrase: 'text' }])
     mockPipelineCreate.mockResolvedValue({})
   })
@@ -408,8 +418,10 @@ describe('pipeline — keyword_gate mode (Story 1.4 AC #1)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockEnv.FILTER_MODE = 'keyword_gate'
+    mockEnv.CLASSIFIER_AUTO_TRIGGER_ENABLED = true
     mockFindUnique.mockResolvedValue(MAHALLA)
     mockUpsert.mockResolvedValue({ id: 100 })
+    mockTriggerClassifierDrain.mockResolvedValue(undefined)
     mockPipelineCreate.mockResolvedValue({})
   })
 
@@ -442,6 +454,7 @@ describe('pipeline — keyword_gate mode (Story 1.4 AC #1)', () => {
         }),
       }),
     )
+    expect(mockTriggerClassifierDrain).toHaveBeenCalledWith('webhook')
   })
 
   it('5.5 — keyword_gate without keyword match: message NOT written + keyword_skip event with raw_message_id:null', async () => {
@@ -452,6 +465,7 @@ describe('pipeline — keyword_gate mode (Story 1.4 AC #1)', () => {
 
     // Message must NOT be written
     expect(mockUpsert).not.toHaveBeenCalled()
+    expect(mockTriggerClassifierDrain).not.toHaveBeenCalled()
 
     // keyword_skip event must be written with raw_message_id: null
     expect(mockPipelineCreate).toHaveBeenCalledOnce()
@@ -483,14 +497,41 @@ describe('pipeline — keyword_gate mode (Story 1.4 AC #1)', () => {
       }),
     )
   })
+
+  it('triggers no classifier drain when webhook auto trigger is disabled', async () => {
+    mockEnv.CLASSIFIER_AUTO_TRIGGER_ENABLED = false
+    mockFindMany.mockResolvedValue([SUV_KEYWORD])
+    const update = makeUpdate({ text: 'suv kelyapti' }, 5004)
+
+    await pipeline(update)
+
+    expect(mockUpsert).toHaveBeenCalledOnce()
+    expect(mockTriggerClassifierDrain).not.toHaveBeenCalled()
+  })
+
+  it('does not fail pipeline when webhook drain trigger rejects', async () => {
+    const err = new Error('drain trigger failed')
+    mockTriggerClassifierDrain.mockRejectedValueOnce(err)
+    mockFindMany.mockResolvedValue([SUV_KEYWORD])
+    const update = makeUpdate({ text: 'suv kelyapti' }, 5005)
+
+    await expect(pipeline(update)).resolves.not.toThrow()
+
+    expect(logger.error).toHaveBeenCalledWith(
+      { updateId: 5005, rawMessageId: 100, err },
+      'Webhook classifier drain trigger failed',
+    )
+  })
 })
 
 describe('pipeline — districtId sourced from mahalla, never request body (AC #5)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockEnv.FILTER_MODE = 'keyword_gate'
+    mockEnv.CLASSIFIER_AUTO_TRIGGER_ENABLED = true
     mockFindUnique.mockResolvedValue(MAHALLA)
     mockUpsert.mockResolvedValue({ id: 100 })
+    mockTriggerClassifierDrain.mockResolvedValue(undefined)
     mockFindMany.mockResolvedValue([SUV_KEYWORD])
     mockPipelineCreate.mockResolvedValue({})
   })
@@ -516,8 +557,10 @@ describe('pipeline — getActiveKeywords DB error: fail-closed', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockEnv.FILTER_MODE = 'keyword_gate'
+    mockEnv.CLASSIFIER_AUTO_TRIGGER_ENABLED = true
     mockFindUnique.mockResolvedValue(MAHALLA)
     mockUpsert.mockResolvedValue({ id: 100 })
+    mockTriggerClassifierDrain.mockResolvedValue(undefined)
     mockPipelineCreate.mockResolvedValue({})
   })
 
@@ -527,6 +570,7 @@ describe('pipeline — getActiveKeywords DB error: fail-closed', () => {
 
     await expect(pipeline(update)).resolves.not.toThrow()
     expect(mockUpsert).not.toHaveBeenCalled()
+    expect(mockTriggerClassifierDrain).not.toHaveBeenCalled()
   })
 
   it('records keyword_skip event on DB error with keyword lookup failure detail', async () => {
@@ -556,8 +600,10 @@ describe('pipeline — pipelineEvent.create DB error: does not crash pipeline (C
   beforeEach(() => {
     vi.clearAllMocks()
     mockEnv.FILTER_MODE = 'keyword_gate'
+    mockEnv.CLASSIFIER_AUTO_TRIGGER_ENABLED = true
     mockFindUnique.mockResolvedValue(MAHALLA)
     mockUpsert.mockResolvedValue({ id: 100 })
+    mockTriggerClassifierDrain.mockResolvedValue(undefined)
     mockFindMany.mockResolvedValue([SUV_KEYWORD])
   })
 

@@ -19,7 +19,7 @@ The hokim or his staff manually read raw Telegram supergroups, taking 30–60 mi
 **Where users are likely to get confused:**
 1. The *Ҳокимга тегишли* lane vs. service category lanes (resolved by explicit lane header design).
 2. Why some cards appear in two lanes simultaneously (resolved by drawer breadcrumb showing the active lane lens).
-3. Why signals are from 20 minutes ago and not real-time (resolved by delay banner and a persistent "last updated" timestamp in the filter bar).
+3. Why a newly classified signal may take a few seconds to appear (resolved by 10-second background signal refresh, delay banner, and a persistent "last updated" timestamp in the filter bar).
 
 **What makes existing approaches inadequate:**
 - Raw Telegram groups require reading hundreds of unrelated messages to find 3–4 civic signals.
@@ -44,7 +44,7 @@ The core experience uses **established patterns combined in a novel context**. N
 | Kanban column with cards | Trello, Linear | Chronological monitoring feed, not task management |
 | Right-side overlay drawer | Linear, Figma | Evidence aggregation from a civic AI data pipeline |
 | Category-colored active border/ring accent | Analytics dashboards | Public utility classification in Uzbek Cyrillic |
-| Skeleton shimmer loading state | Modern SaaS | 20-minute AI batch pipeline with 60s polling cycle |
+| Skeleton shimmer loading state | Modern SaaS | Near-real-time classifier drain with transparent background refetching |
 
 ## Experience Mechanics
 

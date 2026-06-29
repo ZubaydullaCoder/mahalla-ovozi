@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import cron from 'node-cron'
 import { z } from 'zod'
 
 const GEMINI_DEFAULT_MODEL = 'gemini-2.5-flash'
@@ -18,6 +19,8 @@ const EnvSchema = z.object({
   AI_BASE_URL:             optionalTrimmedString(),
   AI_TIMEOUT_MS:           z.coerce.number().int().positive().default(30000),
   CLASSIFIER_BATCH_SIZE:   z.coerce.number().int().positive().default(100),
+  CLASSIFIER_AUTO_TRIGGER_ENABLED: booleanEnvDefault(true),
+  CLASSIFIER_CRON:         cronExpressionDefault('* * * * *'),
   OPS_ENABLED:             z.string().optional(),
   OPS_SECRET:              z.string().optional(),
 }).superRefine((env, ctx) => {
@@ -69,4 +72,27 @@ function optionalTrimmedString() {
     (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
     z.string().trim().min(1).optional(),
   )
+}
+
+function cronExpressionDefault(defaultValue: string) {
+  return z.preprocess(
+    (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
+    z.string()
+      .trim()
+      .min(1)
+      .refine((value) => cron.validate(value), 'Invalid cron expression')
+      .default(defaultValue),
+  )
+}
+
+function booleanEnvDefault(defaultValue: boolean) {
+  return z.preprocess((value) => {
+    if (typeof value !== 'string') return value
+
+    const normalized = value.trim().toLowerCase()
+    if (normalized === '') return undefined
+    if (normalized === 'true') return true
+    if (normalized === 'false') return false
+    return value
+  }, z.boolean().default(defaultValue))
 }

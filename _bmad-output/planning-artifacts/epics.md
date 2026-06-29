@@ -47,7 +47,7 @@ FR16: The system captures in-scope text messages and textual captions sent to mo
 FR17: The system captures message metadata: Telegram message ID, chat/group ID, sender reference, sender display name snapshot, timestamp, and text_source (text or caption).
 FR18: The system detects when the bot is removed from or loses access to a monitored group and exposes an operator-visible health alert state.
 FR19: The system ignores non-text Telegram updates (photos, videos, voice, stickers, polls, files) except textual caption content which is processed as text.
-FR20: The system processes captured messages in batches at a configurable interval (default: every 20 minutes).
+FR20: The system processes keyword-matched captured messages through an asynchronous background classifier drain triggered after raw message persistence, with a configurable lightweight cron fallback (default: every 1 minute).
 FR21: The system applies a centralized conservative pre-filter (F1: bot sender, F2: non-text type, F3: trivial content) before AI classification. Short civic texts (gaz?, suv?, tok?) must NOT be discarded by length alone.
 FR21a: The system uses developer/operator-managed keyword-gate filtering as the only current active filtering method. Filtering controls are not visible in hokim/staff dashboard.
 FR21b: The system stores manually managed keyword phrases in one centralized Ops Console database registry. AI does not auto-generate or modify keywords.
@@ -74,7 +74,7 @@ FR34: The system exposes a health status to the dashboard that indicates whether
 NFR1: Dashboard initial page load completes in under 3 seconds on a standard office network connection.
 NFR2: Lane filter and search operations produce visible results within 300ms (client-side, on already-fetched data).
 NFR3: Context drawer opens within 500ms of a signal item being selected.
-NFR4: Dashboard auto-refresh polling occurs every 60 seconds without perceptible page disruption or full reload.
+NFR4: Dashboard signal auto-refresh polling occurs every 10 seconds without perceptible page disruption or full reload; dashboard health polling occurs every 60 seconds.
 NFR5: Phase 2 pilot deployment serves all dashboard traffic over HTTPS; HTTP requests are redirected. Phase 1 local validation may use HTTP.
 NFR6: Session cookies are issued with httpOnly; Phase 2 pilot deployment also requires the secure flag. Session data is never exposed to client-side JavaScript.
 NFR7: Bot token, AI provider API key, and database credentials are stored in environment variables only — never in source code, logs, or version control.
@@ -166,7 +166,7 @@ FR16: Epic 1 — Bot captures text + captions from monitored Telegram supergroup
 FR17: Epic 1 — Message metadata captured (update_id, chat_id, sender, timestamp, text_source)
 FR18: Epic 1 — Bot removal detection → operator health alert state
 FR19: Epic 1 — Non-text updates ignored; captions processed as text
-FR20: Epic 1 — 20-minute configurable batch processing
+FR20: Epic 1 — asynchronous classifier drain with configurable fallback cron
 FR21: Epic 1 — Centralized conservative structural pre-filter (F1/F2/F3)
 FR21a: Epic 1 (logic) + Epic 6 (Ops UI display) — Developer/operator keyword-gate state
 FR21b: Epic 1 (DB + matcher) + Epic 6 (Ops Console CRUD) — Manual keyword registry
@@ -311,14 +311,15 @@ So that the current active pipeline sends only keyword-matched messages to AI wh
 ### Story 1.5: AI Classifier Batch Processor
 
 As a **developer/operator**,
-I want the 20-minute scheduled batch processor to classify pending `raw_messages` using the Gemini AI API and persist signals while atomically deleting processed raw messages,
+I want the asynchronous classifier drain worker to classify pending `raw_messages` using the configured AI provider and persist signals while atomically deleting processed raw messages,
 So that civic signals are stored in `signal_messages` and the core pipeline output is produced reliably.
 
 **Acceptance Criteria:**
 
 **Given** `raw_messages` contains pending messages and `AI_API_KEY` and `AI_MODEL` env vars are set
-**When** the `node-cron` scheduler fires every 20 minutes (`*/20 * * * *`) or `runClassifyBatchWithLock` is called
-**Then** the batch fetches all pending raw messages for the district, calls `@google/genai` with `responseMimeType: 'application/json'` and `responseJsonSchema` (from `zod-to-json-schema`), and for each message classified as `signal`: writes to `signal_messages` (category, hokim_related, short_label) AND deletes from `raw_messages` in a single `$transaction`
+**When** a keyword-matched webhook insert, startup drain, manual Ops trigger, or lightweight fallback cron triggers the classifier drain
+**Then** the worker acquires the existing classifier lock, processes raw messages oldest-first in batches up to `CLASSIFIER_BATCH_SIZE`, calls the configured provider through the classifier provider abstraction, and for each message classified as `signal`: writes to `signal_messages` (category, hokim_related, short_label) AND deletes from `raw_messages` in a single `$transaction`
+**And** the drain repeats sequential batches until `raw_messages` is empty; if a batch fails after retries, failed messages stay in `raw_messages` and the drain stops until the next trigger
 **And** messages classified as `ignore` are deleted from `raw_messages` only (no signal written)
 **And** if the AI response fails Zod discriminated-union schema validation, the message retries up to 3 times with exponential backoff; after 3 failures the batch is marked failed and the message stays in `raw_messages` for the next batch run
 **And** `batch_health` row is written at batch completion with: status, started_at, completed_at, messages_fetched, signals_written, ignored_count, pre_filter_discards, filter_mode, and all keyword comparison metric fields
@@ -494,19 +495,20 @@ So that I can scan district civic activity at a glance within 60 seconds.
 ### Story 3.4: 60-Second Auto-Refresh & Delay Banner
 
 As a **hokim or staff member**,
-I want the dashboard to automatically refresh signals every 60 seconds without disrupting my view, and see an amber banner when signal data is delayed,
+I want the dashboard to automatically refresh signals every 10 seconds without disrupting my view, and see an amber banner when signal data is delayed,
 So that I always have current information and understand processing status without being alarmed by technical errors.
 
 **Acceptance Criteria:**
 
 **Given** an authenticated user is viewing the dashboard
-**When** 60 seconds pass after the last successful fetch
-**Then** TanStack Query `refetchInterval: 60000` triggers a background `GET /api/signals` and `GET /api/health` fetch; lane scroll positions, active filters, and open drawer state are NOT reset on refetch
+**When** 10 seconds pass after the last successful signals fetch
+**Then** TanStack Query `refetchInterval: 10000` triggers a background `GET /api/signals` fetch; lane scroll positions, active filters, and open drawer state are NOT reset on refetch
+**And** TanStack Query `refetchInterval: 60000` triggers a background `GET /api/health` fetch
 **And** `GET /api/health` endpoint returns at minimum: `{ lastBatchAt: string | null, status: 'current' | 'delayed' }` where `delayed` means `lastBatchAt` is ≥ 25 minutes ago or null
 **And** when health poll detects delayed status, an AntD `Alert type="warning"` (role="alert") banner appears below the filter bar (above lane grid) with text: "⚠️ Сигналлар янгиланмаяпти — охирги янгиланиш HH:MM" where HH:MM is `lastBatchAt` formatted in UTC+5 local time
 **And** when the next poll returns `status: 'current'`, the banner auto-clears with no user action and no dismiss button
 **And** the last cached signals remain fully visible and scrollable during a delay period
-**And** no spinner is used anywhere; the 60s background refetch produces no visible loading indicator on already-rendered data
+**And** no spinner is used anywhere; background refetches produce no visible loading indicator on already-rendered data
 **And** `pnpm lint` and `pnpm test` pass
 
 ---
@@ -725,7 +727,7 @@ So that I can trace each message through the pipeline and validate classifier be
 **Given** the Ops Console Pipeline Log panel is open
 **When** the panel loads
 **Then** `GET /api/ops/pipeline-events` returns the most recent 100 `pipeline_events` for the district, newest-first, with fields: `id`, `eventType`, `districtId`, `mahallaId`, `telegramUpdateId`, `rawMessageId`, `signalId`, `detail` (JSON), `createdAt` (ISO 8601 UTC); UI derives display outcome from `eventType` (e.g. `prefilter_discard` → structural discard, `keyword_skip` → keyword skip)
-**And** Run Batch Now calls `POST /api/ops/trigger-batch`; server calls `runClassifyBatchWithLock('manual')` and responds `{ status: 'started' | 'locked' }`
+**And** Run Batch Now calls `POST /api/ops/trigger-batch`; server calls `triggerClassifierDrain('manual')` fire-and-forget and responds `{ triggered: true }` when idle or `{ status: 'locked' }` when already running
 **And** batch status panel shows: `lastBatchAt`, `status`, `messagesProcessed`, `signalsWritten`, `ignoredCount`, `queueDepth` - auto-refreshes every 5 seconds
 **And** `pnpm lint` and `pnpm test` pass
 

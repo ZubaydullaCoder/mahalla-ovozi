@@ -23,6 +23,8 @@ describe('parseEnv', () => {
     expect(env.AI_API_KEY).toBe('gemini-key')
     expect(env.AI_TIMEOUT_MS).toBe(30000)
     expect(env.CLASSIFIER_BATCH_SIZE).toBe(100)
+    expect(env.CLASSIFIER_AUTO_TRIGGER_ENABLED).toBe(true)
+    expect(env.CLASSIFIER_CRON).toBe('* * * * *')
   })
 
   it('rejects Gemini configuration without an API key', () => {
@@ -151,6 +153,34 @@ describe('parseEnv', () => {
       AI_API_KEY:            'gemini-key',
       CLASSIFIER_BATCH_SIZE: '0',
     })).toThrow()
+  })
+
+  it('parses classifier auto-trigger and cron overrides', () => {
+    const env = parseEnv({
+      ...baseEnv,
+      AI_API_KEY: 'gemini-key',
+      CLASSIFIER_AUTO_TRIGGER_ENABLED: 'false',
+      CLASSIFIER_CRON: '*/5 * * * *',
+    })
+
+    expect(env.CLASSIFIER_AUTO_TRIGGER_ENABLED).toBe(false)
+    expect(env.CLASSIFIER_CRON).toBe('*/5 * * * *')
+  })
+
+  it('rejects invalid classifier auto-trigger values', () => {
+    expect(() => parseEnv({
+      ...baseEnv,
+      AI_API_KEY: 'gemini-key',
+      CLASSIFIER_AUTO_TRIGGER_ENABLED: 'yes',
+    })).toThrow()
+  })
+
+  it('rejects invalid classifier cron expressions', () => {
+    expect(() => parseEnv({
+      ...baseEnv,
+      AI_API_KEY: 'gemini-key',
+      CLASSIFIER_CRON: 'not a cron',
+    })).toThrow(/Invalid cron expression/)
   })
 
   it('requires a strong production session secret', () => {

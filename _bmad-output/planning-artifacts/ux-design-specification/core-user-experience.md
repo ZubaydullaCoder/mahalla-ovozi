@@ -11,7 +11,7 @@ The product succeeds when this loop requires no training and produces no confusi
 ## Platform Strategy
 - **Target Device:** Desktop and large office monitors (1920×1080 primary; 1366×768 minimum functional fallback). Mobile is explicitly out of scope for MVP.
 - **Input Method:** Mouse and keyboard. No touch interactions required.
-- **Network Pattern:** Single-Page Application (SPA) communicating via a REST API. The UI performs a background 60-second polling refresh to keep data current without disrupting the user's scroll position, active filters, or open drawer state.
+- **Network Pattern:** Single-Page Application (SPA) communicating via a REST API. The UI performs a background 10-second signals refresh and a 60-second health refresh to keep data current without disrupting the user's scroll position, active filters, or open drawer state.
 
 ## Drawer Behavior
 The context drawer is a **fixed-width overlay panel** (~380px at 1920×1080; ~340px at 1366×768) that slides in from the right edge. The five lane columns do **not** compress or reflow when the drawer opens — the drawer overlays the rightmost lane(s) as a separate surface layer.
@@ -94,7 +94,7 @@ When the AI classifier batch is running slow, the UI never shows an error modal 
 | State | Trigger | Behavior |
 |---|---|---|
 | Normal | `last_batch_at < 25 min ago` | No banner shown |
-| Delayed | `last_batch_at ≥ 25 min ago` (detected on 60s poll) | Amber banner below filter bar |
+| Delayed | `last_batch_at ≥ 25 min ago` (detected on 60s health poll) | Amber banner below filter bar |
 | Recovered | Next poll returns fresh `last_batch_at` | Banner auto-clears, no user action needed |
 
 The last cached batch remains fully visible and scrollable during the delay.
