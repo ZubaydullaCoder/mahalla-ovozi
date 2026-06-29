@@ -1,8 +1,8 @@
-# UX Design Specification mahalla-ovozi
+# UX Design Specification public-insight-ai
 
 ## Table of Contents
 
-- [UX Design Specification mahalla-ovozi](#table-of-contents)
+- [UX Design Specification public-insight-ai](#table-of-contents)
   - [Executive Summary](./executive-summary.md)
     - [Project Vision](./executive-summary.md#project-vision)
     - [Target Users](./executive-summary.md#target-users)

@@ -44,6 +44,7 @@ Rows with `Status = Active` govern current work. Rows with `Status = Superseded`
 
 | Date | Source | Type | Scope | Statement | Status | Agent handling |
 |---|---|---|---|---|---|---|
+| 2026-06-29 | Owner | Decision | Product / Branding | Rename the project to PublicInsight AI for high-level branding, updating codebase config project_name to public-insight-ai, and updating UI header/document titles to PublicInsight AI. Local folder name is preserved for workspace stability. | Active | Apply PublicInsight AI as the canonical product name in all developer-facing configurations, tests, and documentation. |
 | 2026-06-02 | Owner | Constraint | Workflow / Memory | This file must contain only explicit user/client/stakeholder constraints, preferences, and decisions. Agent-inferred or implicit decisions do not belong here. | Active | Before adding an entry, verify it was explicitly stated or accepted by a human stakeholder. |
 | 2026-06-10 | Owner | Decision | Workflow / Deployment | ngrok free may be used as the approved temporary development/staging access method for local testing, Telegram webhook testing, and controlled hokim showcase before paid production deployment. This is not production. | Active | Treat ngrok as a pre-production/demo access tool only; do not replace Phase 2 production deployment requirements such as VPS/domain, HTTPS, stable webhook, secure secrets, backups, and monitoring. |
 | 2026-06-11 | Owner | Decision | AI / Filtering | Current development uses `keyword_gate` as the only active filtering method. Parallel `keyword_gate` and `ai_full` development is intentionally avoided. `ai_full` may be reconsidered later only by explicit owner decision if keyword gating underperforms. | Active | Prioritize keyword-gated operation only. Do not build comparison statistics or parallel filtering-mode validation unless explicitly requested later. |
@@ -93,4 +94,4 @@ The following belong in source specifications, not in this stakeholder log unles
 
 ---
 
-_Last updated: 2026-06-11. Added explicit filtering decision making `keyword_gate` the only active current filtering method and removing comparison mode from current scope._
+_Last updated: 2026-06-29. Registered project rename to PublicInsight AI decision and updated codebase reference configurations. _

@@ -83,7 +83,7 @@ describe('OpsPage', () => {
     expect(screen.getByRole('radio', { name: 'Health' })).toBeInTheDocument()
     // SimulatorPanel is now implemented — check for the mode toggle instead of placeholder
     expect(await screen.findByText(/Webhook Simulation/)).toBeInTheDocument()
-    expect(document.title).toBe('Ops Console – Mahalla Ovozi [Phase 1] — Simulator')
+    expect(document.title).toBe('Ops Console – PublicInsight AI [Phase 1] — Simulator')
 
     // AntD Segmented hides the input with pointer-events:none; click the parent label instead
     const healthRadio = screen.getByRole('radio', { name: 'Health' })
@@ -93,7 +93,7 @@ describe('OpsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Infrastructure Health')).toBeInTheDocument()
     })
-    expect(document.title).toBe('Ops Console – Mahalla Ovozi [Phase 1] — Health')
+    expect(document.title).toBe('Ops Console – PublicInsight AI [Phase 1] — Health')
 
   })
 

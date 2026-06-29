@@ -1,7 +1,7 @@
 ---
 validationStatus: 'superseded'
 workflowType: 'prd-validation'
-projectName: 'mahalla-ovozi'
+projectName: 'public-insight-ai'
 originalDate: '2026-05-18'
 supersededDate: '2026-06-01'
 ---

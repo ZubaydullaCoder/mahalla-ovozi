@@ -1,6 +1,6 @@
-# Mahalla Ovozi
+# PublicInsight AI
 
-Mahalla Ovozi is a private internal civic signal monitoring system for district leadership in Uzbekistan.
+PublicInsight AI is a private internal civic signal monitoring system for district leadership in Uzbekistan.
 
 It listens to selected mahalla Telegram supergroups through an official bot, filters civic utility signals, classifies them by service category, and displays them in an internal dashboard.
 
@@ -54,7 +54,7 @@ The server runs on `PORT` from `.env` and the web app runs through Vite.
 pnpm db:generate
 pnpm lint
 pnpm test
-pnpm --filter mahalla-ovozi-web build
+pnpm --filter public-insight-ai-web build
 ```
 
 Use focused tests while changing a narrow area, then run the full gates before considering the workspace stable.

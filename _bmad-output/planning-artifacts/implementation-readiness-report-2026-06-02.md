@@ -14,7 +14,7 @@ assessedDocuments:
 > **Superseded note (2026-06-03):** This report was produced before `epics.md` existed and is preserved for historical trace only. Current readiness should be assessed from `prd.md`, `architecture.md`, `architecture-ops-console.md`, `ux-design-specification/`, and `epics.md`.
 
 **Date:** 2026-06-02
-**Project:** mahalla-ovozi
+**Project:** public-insight-ai
 **Assessor:** BMad Implementation Readiness Check
 **Scope:** Historical PRD ↔ Architecture ↔ UX Design consistency validation.
 

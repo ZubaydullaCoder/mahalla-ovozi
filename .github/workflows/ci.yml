@@ -24,4 +24,4 @@ jobs:
       - run: pnpm db:generate
       - run: pnpm lint
       - run: pnpm test
-      - run: pnpm --filter mahalla-ovozi-web build
+      - run: pnpm --filter public-insight-ai-web build

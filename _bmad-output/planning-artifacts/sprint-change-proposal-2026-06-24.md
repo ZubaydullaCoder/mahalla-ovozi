@@ -1,5 +1,5 @@
 ---
-project: mahalla-ovozi
+project: public-insight-ai
 workflow: bmad-correct-course
 date: 2026-06-24
 status: approved

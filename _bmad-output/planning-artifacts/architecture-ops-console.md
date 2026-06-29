@@ -1,6 +1,6 @@
 # Architecture — Developer Ops Console
 
-**Project:** mahalla-ovozi
+**Project:** public-insight-ai
 **Phase:** 1 — Validation-First Development
 **Status:** Part of Phase 1 architecture
 
@@ -45,7 +45,7 @@ boundaries. Each panel is independently scrollable.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  MAHALLA OVOZI — DEVELOPER OPS CONSOLE  [Phase 1]       │
+│  PUBLICINSIGHT AI — DEVELOPER OPS CONSOLE  [Phase 1]       │
 ├───────────────┬─────────────────────────────────────────┤
 │               │                                         │
 │  System       │  Filtering Mode + Keyword Registry      │

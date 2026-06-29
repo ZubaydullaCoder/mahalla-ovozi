@@ -4,7 +4,7 @@
 
 export const strings = {
   login: {
-    title: 'Маҳалла Овози',
+    title: 'PublicInsight AI',
     subtitle: 'Тизимга кириш',
     usernameLabel: 'Фойдаланувчи номи',
     usernamePlaceholder: 'Фойдаланувчи номи',
@@ -22,8 +22,8 @@ export const strings = {
     opsPlaceholder: 'Оператор панели тайёрланмоқда',
   },
   ops: {
-    documentTitle:    ['Ops Console – Ma', 'halla Ovozi [Phase 1]'].join(''),
-    pageTitle:        ['MA', 'HALLA OVOZI — DEVELOPER OPS CONSOLE [Phase 1]'].join(''),
+    documentTitle:    ['Ops Console – Pub', 'licInsight AI [Phase 1]'].join(''),
+    pageTitle:        ['PUB', 'LICINSIGHT AI — DEVELOPER OPS CONSOLE [Phase 1]'].join(''),
     disabledMessage:  'Ops Console is disabled. Set OPS_ENABLED=true in .env and restart the server.',
     forbiddenMessage: 'Access denied. Ops Console requires a valid X-Ops-Secret header or localhost origin.',
     loadingMessage:   'Checking Ops Console access...',
@@ -37,8 +37,8 @@ export const strings = {
     panelPlaceholder: (section: string) => `${section} panel — coming in a later story`,
   },
   app: {
-    title: 'Маҳалла Овози',
-    unsupportedScreen: 'Маҳалла Овози фақат компьютер экранида ишлайди',
+    title: 'PublicInsight AI',
+    unsupportedScreen: 'PublicInsight AI фақат компьютер экранида ишлайди',
     logout: 'Чиқиш',
     logoutError: 'Чиқишда хатолик юз берди',
   },

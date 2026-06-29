@@ -1,6 +1,6 @@
-# Architecture Decision Document — Mahalla Ovozi (Phase 1)
+# Architecture Decision Document — PublicInsight AI (Phase 1)
 
-**Project:** mahalla-ovozi
+**Project:** public-insight-ai
 **Author:** Zubaydulla
 **Date:** 2026-06-01
 **Phase:** 1 — Validation-First Development
@@ -142,7 +142,7 @@ useful enough for pilot deployment. See Section 16 for the Phase 2 roadmap.
 ### Project Structure
 
 ```
-mahalla-ovozi/
+public-insight-ai/
 ├── .env                              ← secrets (gitignored)
 ├── .env.example                      ← template with all required keys
 ├── .gitignore
@@ -255,7 +255,7 @@ mahalla-ovozi/
 {
   "scripts": {
     "dev:server": "tsx watch apps/server/src/web/index.ts",
-    "dev:web":    "pnpm --filter mahalla-ovozi-web dev",
+    "dev:web":    "pnpm --filter public-insight-ai-web dev",
     "lint":       "eslint apps/ scripts/ prisma/*.ts prisma.config.ts vitest.config.ts",
     "test":       "vitest run",
     "db:generate": "prisma generate",

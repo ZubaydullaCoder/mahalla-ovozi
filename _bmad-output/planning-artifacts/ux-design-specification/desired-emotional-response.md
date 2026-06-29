@@ -2,7 +2,7 @@
 
 ## Primary Emotional Goals
 
-The primary emotional goal for Mahalla Ovozi is **Calm Authority**.
+The primary emotional goal for PublicInsight AI is **Calm Authority**.
 
 The hokim should feel like a commander with a clear view of the battlefield — not anxious, not overwhelmed, and not confused. Every design decision should reinforce this feeling: structured data, predictable interactions, and clean visual hierarchy that communicates "this system is working and you are in control."
 

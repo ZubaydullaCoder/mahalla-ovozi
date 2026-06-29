@@ -4,11 +4,11 @@
 
 **"See what residents of any mahalla are saying about any utility issue — in one click, in under 60 seconds."**
 
-This is the defining experience of Mahalla Ovozi. Unlike reading raw Telegram chats or waiting for staff briefings, the hokim opens the dashboard and immediately understands district health through classified, structured signal cards. The defining interaction — clicking a signal card and seeing corroborating neighborhood evidence in the drawer — is the moment the product proves its value.
+This is the defining experience of PublicInsight AI. Unlike reading raw Telegram chats or waiting for staff briefings, the hokim opens the dashboard and immediately understands district health through classified, structured signal cards. The defining interaction — clicking a signal card and seeing corroborating neighborhood evidence in the drawer — is the moment the product proves its value.
 
 ## User Mental Model
 
-**Current solving approach (before Mahalla Ovozi):**
+**Current solving approach (before PublicInsight AI):**
 The hokim or his staff manually read raw Telegram supergroups, taking 30–60 minutes to scan each group looking for patterns. Signal extraction is informal, inconsistent, and depends entirely on staff capacity. There is no classification, no categorization, and no evidence aggregation across mahallas.
 
 **Mental model the user brings:**

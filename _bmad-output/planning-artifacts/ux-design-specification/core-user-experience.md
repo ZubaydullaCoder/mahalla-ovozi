@@ -1,7 +1,7 @@
 # Core User Experience
 
 ## Defining Experience
-The core loop of Mahalla Ovozi is a three-second scan followed by a single-click investigation:
+The core loop of PublicInsight AI is a three-second scan followed by a single-click investigation:
 1. **Scan:** The governor glances at the five category lanes, assessing signal counts and activity.
 2. **Select:** The governor clicks an active signal card in any lane.
 3. **Inspect:** The right-side context drawer opens instantly, presenting the localized evidence stream for that signal.

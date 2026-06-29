@@ -1,7 +1,7 @@
 # Sprint Change Proposal - Keyword Gate Demo/Pilot Default
 
 Date: 2026-06-10
-Project: mahalla-ovozi
+Project: public-insight-ai
 Workflow: BMAD Correct Course
 Status: Superseded by 2026-06-11 filtering decision
 

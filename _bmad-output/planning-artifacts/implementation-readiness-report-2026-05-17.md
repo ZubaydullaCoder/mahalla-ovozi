@@ -1,7 +1,7 @@
 ---
 workflowStatus: 'superseded'
 workflowType: 'implementation-readiness'
-projectName: 'mahalla-ovozi'
+projectName: 'public-insight-ai'
 originalDate: '2026-05-17'
 supersededDate: '2026-06-01'
 ---

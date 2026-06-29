@@ -15,11 +15,11 @@ inputDocuments:
   - '_bmad-output/planning-artifacts/ux-design-specification/responsive-design-accessibility.md'
 ---
 
-# mahalla-ovozi - Epic Breakdown
+# public-insight-ai - Epic Breakdown
 
 ## Overview
 
-This document provides the complete epic and story breakdown for mahalla-ovozi, decomposing the requirements from the PRD, UX Design, and Architecture requirements into implementable stories.
+This document provides the complete epic and story breakdown for public-insight-ai, decomposing the requirements from the PRD, UX Design, and Architecture requirements into implementable stories.
 
 ---
 
@@ -134,7 +134,7 @@ UX-DR10: Implement drawer temporal anchor: signals in ascending chronological or
 UX-DR11: Implement drawer card swap: clicking different card while drawer is open updates breadcrumb immediately (before API call), shows 3-row skeleton in drawer body, then replaces with new content. No close/reopen cycle needed.
 UX-DR12: Implement delay banner: AntD Alert type="warning", fixed below filter bar, above lane grid. Trigger: last_batch_at ≥ 25 min ago (detected on 60s health poll). Text: "⚠️ Сигналлар янгиланмаяпти — охирги янгиланиш HH:MM". Auto-clears on next successful poll. No dismiss button.
 UX-DR13: Implement per-lane empty states using AntD Empty (customized): 28px muted icon, 12px colorTextPlaceholder message. Three contexts: "Бугун сигналлар йўқ" (no signals today), "Танланган маҳаллада сигналлар йўқ" (mahalla filter), "Қидирув натижаси топилмади" (search). Drawer empty: "Бу маҳаллада бошқа сигналлар топилмади".
-UX-DR14: Implement unsupported screen blocker: at <1024px viewport, hide app shell and show centered Uzbek Cyrillic message: "Маҳалла Овози фақат компьютер экранида ишлайди". CSS @media only, no JavaScript required.
+UX-DR14: Implement unsupported screen blocker: at <1024px viewport, hide app shell and show centered Uzbek Cyrillic message: "PublicInsight AI фақат компьютер экранида ишлайди". CSS @media only, no JavaScript required.
 UX-DR15: Implement responsive breakpoints: condensed at 1024–1279px (drawer 340px, card padding 10px 12px); standard at 1280–1439px (all defaults); expanded at ≥1440px (drawer 380px, lane min-width 220px). `<LaneGrid>` is the sole owner of breakpoint logic.
 UX-DR16: Implement WCAG 2.1 AA accessibility: role="feed" + Cyrillic aria-label on each LaneColumn; role="article" + aria-label="{senderName}, {mahalla}, {relativeTime}" on SignalCard; tabIndex=0 + Enter/Space on SignalCard; HokimStar aria-hidden="true"; delay banner uses AntD Alert (role="alert"); loading lane uses aria-busy="true". No outline:none overrides — use 2px colorPrimary outline instead.
 UX-DR17: Implement Inter font via Google Fonts @import with display=swap and subset latin,latin-ext,cyrillic. All UI text minimum 11px. Base palette: colorBgLayout #F5F4F2, colorBgContainer #FAFAF9, colorBgElevated #FFFFFF, colorText #1A1714, colorPrimary #4F46A8, colorWarning #D97706.
@@ -444,7 +444,7 @@ So that all subsequent UI components use consistent design tokens and the struct
 **Then** `ConfigProvider` wraps the entire app at root level with `mahallaTheme` token overrides from `theme.ts`: colorBgLayout `#F5F4F2`, colorBgContainer `#FAFAF9`, colorBgElevated `#FFFFFF`, colorText `#1A1714`, colorPrimary `#4F46A8`, colorWarning `#D97706`, and all 5 category color tokens (hokim `#7C2D56`, water `#1D6FA4`, electricity `#B45309`, gas `#1A7060`, waste `#5C6B2E`)
 **And** Inter font is loaded via Google Fonts `@import` with `display=swap` and `latin,latin-ext,cyrillic` subset in the root CSS file
 **And** the app-level layout renders: a 56px sticky filter bar zone at the top and a lane grid zone taking `calc(100vh - 56px)` below it
-**And** at viewport < 1024px: `.app-shell` is hidden via CSS `@media` only and a centered Uzbek Cyrillic message "Маҳалла Овози фақат компьютер экранида ишлайди" is shown — no JavaScript required
+**And** at viewport < 1024px: `.app-shell` is hidden via CSS `@media` only and a centered Uzbek Cyrillic message "PublicInsight AI фақат компьютер экранида ишлайди" is shown — no JavaScript required
 **And** no ad-hoc color literals exist in any component file — all colors reference `useToken()` or the category token map from `theme.ts`
 **And** `pnpm lint` and `pnpm test` pass including `check-uz-strings`
 
@@ -691,7 +691,7 @@ So that the developer console is never accessible in production and has a stable
 
 **Given** `OPS_ENABLED=true`, `NODE_ENV=development`, request from localhost
 **When** the developer navigates to `/ops`
-**Then** `OpsPage` renders with title "Ops Console - Mahalla Ovozi" and navigation for: Simulator, Pipeline Log, Keyword Registry, Signals Browser, Health
+**Then** `OpsPage` renders with title "Ops Console - PublicInsight AI" and navigation for: Simulator, Pipeline Log, Keyword Registry, Signals Browser, Health
 **And** when `OPS_ENABLED=false` OR `NODE_ENV=production`: all `/api/ops/*` return HTTP 404; frontend shows "Ops Console disabled"
 **And** non-localhost access requires matching `OPS_SECRET` header; missing/wrong returns HTTP 403
 **And** `OpsPage` uses independent TanStack Query instances - never shares state with `DashboardPage`
