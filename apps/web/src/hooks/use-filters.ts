@@ -1,5 +1,6 @@
 // apps/web/src/hooks/use-filters.ts
-import { useState, useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 
 export type TimeRangePreset = '1h' | '3h' | '6h' | 'today' | 'yesterday' | '7d' | 'custom'
 
@@ -9,6 +10,10 @@ export interface FilterState {
   searchText: string
   customRange: [string, string] | null
 }
+
+const TIME_RANGE_PRESETS = ['1h', '3h', '6h', 'today', 'yesterday', '7d', 'custom'] as const
+const ISO_DATE_TIME_WITH_ZONE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/
+const MAX_ID_PARAM = 2_147_483_647
 
 // UTC+5 offset in milliseconds
 const UTC5_OFFSET_MS = 5 * 60 * 60 * 1000
@@ -22,6 +27,43 @@ function getUTC5DayStart(dateMs: number): Date {
   const midnight = new Date(utc5Ms)
   midnight.setUTCHours(0, 0, 0, 0)
   return new Date(midnight.getTime() - UTC5_OFFSET_MS)
+}
+
+function isTimeRangePreset(value: string | null): value is TimeRangePreset {
+  return TIME_RANGE_PRESETS.includes(value as TimeRangePreset)
+}
+
+function parsePositiveInteger(value: string | null): number | null {
+  if (value === null || !/^[1-9]\d*$/.test(value)) return null
+  const parsed = Number(value)
+  return Number.isSafeInteger(parsed) && parsed <= MAX_ID_PARAM ? parsed : null
+}
+
+function isValidIsoDate(value: string | null): value is string {
+  return value !== null && ISO_DATE_TIME_WITH_ZONE.test(value) && !Number.isNaN(Date.parse(value))
+}
+
+function parseFilterState(searchParams: URLSearchParams): FilterState {
+  const requestedRange = searchParams.get('range')
+  let timeRange: TimeRangePreset = isTimeRangePreset(requestedRange) ? requestedRange : 'today'
+  let customRange: [string, string] | null = null
+
+  if (timeRange === 'custom') {
+    const from = searchParams.get('from')
+    const to = searchParams.get('to')
+    if (isValidIsoDate(from) && isValidIsoDate(to) && Date.parse(from) <= Date.parse(to)) {
+      customRange = [from, to]
+    } else {
+      timeRange = 'today'
+    }
+  }
+
+  return {
+    timeRange,
+    mahallaId: parsePositiveInteger(searchParams.get('mahalla')),
+    searchText: searchParams.get('q') ?? '',
+    customRange,
+  }
 }
 
 /**
@@ -65,12 +107,8 @@ export function computeApiParams(
 }
 
 export function useFilters() {
-  const [filterState, setFilterState] = useState<FilterState>({
-    timeRange: 'today',
-    mahallaId: null,
-    searchText: '',
-    customRange: null,
-  })
+  const [searchParams, setSearchParams] = useSearchParams()
+  const filterState = useMemo(() => parseFilterState(searchParams), [searchParams])
 
   // Stabilized: only recomputes when timeRange or customRange changes — NOT on mahalla/searchText changes.
   // Prevents '7d' query key from drifting (to = Date.now() changes every render) which would
@@ -85,31 +123,56 @@ export function useFilters() {
     filterState.timeRange === 'yesterday' ||
     filterState.timeRange === '7d'
 
-  function setTimeRange(preset: TimeRangePreset) {
+  const setTimeRange = useCallback((preset: TimeRangePreset) => {
     // Chip click clears the date picker (mutual exclusion)
-    setFilterState(prev => ({
-      ...prev,
-      timeRange: preset,
-      customRange: null,
-    }))
-  }
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.set('range', preset)
+      next.delete('from')
+      next.delete('to')
+      return next
+    })
+  }, [setSearchParams])
 
-  function setCustomRange(range: [string, string] | null) {
-    setFilterState(prev => ({
-      ...prev,
-      customRange: range,
-      // 'custom' sentinel: no chip highlighted; 'today' when clearing date picker
-      timeRange: range !== null ? 'custom' : 'today',
-    }))
-  }
+  const setCustomRange = useCallback((range: [string, string] | null) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (range !== null) {
+        next.set('range', 'custom')
+        next.set('from', range[0])
+        next.set('to', range[1])
+      } else {
+        next.set('range', 'today')
+        next.delete('from')
+        next.delete('to')
+      }
+      return next
+    })
+  }, [setSearchParams])
 
-  function setMahallaId(id: number | null) {
-    setFilterState(prev => ({ ...prev, mahallaId: id }))
-  }
+  const setMahallaId = useCallback((id: number | null) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (id === null) {
+        next.delete('mahalla')
+      } else {
+        next.set('mahalla', String(id))
+      }
+      return next
+    })
+  }, [setSearchParams])
 
-  function setSearchText(text: string) {
-    setFilterState(prev => ({ ...prev, searchText: text }))
-  }
+  const setSearchText = useCallback((text: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (text === '') {
+        next.delete('q')
+      } else {
+        next.set('q', text)
+      }
+      return next
+    })
+  }, [setSearchParams])
 
   return {
     filterState,

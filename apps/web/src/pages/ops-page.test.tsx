@@ -48,6 +48,16 @@ function mockFetch(responses: Record<string, { status: number; body: unknown }>)
   })
 }
 
+function renderOpsPage(initialEntry = '/ops') {
+  render(
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <QueryClientProvider client={new QueryClient()}>
+        <OpsPage />
+      </QueryClientProvider>
+    </MemoryRouter>,
+  )
+}
+
 describe('OpsPage', () => {
   it('renders the ops shell with navigation and active panel when enabled', async () => {
     mockFetch({
@@ -64,13 +74,7 @@ describe('OpsPage', () => {
       'raw-messages': { status: 200, body: { items: [], total: 0 } },
     })
 
-    render(
-      <MemoryRouter>
-        <QueryClientProvider client={new QueryClient()}>
-          <OpsPage />
-        </QueryClientProvider>
-      </MemoryRouter>,
-    )
+    renderOpsPage()
 
     // Segmented nav is rendered (replaces the old dark sidebar Menu) — checked by specific id
     // (The page also contains SimulatorPanel's Segmented + Radio.Group, so role query is ambiguous)
@@ -97,16 +101,42 @@ describe('OpsPage', () => {
 
   })
 
+  it('restores the active ops section from the URL', async () => {
+    mockFetch({
+      'batch-status': {
+        status: 200,
+        body:   { schedulerStatus: 'idle', lastBatchAt: null, lastBatchDuration: null, queueDepth: 0, lastBatchResult: null, recentErrors: [] },
+      },
+      'mahallas': { status: 200, body: [] },
+      'signals':  { status: 200, body: { items: [], total: 0 } },
+      'raw-messages': { status: 200, body: { items: [], total: 0 } },
+    })
+
+    renderOpsPage('/ops?section=signals-browser')
+
+    expect(await screen.findByText('Raw Messages Queue')).toBeInTheDocument()
+    expect(document.title).toBe('Ops Console – PublicInsight AI [Phase 1] — Signals Browser')
+  })
+
+  it('falls back to simulator when the ops section URL param is invalid', async () => {
+    mockFetch({
+      'batch-status': {
+        status: 200,
+        body:   { schedulerStatus: 'idle', lastBatchAt: null, lastBatchDuration: null, queueDepth: 0, lastBatchResult: null, recentErrors: [] },
+      },
+      'mahallas': { status: 200, body: [] },
+    })
+
+    renderOpsPage('/ops?section=unknown')
+
+    expect(await screen.findByText(/Webhook Simulation/)).toBeInTheDocument()
+    expect(document.title).toBe('Ops Console – PublicInsight AI [Phase 1] — Simulator')
+  })
+
   it('shows the disabled banner and hides panels when the ops API returns 404', async () => {
     mockFetch({ 'batch-status': { status: 404, body: { error: 'Not found' } } })
 
-    render(
-      <MemoryRouter>
-        <QueryClientProvider client={new QueryClient()}>
-          <OpsPage />
-        </QueryClientProvider>
-      </MemoryRouter>,
-    )
+    renderOpsPage()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Ops Console is disabled. Set OPS_ENABLED=true in .env and restart the server.',
@@ -134,7 +164,7 @@ describe('OpsPage', () => {
     expect(appQueryClient.getQueryCache().findAll()).toHaveLength(1)
 
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/ops']}>
         <QueryClientProvider client={appQueryClient}>
           <OpsPage />
         </QueryClientProvider>

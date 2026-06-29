@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import {
   Alert,
   Badge,
@@ -16,13 +15,11 @@ import {
 } from 'antd'
 import type { TableColumnsType } from 'antd'
 import {
-  usePipelineEvents,
   useBatchStatus,
   useTriggerBatch,
-  useDeleteSimulatedPipelineEvents,
-  useDeleteAllPipelineEvents,
 } from '../../api/ops.ts'
 import type { PipelineEvent } from '../../api/ops.ts'
+import { type MergedPipelineRow, usePipelineEventLogState } from './hooks/use-pipeline-event-log-state.ts'
 
 // ── Event type → AntD Tag color mapping ───────────────────────────────────────
 // Known current event types produced by intake pipeline and classifier batch:
@@ -81,72 +78,6 @@ function getEventDetail(event: PipelineEvent) {
     rawMessageId:     event.rawMessageId ?? detail['rawMessageId'],
     classifyReason:   typeof detail['classifyReason'] === 'string' ? detail['classifyReason'] : null,
   }
-}
-
-// ── Display row type ───────────────────────────────────────────────────────────
-// Either a plain PipelineEvent or a merged row (keyword_match + classifier_*)
-interface MergedPipelineRow extends PipelineEvent {
-  _merged?: PipelineEvent
-}
-
-/**
- * Groups pipeline events client-side.
- * Events arrive from server ordered desc; we reverse to asc for grouping,
- * merge keyword_match + classifier pairs, then re-reverse for display.
- */
-function groupPipelineEvents(events: PipelineEvent[]): MergedPipelineRow[] {
-  // Work in ascending order
-  const asc = [...events].reverse()
-
-  // Group by rawMessageId (or telegramUpdateId as fallback)
-  const grouped = new Map<string, PipelineEvent[]>()
-  const order: string[] = []
-
-  for (const event of asc) {
-    const key =
-      event.rawMessageId != null
-        ? `raw-${event.rawMessageId}`
-        : event.telegramUpdateId != null
-          ? `update-${event.telegramUpdateId}`
-          : `solo-${event.id}`
-    if (!grouped.has(key)) {
-      grouped.set(key, [])
-      order.push(key)
-    }
-    grouped.get(key)!.push(event)
-  }
-
-  const result: MergedPipelineRow[] = []
-
-  for (const key of order) {
-    const group = grouped.get(key)!
-    const kwMatch    = group.find(e => e.eventType === 'keyword_match')
-    const classifier = group.find(e => e.eventType.startsWith('classifier_'))
-
-    if (kwMatch && classifier) {
-      // Collapse into one merged row (use keyword_match as base)
-      result.push({ ...kwMatch, _merged: classifier })
-      // Emit any other events in the group (e.g. prefilter_pass) as flat rows
-      for (const e of group) {
-        if (e.id !== kwMatch.id && e.id !== classifier.id) {
-          result.push(e)
-        }
-      }
-    } else {
-      // No grouping — emit all flat
-      for (const e of group) {
-        result.push(e)
-      }
-    }
-  }
-
-  // Return newest first by the visible event timestamp. Merged rows represent
-  // the classifier outcome, so they sort by the classifier event timestamp.
-  return result.sort((a, b) => {
-    const aCreatedAt = a._merged?.createdAt ?? a.createdAt
-    const bCreatedAt = b._merged?.createdAt ?? b.createdAt
-    return Date.parse(bCreatedAt) - Date.parse(aCreatedAt)
-  })
 }
 
 // ── BatchStatusPanel ──────────────────────────────────────────────────────────
@@ -229,12 +160,17 @@ function BatchStatusPanel() {
 // ── EventLogPanel ─────────────────────────────────────────────────────────────
 
 function EventLogPanel() {
-  const [autoRefresh, setAutoRefresh] = useState(true)
-  const { data: events, isLoading, isError, refetch, isFetching } = usePipelineEvents(autoRefresh)
-  const deleteSimulated = useDeleteSimulatedPipelineEvents()
-  const deleteAll       = useDeleteAllPipelineEvents()
-
-  const displayRows = events ? groupPipelineEvents(events) : []
+  const {
+    autoRefresh,
+    setAutoRefresh,
+    isLoading,
+    isError,
+    refetch,
+    isFetching,
+    deleteSimulated,
+    deleteAll,
+    displayRows,
+  } = usePipelineEventLogState()
 
   const columns: TableColumnsType<MergedPipelineRow> = [
     {

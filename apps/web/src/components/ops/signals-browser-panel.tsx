@@ -1,5 +1,4 @@
 // apps/web/src/components/ops/signals-browser-panel.tsx
-import { useState } from 'react'
 import {
   Alert, Badge, Button, Card, Empty, Popconfirm,
   Radio, Select, Space, Spin, Table, Tag, Tooltip, Typography,
@@ -17,6 +16,7 @@ import {
   type RawMessageRow,
   type OpsSignalsFilters,
 } from '../../api/ops.ts'
+import { useSignalsBrowserState } from './hooks/use-signals-browser-state.ts'
 
 const CATEGORY_COLORS: Record<string, string> = {
   water:       'blue',
@@ -27,8 +27,12 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 const SIMULATED_DELETE_TOOLTIP = 'Deletes only rows where telegram_update_id < 0 (simulated/demo messages). Real Telegram messages are not affected.'
 
-function RawMessagesSection() {
-  const [page, setPage] = useState(1)
+interface RawMessagesSectionProps {
+  page: number
+  onPageChange: (page: number) => void
+}
+
+function RawMessagesSection({ page, onPageChange }: RawMessagesSectionProps) {
   const { data, isLoading, isError, refetch, isFetching } = useRawMessages(page)
   const deleteSimulated  = useDeleteSimulatedRawMessages()
   const deleteRawMessage = useDeleteRawMessage()
@@ -130,7 +134,7 @@ function RawMessagesSection() {
             current:  page,
             pageSize: 50,
             total:    data?.total ?? 0,
-            onChange: (p) => setPage(p),
+            onChange: onPageChange,
             showTotal: (total) => `${total} messages`,
           }}
           locale={{ emptyText: <Empty description="No raw messages pending" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
@@ -140,9 +144,19 @@ function RawMessagesSection() {
   )
 }
 
-function SignalsBrowserSection() {
-  const [page, setPage]       = useState(1)
-  const [filters, setFilters] = useState<OpsSignalsFilters>({})
+interface SignalsBrowserSectionProps {
+  page: number
+  filters: OpsSignalsFilters
+  onPageChange: (page: number) => void
+  onFilterChange: (patch: Partial<OpsSignalsFilters>) => void
+}
+
+function SignalsBrowserSection({
+  page,
+  filters,
+  onPageChange,
+  onFilterChange,
+}: SignalsBrowserSectionProps) {
   const { data: mahallas }    = useMahallas()
   const { data, isLoading, isError, refetch, isFetching } = useOpsSignals(filters, page)
   const deleteSimulated = useDeleteSimulatedSignals()
@@ -212,8 +226,7 @@ function SignalsBrowserSection() {
   ]
 
   function handleFilterChange(patch: Partial<OpsSignalsFilters>) {
-    setFilters(prev => ({ ...prev, ...patch }))
-    setPage(1)  // reset to page 1 on filter change
+    onFilterChange(patch)
   }
 
   return (
@@ -247,6 +260,7 @@ function SignalsBrowserSection() {
           placeholder="Category"
           allowClear
           style={{ width: 140 }}
+          value={filters.category || undefined}
           options={[
             { value: 'water',       label: 'Water' },
             { value: 'electricity', label: 'Electricity' },
@@ -259,6 +273,7 @@ function SignalsBrowserSection() {
           placeholder="Mahalla"
           allowClear
           style={{ width: 180 }}
+          value={filters.mahallaId ?? undefined}
           options={(mahallas ?? []).map(m => ({ value: m.id, label: m.name }))}
           onChange={(val) => handleFilterChange({ mahallaId: (val as number | undefined) ?? null })}
         />
@@ -290,7 +305,7 @@ function SignalsBrowserSection() {
             current:  page,
             pageSize: 50,
             total:    data?.total ?? 0,
-            onChange: (p) => setPage(p),
+            onChange: onPageChange,
             showTotal: (total) => `${total} signals`,
           }}
           locale={{ emptyText: <Empty description="No signals found" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
@@ -301,10 +316,27 @@ function SignalsBrowserSection() {
 }
 
 export function SignalsBrowserPanel() {
+  const {
+    rawPage,
+    signalsPage,
+    filters,
+    setRawPage,
+    setSignalsPage,
+    updateFilters,
+  } = useSignalsBrowserState()
+
   return (
     <Space orientation="vertical" style={{ width: '100%' }}>
-      <RawMessagesSection />
-      <SignalsBrowserSection />
+      <RawMessagesSection
+        page={rawPage}
+        onPageChange={setRawPage}
+      />
+      <SignalsBrowserSection
+        page={signalsPage}
+        filters={filters}
+        onPageChange={setSignalsPage}
+        onFilterChange={updateFilters}
+      />
     </Space>
   )
 }

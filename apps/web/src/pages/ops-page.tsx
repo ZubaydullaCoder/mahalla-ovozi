@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query'
 import { Alert, ConfigProvider, Segmented, Spin, Typography, theme } from 'antd'
 import { mahallaTheme } from '../theme.ts'
@@ -9,9 +9,8 @@ import { KeywordRegistryPanel } from '../components/ops/keyword-registry-panel.t
 import { PipelineLogPanel } from '../components/ops/pipeline-log-panel.tsx'
 import { SignalsBrowserPanel } from '../components/ops/signals-browser-panel.tsx'
 import { SimulatorPanel } from '../components/ops/simulator-panel.tsx'
+import { type OpsSectionKey, useOpsSectionState } from '../components/ops/hooks/use-ops-section-state.ts'
 import { strings } from '../strings.ts'
-
-type OpsSectionKey = 'simulator' | 'pipeline-log' | 'keyword-registry' | 'signals-browser' | 'health'
 
 const opsQueryClient = new QueryClient({
   defaultOptions: {
@@ -80,7 +79,7 @@ interface OpsPageContentProps {
 }
 
 function OpsPageContent({ appQueryClient }: OpsPageContentProps) {
-  const [activeSectionKey, setActiveSectionKey] = useState<OpsSectionKey>('simulator')
+  const { activeSectionKey, setActiveSectionKey } = useOpsSectionState()
   const activeSection = findSection(activeSectionKey)
   const { data: opsStatus, isLoading, isError, error } = useOpsStatus()
   const { token } = theme.useToken()

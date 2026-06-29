@@ -1,5 +1,4 @@
 // apps/web/src/components/ops/simulator-panel.tsx
-import { useEffect, useState } from 'react'
 import {
   Alert,
   Button,
@@ -17,12 +16,8 @@ import {
   Typography,
   message,
 } from 'antd'
-import {
-  useMahallas,
-  useSimulateWebhook,
-  useSimulateMessage,
-} from '../../api/ops.ts'
 import type { SimulateWebhookResult } from '../../api/ops.ts'
+import { useSimulatorPanelState } from './hooks/use-simulator-panel-state.ts'
 
 const { Text } = Typography
 
@@ -41,123 +36,36 @@ const DECISION_LABELS: Record<SimulateWebhookResult['decision'], string> = {
 
 export function SimulatorPanel() {
   const [messageApi, contextHolder] = message.useMessage()
-
-  // Mode: 'webhook' = Mode A, 'message' = Mode B
-  const [mode, setMode] = useState<'webhook' | 'message'>('webhook')
-
-  // Shared fields
-  const [mahallaId, setMahallaId]             = useState<number | undefined>()
-  const [text, setText]                       = useState('')
-  const [senderDisplayName, setSenderDisplayName] = useState('Test User')
-  const [textSource, setTextSource]           = useState<'text' | 'caption'>('text')
-  const [simulatedTimestamp, setSimulatedTimestamp] = useState<string | undefined>()
-
-  // Mode B only
-  const [senderUsername, setSenderUsername]   = useState('')
-  const [bulkCount, setBulkCount]             = useState<number>(10)
-  const [bulkProgress, setBulkProgress]       = useState<string | null>(null)
-
-  // Feedback
-  const [lastResult, setLastResult]           = useState<SimulateWebhookResult | null>(null)
-  const [error, setError]                     = useState<string | null>(null)
-
-  const { data: mahallas, isLoading: mahallasLoading } = useMahallas()
-
-  // Auto-select first mahalla once list loads (no user selection yet)
-  useEffect(() => {
-    if (mahallas && mahallas.length > 0 && mahallaId === undefined) {
-      setMahallaId(mahallas[0]!.id)
-    }
-  }, [mahallas, mahallaId])
-  const webhookMutation  = useSimulateWebhook()
-  const messageMutation  = useSimulateMessage()
-
-  const isLoading = webhookMutation.isPending || messageMutation.isPending
-
-  // Validation: mahalla and text required
-  const canSubmit = mahallaId !== undefined && text.trim().length > 0
-
-  function resetAfterSuccess() {
-    setText('')
-    setLastResult(null)
-    setError(null)
-    setBulkProgress(null)
-  }
-
-  async function handleInject() {
-    if (!canSubmit) return
-    setError(null)
-    setLastResult(null)
-
-    const basePayload = {
-      mahallaId:          mahallaId!,
-      senderDisplayName:  senderDisplayName || undefined,
-      text:               text.trim(),
-      textSource,
-      simulatedTimestamp,
-    }
-
-    try {
-      if (mode === 'webhook') {
-        const result = await webhookMutation.mutateAsync(basePayload)
-        setLastResult(result)
-        messageApi.success('Simulated webhook injected')
-        setText('')
-        setError(null)
-      } else {
-        const result = await messageMutation.mutateAsync({
-          ...basePayload,
-          senderUsername: senderUsername || undefined,
-        })
-        messageApi.success(`Message seeded (ID: ${result.rawMessageId})`)
-        resetAfterSuccess()
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Injection failed')
-    }
-  }
-
-  async function handleBulkInject() {
-    if (!canSubmit) return
-    setError(null)
-    setBulkProgress(null)
-
-    const CIVIC_PHRASES = [
-      'Suv yo\'q', 'Gaz muammo', 'Elektr o\'chdi', 'Ko\'cha yoritilmagan',
-      'Axlat olib ketilmaydi', 'Yo\'l buzilgan', 'Suv bosqini', 'Gaz hidi bor',
-      'Issiqlik yo\'q', 'Telefon aloqasi yo\'q',
-    ]
-
-    const count   = Math.min(Math.max(bulkCount ?? 10, 1), 50)
-    let succeeded = 0
-
-    for (let i = 0; i < count; i++) {
-      const bulkText = CIVIC_PHRASES[Math.floor(Math.random() * CIVIC_PHRASES.length)]!
-      try {
-        await messageMutation.mutateAsync({
-          mahallaId:         mahallaId!,
-          senderDisplayName: senderDisplayName || undefined,
-          senderUsername:    senderUsername || undefined,
-          text:              bulkText,
-          textSource,
-          simulatedTimestamp,
-        })
-        succeeded++
-        setBulkProgress(`${succeeded}/${count} injected…`)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Bulk inject failed')
-        break
-      }
-    }
-
-    if (succeeded === count) {
-      messageApi.success(`${succeeded} messages seeded`)
-      setBulkProgress(`${succeeded}/${count} injected`)
-    }
-  }
-
-  const mahallaOptions = mahallas?.map(m => ({ value: m.id, label: m.name })) ?? []
-  const visibleBulkCount = Math.min(Math.max(bulkCount ?? 10, 1), 50)
+  const {
+    mode,
+    setMode,
+    mahallaId,
+    setMahallaId,
+    text,
+    setText,
+    senderDisplayName,
+    setSenderDisplayName,
+    textSource,
+    setTextSource,
+    setSimulatedTimestamp,
+    senderUsername,
+    setSenderUsername,
+    bulkCount,
+    setBulkCount,
+    bulkProgress,
+    lastResult,
+    error,
+    clearError,
+    mahallaOptions,
+    mahallasLoading,
+    isLoading,
+    canSubmit,
+    visibleBulkCount,
+    submit,
+    bulkSubmit,
+  } = useSimulatorPanelState({
+    onSuccessMessage: content => void messageApi.success(content),
+  })
 
   return (
     <div style={{ maxWidth: 680 }}>
@@ -168,12 +76,7 @@ export function SimulatorPanel() {
         <Segmented
           id="sim-mode-toggle"
           value={mode}
-          onChange={v => {
-            setMode(v as 'webhook' | 'message')
-            setLastResult(null)
-            setError(null)
-            setBulkProgress(null)
-          }}
+          onChange={v => setMode(v as 'webhook' | 'message')}
           options={[
             { label: 'Webhook Simulation (Mode A)', value: 'webhook' },
             { label: 'Raw Queue Seeding (Mode B)',  value: 'message' },
@@ -258,7 +161,7 @@ export function SimulatorPanel() {
               type="primary"
               loading={isLoading && !bulkProgress}
               disabled={!canSubmit || isLoading}
-              onClick={() => void handleInject()}
+              onClick={() => void submit()}
             >
               Inject Message
             </Button>
@@ -278,7 +181,7 @@ export function SimulatorPanel() {
                   id="sim-bulk-inject-button"
                   disabled={!canSubmit || isLoading}
                   loading={isLoading && Boolean(bulkProgress)}
-                  onClick={() => void handleBulkInject()}
+                  onClick={() => void bulkSubmit()}
                 >
                   Inject Bulk ({visibleBulkCount})
                 </Button>
@@ -304,7 +207,7 @@ export function SimulatorPanel() {
           title={error}
           style={{ marginBottom: 16 }}
           closable
-          onClose={() => setError(null)}
+          onClose={clearError}
         />
       )}
 

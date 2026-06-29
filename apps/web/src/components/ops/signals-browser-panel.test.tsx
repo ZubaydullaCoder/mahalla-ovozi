@@ -5,6 +5,7 @@ import { render, screen, cleanup, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 
 // AntD requires window.matchMedia — polyfill for jsdom
 Object.defineProperty(window, 'matchMedia', {
@@ -56,12 +57,14 @@ function makeQC() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } })
 }
 
-function renderPanel() {
+function renderPanel(initialEntry = '/ops') {
   const qc = makeQC()
   return render(
-    <QueryClientProvider client={qc}>
-      <SignalsBrowserPanel />
-    </QueryClientProvider>
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <QueryClientProvider client={qc}>
+        <SignalsBrowserPanel />
+      </QueryClientProvider>
+    </MemoryRouter>
   )
 }
 
@@ -137,7 +140,7 @@ describe('SignalsBrowserPanel', () => {
   })
 
   it('passes hokim filter changes to useOpsSignals and resets to page 1', async () => {
-    renderPanel()
+    renderPanel('/ops?signalsPage=3')
     await userEvent.click(screen.getByText('Yes'))
     await waitFor(() => {
       expect(mockUseOpsSignals).toHaveBeenLastCalledWith(
@@ -145,6 +148,44 @@ describe('SignalsBrowserPanel', () => {
         1,
       )
     })
+  })
+
+  it('restores URL-backed filters and pages on mount', () => {
+    renderPanel('/ops?rawPage=2&signalsPage=3&category=gas&mahalla=11&hokim=true')
+
+    expect(mockUseRawMessages).toHaveBeenLastCalledWith(2)
+    expect(mockUseOpsSignals).toHaveBeenLastCalledWith(
+      {
+        category:     'gas',
+        mahallaId:    11,
+        hokimRelated: true,
+      },
+      3,
+    )
+  })
+
+  it('falls back safely for invalid URL-backed filters and pages', () => {
+    renderPanel('/ops?rawPage=0&signalsPage=-2&category=bad&mahalla=abc&hokim=maybe')
+
+    expect(mockUseRawMessages).toHaveBeenLastCalledWith(1)
+    expect(mockUseOpsSignals).toHaveBeenLastCalledWith(
+      {
+        category:     '',
+        mahallaId:    null,
+        hokimRelated: undefined,
+      },
+      1,
+    )
+  })
+
+  it('falls back safely for unsafe integer URL-backed filters and pages', () => {
+    renderPanel('/ops?rawPage=999999999999999999999999&signalsPage=999999999999999999999999&mahalla=999999999999999999999999')
+
+    expect(mockUseRawMessages).toHaveBeenLastCalledWith(1)
+    expect(mockUseOpsSignals).toHaveBeenLastCalledWith(
+      expect.objectContaining({ mahallaId: null }),
+      1,
+    )
   })
 
   it('renders error alert for raw messages when fetch fails', () => {
