@@ -48,15 +48,11 @@ The Hokim-related lane is only a priority entry point. Drawer context must still
 
 ## Stack and Architecture Defaults
 
-Use the existing TypeScript/pnpm workspace.
+Use the existing TypeScript/pnpm workspace. Core stack summary: React/Vite/Ant Design frontend, Express/Prisma/PostgreSQL backend, grammY Telegram bot integration, strict TypeScript, Vitest, and ESLint.
 
-Core stack: Node `^20.19.0 || >=22.12.0`, pnpm `10.34.1`, strict TypeScript, Vitest, ESLint, Prisma `7.8.0`, PostgreSQL.
+For detailed technical architecture, module boundaries, data flow, provider design, and exact stack/version decisions, use `_bmad-output/planning-artifacts/architecture.md` as the canonical source.
 
-Backend stack: Express 4.x, grammY, Prisma with `@prisma/adapter-pg`, Zod v4, classifier provider abstraction with Gemini default via `@google/genai`, optional local Ollama/OpenAI-compatible HTTP providers, node-cron, `express-session`, argon2, pino/morgan.
-
-Frontend stack: React 18, Vite 8, Ant Design 6, TanStack Query 5, React Router 6. TanStack Virtual is available but deferred until needed.
-
-Do not migrate package manager, framework, ORM, auth approach, database, or UI framework without owner approval.
+Do not migrate package manager, framework, ORM, auth approach, database, UI framework, or classifier provider architecture without owner approval.
 
 ## Backend Rules
 
@@ -74,7 +70,7 @@ Do not discard short messages solely by length. Short text can be a valid civic 
 
 Validate AI output with the classifier schema before writing signal data. Invalid AI output should be retried or logged, never silently accepted.
 
-Gemini is the default classifier provider, but classifier business logic must remain provider-agnostic. Local Ollama/Gemma and rule-only modes are for Phase 1 validation/testing and must still validate outputs with `ClassifierOutputSchema`.
+Classifier business logic must remain provider-agnostic. Any AI provider integration must validate outputs with `ClassifierOutputSchema` before writing signal data. Local or rule-only classifier modes are for validation/testing and must follow the same output schema contract.
 
 Use Prisma relations and district-scoped constraints consistently. District isolation is a core security boundary; do not bypass it.
 

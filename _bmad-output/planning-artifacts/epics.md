@@ -103,7 +103,7 @@ From Architecture — technical decisions that directly affect story scope and i
 - **AR5 — Idempotency rules:** Batch: `$transaction([signalCreate, rawDelete])` per message. Intake: `upsert` with empty update on `telegram_update_id` unique constraint. Simulated messages use negative update IDs.
 - **AR6 — District scope enforcement:** `districtId` must always come from `req.session.districtId` — never from request body or query params. Applied via middleware on all `/api/*` routes except `/api/auth/*`.
 - **AR7 — Filtering pipeline (F1/F2/F3 + keyword gate):** All in `bot/filters/pipeline.ts`. F1 = bot sender; F2 = no text/caption; F3 = bot command/pure emoji/empty after trim. DO NOT discard on character count. `FILTER_MODE=keyword_gate` is the current active filtering configuration.
-- **AR8 — AI classifier:** `@google/genai` SDK, `ai.models.generateContent()`, `responseMimeType: 'application/json'`, `responseJsonSchema` via `zod-to-json-schema`. Discriminated union Zod schema. Invalid AI output = retry or log, never silently accepted.
+- **AR8 — AI classifier:** Provider abstraction selected by `AI_PROVIDER`; provider-specific clients may use structured output where supported. All provider responses are validated through the discriminated union Zod schema. Invalid AI output = retry or log, never silently accepted.
 - **AR9 — AI retry strategy:** 3 attempts with exponential backoff. Failed messages stay in raw_messages for next batch run.
 - **AR10 — Session & auth:** `express-session` + `connect-pg-simple`, `argon2` password hashing. httpOnly cookie always; secure flag Phase 2 only. Login rate limit: 5 attempts/60s per username (in-memory counter). sameSite: strict for CSRF.
 - **AR11 — Ops Console guard:** Disabled unless `OPS_ENABLED=true` AND (`NODE_ENV !== 'production'`). Access restricted to localhost or `OPS_SECRET` header match. Never accessible in production.
@@ -223,7 +223,7 @@ Developer/operator can use the /ops console to simulate messages, view the live 
 **ARs covered:** AR11, AR20
 
 ### Epic 7: AI Provider Flexibility For Phase 1 Validation
-Developer/operator can switch classifier providers through configuration for Phase 1 validation, including Gemini default, local Ollama/Gemma, OpenAI-compatible providers, and explicit rule-only mode, without rewriting classifier business logic or changing Telegram intake, storage, dashboard, Ops UI, or database schema.
+Developer/operator can switch classifier providers through configuration for Phase 1 validation, including Gemini, local Ollama/Gemma, OpenAI-compatible providers, and explicit rule-only mode, without rewriting classifier business logic or changing Telegram intake, storage, dashboard, Ops UI, or database schema.
 **FRs covered:** FR22, FR23, FR24, FR25
 **NFRs covered:** NFR7, NFR12, NFR14
 **ARs covered:** AR8, AR9, AR15
@@ -771,19 +771,19 @@ So that I can verify classifier output quality and pipeline state during HITL va
 
 ## Epic 7: AI Provider Flexibility For Phase 1 Validation
 
-Developer/operator can switch classifier providers through configuration for Phase 1 validation, including Gemini default, local Ollama/Gemma, OpenAI-compatible providers, and explicit rule-only mode, without rewriting classifier business logic or changing Telegram intake, storage, dashboard, Ops UI, or database schema.
+Developer/operator can switch classifier providers through configuration for Phase 1 validation, including Gemini, local Ollama/Gemma, OpenAI-compatible providers, and explicit rule-only mode, without rewriting classifier business logic or changing Telegram intake, storage, dashboard, Ops UI, or database schema.
 
 ### Story 7.1: Provider-Based Classifier Configuration
 
 As a **developer/operator**,
 I want the AI classifier to use a provider abstraction selected by environment configuration,
-So that Phase 1 can validate classification locally with Ollama/Gemma while preserving existing Gemini behavior as the default.
+So that Phase 1 can validate classification with supported local or remote providers while preserving existing provider behavior behind explicit provider selection.
 
 **Acceptance Criteria:**
 
-**Given** the server starts without an explicit AI provider
-**When** classifier configuration is loaded
-**Then** Gemini remains the default provider and the existing Gemini classifier behavior continues to work
+**Given** classifier configuration is loaded
+**When** `AI_PROVIDER` selects a supported provider
+**Then** the classifier routes through the selected provider and the existing Gemini classifier behavior continues to work when `AI_PROVIDER=gemini`
 **And** the classifier supports explicit provider selection for `gemini`, `ollama`, `openai-compatible`, and `rule-only`
 **And** `AI_API_KEY` is required only for providers that need it; local Ollama/Gemma and rule-only mode do not require an API key
 **And** Ollama supports a configurable local base URL and Gemma model name without changing classifier business logic

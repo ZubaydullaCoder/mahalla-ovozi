@@ -113,8 +113,8 @@ development_status:
 
   # ─────────────────────────────────────────────────────────────────────────
   # EPIC 7: AI Provider Flexibility For Phase 1 Validation
-  # Goal: Configurable classifier providers for Gemini default, local Ollama/Gemma,
-  # OpenAI-compatible providers, and rule-only testing.
+  # Goal: Configurable classifier providers for Gemini, local Ollama/Gemma,
+  # OpenAI-compatible providers, and rule-only testing without provider lock-in.
   # ─────────────────────────────────────────────────────────────────────────
   epic-7: done
   7-1-provider-based-classifier-configuration: done

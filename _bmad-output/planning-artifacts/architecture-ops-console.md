@@ -582,7 +582,7 @@ before running a client demo or starting a test session.
 │                                                       │
 │  Database (PostgreSQL)   ● Connected                  │
 │  Scheduler (node-cron)   ● Running (next: 8 min)      │
-│  AI API (@google/genai)  ● Reachable (last: OK)       │
+│  AI Provider             ● Reachable (last: OK)       │
 │  Telegram Bot            ● Active                     │
 │                                                       │
 │  Bot Connectivity per Group:                          │
