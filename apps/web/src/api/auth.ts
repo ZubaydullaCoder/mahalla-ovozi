@@ -68,7 +68,7 @@ export async function logout(): Promise<LogoutSuccessResponse> {
 
 export async function getCurrentSession(): Promise<CurrentSessionResponse> {
   const res = await fetch('/api/auth/me', {
-    method:      'GET',
+    method: 'GET',
     credentials: 'same-origin',
   })
 
