@@ -1,4 +1,4 @@
-# Design Direction Decision
+﻿# Design Direction Decision
 
 ## Design Directions Explored
 
@@ -36,3 +36,4 @@ Three interactive design directions were generated and evaluated during UX desig
 - From **Direction C:** The fully colored lane headers are visually striking and could be considered for a future "high-contrast mode" or print-summary view — not for the default MVP.
 
 ---
+

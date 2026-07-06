@@ -1,4 +1,4 @@
-# Story 6.2: Message Simulator
+﻿# Story 6.2: Message Simulator
 
 Status: done
 
@@ -663,3 +663,4 @@ Gemini 3.5 Flash (High) / Claude Sonnet 4.6 (Thinking)
 
 - 2026-06-21: Story 6.2 specification created.
 - 2026-06-21: Story 6.2 implementation review fixes completed and verified.
+

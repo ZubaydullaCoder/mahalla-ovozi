@@ -1,4 +1,4 @@
-# Visual Design Foundation
+﻿# Visual Design Foundation
 
 ## Color System
 
@@ -145,3 +145,4 @@ Active: border → 1.5px solid categoryColor; ring → 0 0 0 2px categoryColor a
 - **No color-only information:** Category identity is communicated by both color (full border accent) and text label (lane header name + card mahalla label) simultaneously.
 
 ---
+

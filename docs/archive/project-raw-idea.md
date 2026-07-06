@@ -1,4 +1,4 @@
-> [!CAUTION]
+﻿> [!CAUTION]
 > **HISTORICAL CONTEXT ONLY - NOT THE AUTHORITATIVE PRODUCT SPEC**
 >
 > This file preserves the role of the original raw idea document, but the original draft has
@@ -89,3 +89,4 @@ No confidence score.
 No automated truth claim.
 Just filtered, evidence-backed civic signal visibility.
 ```
+

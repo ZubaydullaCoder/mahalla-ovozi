@@ -1,4 +1,4 @@
-# Story 3.2: Signals API — `GET /api/signals` Endpoint
+﻿# Story 3.2: Signals API — `GET /api/signals` Endpoint
 
 Status: done
 
@@ -583,3 +583,4 @@ Claude Sonnet 4.6 (Thinking)
 ## Change Log
 
 - 2026-06-14: Implemented Story 3.2 — `GET /api/signals` endpoint. Created signals module (mapper, query, router) with full test coverage (38 new tests). Replaced TODO stub in web/index.ts. All checks pass: lint ✓, 135 tests ✓, TypeScript ✓.
+

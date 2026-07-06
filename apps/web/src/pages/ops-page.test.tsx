@@ -87,7 +87,7 @@ describe('OpsPage', () => {
     expect(screen.getByRole('radio', { name: 'Health' })).toBeInTheDocument()
     // SimulatorPanel is now implemented — check for the mode toggle instead of placeholder
     expect(await screen.findByText(/Webhook Simulation/)).toBeInTheDocument()
-    expect(document.title).toBe('Ops Console – PublicInsight AI [Phase 1] — Simulator')
+    expect(document.title).toBe('Ops Console – Mahalla Ovozi [Phase 1] — Simulator')
 
     // AntD Segmented hides the input with pointer-events:none; click the parent label instead
     const healthRadio = screen.getByRole('radio', { name: 'Health' })
@@ -97,7 +97,7 @@ describe('OpsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Infrastructure Health')).toBeInTheDocument()
     })
-    expect(document.title).toBe('Ops Console – PublicInsight AI [Phase 1] — Health')
+    expect(document.title).toBe('Ops Console – Mahalla Ovozi [Phase 1] — Health')
 
   })
 
@@ -115,7 +115,7 @@ describe('OpsPage', () => {
     renderOpsPage('/ops?section=signals-browser')
 
     expect(await screen.findByText('Raw Messages Queue')).toBeInTheDocument()
-    expect(document.title).toBe('Ops Console – PublicInsight AI [Phase 1] — Signals Browser')
+    expect(document.title).toBe('Ops Console – Mahalla Ovozi [Phase 1] — Signals Browser')
   })
 
   it('falls back to simulator when the ops section URL param is invalid', async () => {
@@ -130,7 +130,7 @@ describe('OpsPage', () => {
     renderOpsPage('/ops?section=unknown')
 
     expect(await screen.findByText(/Webhook Simulation/)).toBeInTheDocument()
-    expect(document.title).toBe('Ops Console – PublicInsight AI [Phase 1] — Simulator')
+    expect(document.title).toBe('Ops Console – Mahalla Ovozi [Phase 1] — Simulator')
   })
 
   it('shows the disabled banner and hides panels when the ops API returns 404', async () => {

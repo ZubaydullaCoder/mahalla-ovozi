@@ -1,4 +1,4 @@
-# Story 4.4: Context Drawer UI — Open, Display & Interaction
+﻿# Story 4.4: Context Drawer UI — Open, Display & Interaction
 
 Status: done
 
@@ -532,3 +532,4 @@ Claude Sonnet 4.6 (Thinking)
 - 2026-06-24: Story 4.4 created. Full codebase + architecture + UX analysis applied. Test baseline: 542/32. Key findings: `useSignalContext` already done (4.3), `activeSignalId` bug in `lane-grid.tsx`, `isActive={false}` hardcoded in `lane-column.tsx`. Story 4.5 compatibility ensured via `destroyOnHide={false}`.
 - 2026-06-24: Story 4.4 implemented. All 8 tasks complete. 8 new tests added (550 total). Fixed `destroyOnHide` → `destroyOnHidden`. Status: review.
 - 2026-06-24: Code review fix pass completed. Cleared stale active-card state on drawer close, added 250ms ease-out drawer motion override, added close-state regression coverage. All checks pass. Status: done.
+

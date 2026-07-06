@@ -1,4 +1,4 @@
----
+﻿---
 title: 'Ops Console Message & Log Controls'
 type: 'feature'
 created: '2026-06-28'
@@ -123,3 +123,4 @@ Merged type label mapping:
 - Ops Console > Pipeline Log: "Clear Simulated" and "Clear All" buttons appear in EventLogPanel header with Popconfirm.
 - Ops Console > Pipeline Log: `keyword_match` + `classifier_*` pairs for same message appear as one merged row.
 - Ops Console > Batch Status: only the latest error is shown when errors exist (no list of multiple errors).
+

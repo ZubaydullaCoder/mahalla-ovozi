@@ -1,4 +1,4 @@
-# UX Pattern Analysis & Inspiration
+﻿# UX Pattern Analysis & Inspiration
 
 ## Inspiring Products Analysis
 
@@ -40,3 +40,4 @@
 - *Heavy Analytics Dashboards:* No pie charts, bar graphs, or KPI summary tiles in the MVP — signals are the primary content unit.
 
 ---
+

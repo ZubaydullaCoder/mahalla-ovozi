@@ -1,4 +1,4 @@
-# Story 5.2: Operator Pipeline & Health Monitoring
+﻿# Story 5.2: Operator Pipeline & Health Monitoring
 
 Status: done
 
@@ -596,3 +596,4 @@ Pattern: `feat(story-X.Y):` prefix for implementation commits, `docs(story):` fo
 - Implemented: 2026-06-21
 - Reviewed: 2026-06-21
 - Next: Proceed to the next BMAD workflow step
+

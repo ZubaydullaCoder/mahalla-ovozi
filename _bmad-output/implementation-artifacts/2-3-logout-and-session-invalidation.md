@@ -1,4 +1,4 @@
-# Story 2.3: Logout & Session Invalidation
+﻿# Story 2.3: Logout & Session Invalidation
 
 Status: done
 
@@ -329,3 +329,4 @@ _No issues encountered — clean implementation._
 | Date | Description |
 |---|---|
 | 2026-06-13 | Implemented Story 2.3: added `POST /api/auth/logout` handler and 4 test cases; all 97 tests pass |
+

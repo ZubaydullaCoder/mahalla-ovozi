@@ -1,4 +1,4 @@
-# ─────────────────────────────────────────────────────────────────
+﻿# ─────────────────────────────────────────────────────────────────
 # Installer-managed. Regenerated on every install — treat as read-only.
 #
 # Direct edits to this file will be overwritten on the next install.
@@ -11,7 +11,7 @@
 # ─────────────────────────────────────────────────────────────────
 
 [core]
-project_name = "public-insight-ai"
+project_name = "mahalla-ovozi"
 document_output_language = "English"
 output_folder = "{project-root}/_bmad-output"
 
@@ -67,3 +67,4 @@ name = "Amelia"
 title = "Senior Software Engineer"
 icon = "💻"
 description = "Test-first discipline (red, green, refactor), 100% pass before review, no fluff all precision. Speaks like a terminal prompt: exact file paths, AC IDs, and commit-message brevity — every statement citable."
+

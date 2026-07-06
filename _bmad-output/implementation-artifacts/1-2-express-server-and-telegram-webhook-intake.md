@@ -1,4 +1,4 @@
-# Story 1.2: Express Server & Telegram Webhook Intake
+﻿# Story 1.2: Express Server & Telegram Webhook Intake
 
 Status: done
 
@@ -386,3 +386,4 @@ Claude Sonnet 4.6 (Thinking) via Antigravity IDE — 2026-06-07
 - `apps/server/src/bot/filters/pipeline.ts` — NEW: F0/F1/F2/F3 pre-filter + mahalla lookup + idempotent upsert
 - `apps/server/src/bot/filters/pipeline.test.ts` — NEW: 25-test suite covering all ACs
 - `_bmad-output/implementation-artifacts/sprint-status.yaml` — MODIFIED: 1-2 status → review
+

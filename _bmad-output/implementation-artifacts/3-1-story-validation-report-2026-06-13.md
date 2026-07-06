@@ -1,4 +1,4 @@
-# Story Validation Report: 3.1 AntD Theme System & App Shell
+﻿# Story Validation Report: 3.1 AntD Theme System & App Shell
 
 Date: 2026-06-13
 Status: Passed after validation edits
@@ -55,3 +55,4 @@ Story 3.1 is applicable in the current codebase and is the correct next implemen
 ## Recommendation
 
 Proceed with `bmad-dev-story` for Story 3.1. No remaining blocker prevents development implementation.
+

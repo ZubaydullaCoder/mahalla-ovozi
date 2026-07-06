@@ -1,4 +1,4 @@
-# Story 3.4: 60-Second Auto-Refresh & Delay Banner
+﻿# Story 3.4: 60-Second Auto-Refresh & Delay Banner
 
 Status: done
 
@@ -566,3 +566,4 @@ Claude Sonnet 4.6 (Thinking)
 - `apps/web/src/components/delay-banner.test.tsx` — NEW: 8 focused delay banner tests
 - `apps/web/src/pages/dashboard-page.tsx` — MODIFIED: wired `useHealth()` and `DelayBanner`, flex column layout, Alert→title
 - `apps/web/src/components/lane-grid/lane-grid.tsx` — MODIFIED: height changed to `'100%'`
+

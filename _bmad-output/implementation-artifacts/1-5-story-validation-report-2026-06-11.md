@@ -1,4 +1,4 @@
-# Story Validation Report: 1.5 AI Classifier Batch Processor
+﻿# Story Validation Report: 1.5 AI Classifier Batch Processor
 
 Date: 2026-06-11
 Status: Passed after validation edits
@@ -68,3 +68,4 @@ After the validation edits below, the story is ready for `bmad-dev-story`.
 ## Recommendation
 
 Keep Story 1.5 in `ready-for-dev` and run `bmad-dev-story`.
+

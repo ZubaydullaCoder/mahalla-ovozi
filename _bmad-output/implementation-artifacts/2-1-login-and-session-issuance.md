@@ -1,4 +1,4 @@
-# Story 2.1: Login & Session Issuance
+﻿# Story 2.1: Login & Session Issuance
 
 Status: done
 
@@ -579,3 +579,4 @@ Claude Sonnet 4.6 (Thinking) via Antigravity
 - `apps/server/src/auth/index.ts` (new — barrel export of authRouter)
 - `apps/server/src/auth/routes.test.ts` (new — 6 Vitest tests for login route)
 - `apps/server/src/web/index.ts` (modified — session middleware + authRouter mounted)
+

@@ -1,4 +1,4 @@
-# Story 4.2: Custom Date Range Picker & Keyword Search
+﻿# Story 4.2: Custom Date Range Picker & Keyword Search
 
 Status: done
 
@@ -894,3 +894,4 @@ Claude Sonnet 4.6 (Thinking)
 - 2026-06-16: Story 4.2 custom-range clear behavior clarified: `setCustomRange(null)` now resets `timeRange` to `'today'`, eliminating the ambiguous `'custom' + null` state.
 - 2026-06-17: Story 4.2 implemented by dev agent. All 11 tasks completed. Initial implementation added 52 tests (265 total across 23 files). `pnpm lint`, `pnpm test`, and `tsc -b` passed. Status → review.
 - 2026-06-16: Story 4.2 review findings resolved. Custom date ranges now use selected calendar fields for UTC+5 API boundaries and round-trip picker values without timezone drift. Checks pass with 271 tests. Status → done.
+

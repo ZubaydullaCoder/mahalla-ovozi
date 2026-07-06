@@ -1,4 +1,4 @@
-# Story 3.3: Five-Lane Dashboard with Signal Cards
+﻿# Story 3.3: Five-Lane Dashboard with Signal Cards
 
 Status: done
 
@@ -983,3 +983,4 @@ Claude Sonnet 4.6 (Thinking)
 - 2026-06-14: Story 3.3 validation patch — corrected DashboardPage/LaneGrid ownership, `index.css` scope, fetch error state, React test environment, skeleton count, accessibility, virtual-scroll positioning, test coverage, and frontend `Signal` type ownership guidance.
 - 2026-06-14: Story 3.3 implemented — all 8 tasks complete, 14 new SignalCard tests, 150/150 tests passing, lint clean, TypeScript clean. vitest.config.ts migrated to test.projects API for jsdom/React support.
 - 2026-06-14: Story 3.3 reviewed and marked done — review follow-up fixes applied, 151/151 tests passing, lint/type-check/build clean, ready for Story 3.4.
+

@@ -1,4 +1,4 @@
-# Story Validation Report: 1.6 Signal Retention Purge
+﻿# Story Validation Report: 1.6 Signal Retention Purge
 
 Date: 2026-06-11
 Status: Passed after validation edits
@@ -60,3 +60,4 @@ After the validation edits below, the story is ready for `bmad-dev-story`.
 ## Recommendation
 
 Keep Story 1.6 in `ready-for-dev` and run `bmad-dev-story` for implementation.
+

@@ -1,4 +1,4 @@
-# Story 2.4: Frontend Auth Flow (Login Page & Protected Route Guard)
+﻿# Story 2.4: Frontend Auth Flow (Login Page & Protected Route Guard)
 
 Status: done
 
@@ -800,3 +800,4 @@ Claude Sonnet 4.6 (Thinking)
 |---|---|
 | 2026-06-13 | Story 2.4 created — Frontend Auth Flow: Login Page & Protected Route Guard |
 | 2026-06-13 | Story 2.4 implemented — all tasks complete, all ACs satisfied, lint/tests/typecheck passing |
+

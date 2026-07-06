@@ -1,4 +1,4 @@
-# Story 5.1: Health API — GET /api/health Endpoint
+﻿# Story 5.1: Health API — GET /api/health Endpoint
 
 Status: done
 
@@ -652,3 +652,4 @@ Recent pattern: `feat(story-X.Y):` prefix for implementation commits, `docs(stor
 ### Change Log
 
 - 2026-06-19: Story 5.1 implemented — health endpoint expanded to full 6-field shape; frontend type synced; dashboard no_data banner wired; 5 new tests added (+5 net: 295→300, 23→24 files).
+

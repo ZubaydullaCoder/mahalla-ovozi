@@ -1,4 +1,4 @@
-# Story Validation Report: 2.4 Frontend Auth Flow
+﻿# Story Validation Report: 2.4 Frontend Auth Flow
 
 Date: 2026-06-13
 Status: Passed after validation edit
@@ -56,3 +56,4 @@ Story 2.4 is applicable in the current codebase and is the correct next implemen
 ## Recommendation
 
 Keep Story 2.4 in `ready-for-dev` and run `bmad-dev-story` for implementation.
+

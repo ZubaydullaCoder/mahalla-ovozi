@@ -1,4 +1,4 @@
----
+﻿---
 title: 'Browser State Persistence Fix'
 type: 'bugfix'
 created: '2026-06-29'
@@ -73,7 +73,7 @@ Use helper functions to parse/serialize query params rather than scattering stri
 - `pnpm lint` -- lint passes.
 - `pnpm test` -- full test suite passes: 47 files, 678 tests.
 - `pnpm exec tsc -b apps/web/tsconfig.json` -- web TypeScript build passes.
-- `pnpm --filter public-insight-ai-web build` -- web production build passes.
+- `pnpm --filter mahalla-ovozi-web build` -- web production build passes.
 - `git diff --check` -- no whitespace errors.
 - Browser smoke -- dashboard `Кеча` remains active after refresh at `/?range=yesterday`; Ops Signals Browser remains active after refresh with `section=signals-browser&signalsPage=2&category=gas&hokim=true`.
 
@@ -117,3 +117,4 @@ Use helper functions to parse/serialize query params rather than scattering stri
 
 - Signals filters, page reset, and invalid-param fallbacks are covered.
   [`signals-browser-panel.test.tsx:142`](../../apps/web/src/components/ops/signals-browser-panel.test.tsx#L142)
+

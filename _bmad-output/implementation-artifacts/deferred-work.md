@@ -1,4 +1,4 @@
-# Deferred Work
+﻿# Deferred Work
 
 ## Deferred from: code review of story 1-4 (2026-06-10)
 
@@ -20,4 +20,5 @@
 - URL normalization helper pattern (`buildOllamaEndpoint` / `buildChatCompletionsEndpoint`) duplicated across `ollama.ts` and `openai-compatible.ts` — could move to shared module; low impact, low risk.
 - Gemini module-level mutable singleton (`aiClient`, `aiClientApiKey`) — not concurrency-unsafe in practice given Node's single-threaded event loop, but anti-pattern; revisit if Gemini provider is tested under concurrent load.
 - Ollama `format` field receives `zodToJsonSchema` output including `$schema` metadata — Ollama-version-dependent behavior; worth documenting in ops runbook when Ollama is used in production.
+
 

@@ -1,4 +1,4 @@
-# Story Validation Report: 2.3 Logout & Session Invalidation
+﻿# Story Validation Report: 2.3 Logout & Session Invalidation
 
 Date: 2026-06-13
 Status: Passed after validation edits
@@ -64,3 +64,4 @@ Story 2.3 is applicable in the current codebase and is the correct next implemen
 ## Recommendation
 
 Keep Story 2.3 in `ready-for-dev` and run `bmad-dev-story` for implementation.
+

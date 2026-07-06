@@ -1,4 +1,4 @@
----
+﻿---
 title: 'Fix simulated message ID reuse'
 type: 'bugfix'
 created: '2026-06-28'
@@ -96,3 +96,4 @@ context:
 
 - Covers accepted-but-deduped classifier outcomes reporting zero writes.
   [`batch-processor.test.ts:182`](../../../apps/server/src/classifier/batch-processor.test.ts#L182)
+

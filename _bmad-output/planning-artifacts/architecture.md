@@ -1,6 +1,6 @@
-# Architecture Decision Document — PublicInsight AI (Phase 1)
+﻿# Architecture Decision Document — Mahalla Ovozi (Phase 1)
 
-**Project:** public-insight-ai
+**Project:** mahalla-ovozi
 **Author:** Zubaydulla
 **Date:** 2026-06-01
 **Phase:** 1 — Validation-First Development
@@ -142,7 +142,7 @@ useful enough for pilot deployment. See Section 16 for the Phase 2 roadmap.
 ### Project Structure
 
 ```
-public-insight-ai/
+mahalla-ovozi/
 ├── .env                              ← secrets (gitignored)
 ├── .env.example                      ← template with all required keys
 ├── .gitignore
@@ -255,7 +255,7 @@ public-insight-ai/
 {
   "scripts": {
     "dev:server": "tsx watch apps/server/src/web/index.ts",
-    "dev:web":    "pnpm --filter public-insight-ai-web dev",
+    "dev:web":    "pnpm --filter mahalla-ovozi-web dev",
     "lint":       "eslint apps/ scripts/ prisma/*.ts prisma.config.ts vitest.config.ts",
     "test":       "vitest run",
     "db:generate": "prisma generate",
@@ -1398,3 +1398,4 @@ await prisma.user.upsert({
 - Seed does **not** pre-populate `keywords` — managed via Ops Console during pilot.
 - Seed does **not** pre-populate `raw_messages` or `signal_messages` — use the Ops Console message simulator.
 - Fake `telegram_chat_id` values must be negative BigInts (Telegram supergroup IDs are always negative). Reserve `-1001000000001` through `-1001000000099` for dev use to avoid conflicts with real IDs.
+

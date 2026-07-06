@@ -1,4 +1,4 @@
-# Story 4.1 Validation Report
+﻿# Story 4.1 Validation Report
 
 Date: 2026-06-15
 
@@ -112,3 +112,4 @@ Story 4.1 is now applicable to proceed with dev implementation after user review
 - `apps/web/package.json`
 - TanStack Query v5 docs via Context7
 - Ant Design Select/theme docs via Context7 and Ant Design MCP
+

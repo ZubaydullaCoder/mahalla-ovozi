@@ -1,4 +1,4 @@
-# Mahalla Ovozi — Phase 13 Final Validation Report & Patch-Agent Backlog
+﻿# Mahalla Ovozi — Phase 13 Final Validation Report & Patch-Agent Backlog
 
 ## Operating Model
 
@@ -1175,3 +1175,4 @@ Current state:
 Recommended next action for local patch agent:
 
 Start with Batch A. Do not begin broad refactors until B–E are stable and full tests are aligned with current owner decisions.
+

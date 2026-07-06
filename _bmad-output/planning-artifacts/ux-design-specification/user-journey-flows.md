@@ -1,4 +1,4 @@
-# User Journey Flows
+﻿# User Journey Flows
 
 ## Journey 1: On-Demand Signal Scan (Primary — Hokim)
 
@@ -134,3 +134,4 @@ Every API-dependent step has a defined degraded state: skeleton shimmer (initial
 4. **Swapping is cheaper than reopening.** Clicking a different card while the drawer is open costs one API call — no close → click → reopen cycle required.
 
 ---
+

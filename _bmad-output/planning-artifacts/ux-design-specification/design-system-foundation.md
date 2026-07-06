@@ -1,10 +1,10 @@
-# Design System Foundation
+﻿# Design System Foundation
 
 ## Design System Choice
 
 **Selected: Ant Design v6 (AntD) with a custom design token theme.**
 
-Ant Design v6 is chosen as the component foundation for PublicInsight AI. It provides a complete, production-tested library of administrative UI components under a CSS-in-JS theming system (ConfigProvider + design tokens), which integrates cleanly with the React + Vite + TypeScript stack without introducing Tailwind CSS or a conflicting stylesheet layer.
+Ant Design v6 is chosen as the component foundation for Mahalla Ovozi. It provides a complete, production-tested library of administrative UI components under a CSS-in-JS theming system (ConfigProvider + design tokens), which integrates cleanly with the React + Vite + TypeScript stack without introducing Tailwind CSS or a conflicting stylesheet layer.
 
 ## Rationale for Selection
 
@@ -57,3 +57,4 @@ The AntD theme token overrides establish our specific design language:
 | *Чиқинди* | `categoryChiqindi` | Earthy olive |
 
 ---
+

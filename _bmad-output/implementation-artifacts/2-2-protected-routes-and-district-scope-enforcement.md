@@ -1,4 +1,4 @@
-# Story 2.2: Protected Routes & District Scope Enforcement
+﻿# Story 2.2: Protected Routes & District Scope Enforcement
 
 Status: done
 
@@ -467,3 +467,4 @@ No issues encountered. Clean implementation — typecheck, lint, and all 93 test
 - `apps/server/src/auth/middleware.test.ts` — NEW — 7 unit tests for requireAuth
 - `apps/server/src/auth/index.ts` — MODIFIED — added requireAuth re-export
 - `apps/server/src/web/index.ts` — MODIFIED — wired requireAuth + 3 placeholder protected routes
+

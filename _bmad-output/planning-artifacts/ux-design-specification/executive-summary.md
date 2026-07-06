@@ -1,7 +1,7 @@
-# Executive Summary
+﻿# Executive Summary
 
 ## Project Vision
-PublicInsight AI (Voice of the Mahalla) is a private GovTech situational awareness dashboard that extracts civic signals from noisy Telegram group chats and structures them so a busy, non-technical district governor (*tuman hokimi*) can review what residents are reporting in a matter of seconds. It acts as a passive monitoring dashboard and does not manage issue tracking or resident-facing interactions.
+Mahalla Ovozi (Voice of the Mahalla) is a private GovTech situational awareness dashboard that extracts civic signals from noisy Telegram group chats and structures them so a busy, non-technical district governor (*tuman hokimi*) can review what residents are reporting in a matter of seconds. It acts as a passive monitoring dashboard and does not manage issue tracking or resident-facing interactions.
 
 ## Target Users
 *   **Primary User (Tuman Hokimi):** A non-technical, high-level decision-maker who values quick scanning and evidence validation. Uses a large office monitor (1920x1080) in light mode. Requires immediate clarity on who reported what, where, and when.
@@ -22,3 +22,4 @@ PublicInsight AI (Voice of the Mahalla) is a private GovTech situational awarene
 *   **Premium Civic Aesthetics:** Building a modern, light-mode, Telegram-familiar design using clean typography (e.g., Inter or Outfit) and subtle micro-interactions to create a state-of-the-art administrative tool.
 
 ---
+

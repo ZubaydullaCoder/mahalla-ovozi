@@ -1,4 +1,4 @@
-# Story 3.4 Validation Report
+﻿# Story 3.4 Validation Report
 
 Date: 2026-06-15
 
@@ -112,3 +112,4 @@ The original story was not ready for dev as written because its banner placement
 - Ant Design Alert docs via Ant Design MCP
 - TanStack Query docs via Context7 (`/tanstack/query`)
 - Installed TanStack Query Core source (`@tanstack/query-core@5.101.0`)
+

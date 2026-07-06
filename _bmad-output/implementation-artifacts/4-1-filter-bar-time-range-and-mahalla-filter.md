@@ -1,4 +1,4 @@
-# Story 4.1: Filter Bar — Time Range & Mahalla Filter
+﻿# Story 4.1: Filter Bar — Time Range & Mahalla Filter
 
 Status: done
 
@@ -795,3 +795,4 @@ Claude Sonnet 4.6 (Thinking)
 ### Change Log
 
 - 2026-06-16: Story 4.1 implemented. Added filter hook, mahallas API, filter-bar components (FilterBar, TimeRangeChips, MahallaSelect), filter-utils helpers. Wired into DashboardPage. Added 43 new tests. All checks pass.
+

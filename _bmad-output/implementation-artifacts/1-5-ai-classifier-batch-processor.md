@@ -1,4 +1,4 @@
-# Story 1.5: AI Classifier Batch Processor
+﻿# Story 1.5: AI Classifier Batch Processor
 
 Status: review
 
@@ -561,3 +561,4 @@ GPT-5 Codex
 ### Change Log
 
 - 2026-06-11: Implemented Story 1.5 AI classifier batch processor and moved story to review.
+

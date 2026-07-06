@@ -1,4 +1,4 @@
-# Story 1.4: Keyword Registry & Three-Mode Filtering Pipeline
+﻿# Story 1.4: Keyword Registry & Three-Mode Filtering Pipeline
 
 Status: done
 
@@ -405,3 +405,4 @@ Claude Sonnet 4.6 (Thinking)
 - 2026-06-10: Course correction approved — `keyword_gate` is now the preferred/default demo-pilot filtering mode based on real mahalla group analysis showing low signal density. `ai_full` remains available as fallback and `shadow_compare` remains available for validation.
 - 2026-06-10: CR Pass 2 patches applied. (P1) `getActiveKeywords` wrapped in try/catch with fail-open handling. (P2) `createPipelineEvent()` helper isolates `pipelineEvent.create` failures — observability writes never crash the pipeline. (P3) `upsertRawMessage()` helper extracted to eliminate 12-field verbatim duplication. 4 new tests added. 65/65 tests pass, lint clean, tsc clean.
 - 2026-06-11: Corrected P1 fail-open semantics after reviewer validation: keyword lookup DB errors now bypass `keyword_gate` and write `raw_messages` instead of becoming `keyword_skip`. Updated CR Patch P1 tests. 38 pipeline tests pass.
+

@@ -1,4 +1,4 @@
-# Story 1.3: Bot Connectivity Monitoring
+﻿# Story 1.3: Bot Connectivity Monitoring
 
 Status: done
 
@@ -284,3 +284,4 @@ GPT-5 Codex
 ### Change Log
 
 - 2026-06-08: Implemented Story 1.3 bot connectivity monitoring and moved story to review.
+

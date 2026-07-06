@@ -1,4 +1,4 @@
-# Story 6.1: Ops Console Guard and Page Shell
+﻿# Story 6.1: Ops Console Guard and Page Shell
 
 Status: done
 
@@ -412,3 +412,4 @@ GPT-5 Codex
 ### Change Log
 
 - 2026-06-21: Implemented Story 6.1 Ops Console page shell and guard-aware frontend disabled state.
+

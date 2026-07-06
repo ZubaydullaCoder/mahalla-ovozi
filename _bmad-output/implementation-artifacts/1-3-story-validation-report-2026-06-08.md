@@ -1,4 +1,4 @@
-# Story Validation Report: 1.3 Bot Connectivity Monitoring
+﻿# Story Validation Report: 1.3 Bot Connectivity Monitoring
 
 Date: 2026-06-08
 Status: Passed after validation edit
@@ -26,3 +26,4 @@ Story 1.3 is applicable and ready for `bmad-dev-story`.
 - Story scope is correctly narrow: one bot handler, one co-located test file, no migrations, no new dependencies, no new routes.
 - The existing codebase state matches the story assumptions: `apps/server/src/bot/index.ts` has `message` and `edited_message` handlers only; `Mahalla` already has `bot_status` and `bot_last_seen_at`; Story 1.2 is marked done.
 - No application code was changed or tested in this validation pass.
+

@@ -1,4 +1,4 @@
-# Story 4.3: Context Drawer API — Signal Context Endpoint
+﻿# Story 4.3: Context Drawer API — Signal Context Endpoint
 
 Status: done
 
@@ -609,3 +609,4 @@ N/A — clean implementation, no debugging required.
 ### Change Log
 
 - 2026-06-19: Implemented Story 4.3 — Context Drawer API endpoint. Added `GET /api/signals/:id/context` server route with district-scoped two-step lookup, `useSignalContext` frontend hook, and 24 new unit tests. Total test count: 271 → 295.
+

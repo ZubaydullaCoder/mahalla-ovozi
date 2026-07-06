@@ -1,4 +1,4 @@
-# Story 3.3 Validation Report
+﻿# Story 3.3 Validation Report
 
 Date: 2026-06-14
 
@@ -113,3 +113,4 @@ Proceed with `bmad-dev-story` after user review of the patched story. The owners
 - TanStack Query docs via Context7: `/tanstack/query`
 - TanStack Virtual docs via Context7: `/tanstack/virtual`
 - Ant Design token MCP: global token list
+

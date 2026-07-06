@@ -1,7 +1,7 @@
----
+﻿---
 validationStatus: 'superseded'
 workflowType: 'prd-validation'
-projectName: 'public-insight-ai'
+projectName: 'mahalla-ovozi'
 originalDate: '2026-05-18'
 supersededDate: '2026-06-01'
 ---
@@ -31,3 +31,4 @@ Still required before implementation:
 
 - Create epics and developer-ready stories.
 - Run a fresh implementation-readiness check against the current workspace.
+

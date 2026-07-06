@@ -1,7 +1,7 @@
----
+﻿---
 workflowStatus: 'superseded'
 workflowType: 'implementation-readiness'
-projectName: 'public-insight-ai'
+projectName: 'mahalla-ovozi'
 originalDate: '2026-05-17'
 supersededDate: '2026-06-01'
 ---
@@ -32,3 +32,4 @@ Still required before implementation:
 
 - Create epics and developer-ready stories.
 - Run a fresh implementation-readiness check against the current workspace.
+

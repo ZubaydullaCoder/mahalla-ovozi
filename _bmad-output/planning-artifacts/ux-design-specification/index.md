@@ -1,8 +1,8 @@
-# UX Design Specification public-insight-ai
+﻿# UX Design Specification mahalla-ovozi
 
 ## Table of Contents
 
-- [UX Design Specification public-insight-ai](#table-of-contents)
+- [UX Design Specification mahalla-ovozi](#table-of-contents)
   - [Executive Summary](./executive-summary.md)
     - [Project Vision](./executive-summary.md#project-vision)
     - [Target Users](./executive-summary.md#target-users)
@@ -87,3 +87,4 @@
       - [Touch Target Sizes](./responsive-design-accessibility.md#touch-target-sizes)
     - [Testing Strategy](./responsive-design-accessibility.md#testing-strategy)
     - [Implementation Guidelines](./responsive-design-accessibility.md#implementation-guidelines)
+

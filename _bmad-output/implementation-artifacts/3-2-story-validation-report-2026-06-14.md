@@ -1,4 +1,4 @@
-# Story 3.2 Validation Report
+﻿# Story 3.2 Validation Report
 
 Date: 2026-06-14
 
@@ -78,3 +78,4 @@ Do not start `bmad-dev-story` yet. First patch the story to add the route test t
 - Prisma docs via Context7: `/prisma/web`
 - Express docs via Context7: `/expressjs/express/4_21_2`
 - Vitest docs via Context7: `/vitest-dev/vitest/v3_2_4`
+

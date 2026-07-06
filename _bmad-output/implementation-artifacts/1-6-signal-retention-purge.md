@@ -1,4 +1,4 @@
-# Story 1.6: Signal Retention Purge
+﻿# Story 1.6: Signal Retention Purge
 
 Status: done
 
@@ -414,4 +414,5 @@ _Code review date: 2026-06-11. Layers: Blind Hunter, Edge Case Hunter, Acceptanc
 - [x] [Review][Defer] No test coverage for cron wiring in `web/index.ts` (cron expression, timezone option, `.catch` handler) [`web/index.ts`] — deferred, pre-existing gap across server entry point; no tests exist for this file project-wide
 - [x] [Review][Defer] `tsconfig.json` `exclude: ["node_modules"]` is redundant once `include` is set [`tsconfig.json`] — deferred, cosmetic; does not affect correctness
 - [x] [Review][Defer] No warning-level log or threshold check for anomalously large delete counts [`purge.ts`] — deferred, future observability enhancement
+
 

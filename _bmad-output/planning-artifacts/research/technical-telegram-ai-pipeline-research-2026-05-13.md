@@ -1,10 +1,10 @@
----
+﻿---
 stepsCompleted: [1, 2, 3, 4, 5, 6]
 inputDocuments: ['docs/archive/project-raw-idea.md']
 workflowType: 'research'
 lastStep: 1
 research_type: 'technical'
-research_topic: 'Telegram Bot API + AI Message Classification Pipeline for PublicInsight AI'
+research_topic: 'Telegram Bot API + AI Message Classification Pipeline for Mahalla Ovozi'
 research_goals: |
   1. Validate what Telegram Bot API actually allows for group message access (permissions, rate limits, supergroup constraints)
   2. Determine the best AI model/approach for Uzbek-language civic signal classification (signal vs. noise, category) — cost, latency, accuracy tradeoff
@@ -23,7 +23,7 @@ source_verification: partial-revalidation-required
 **Validation Patch:** 2026-05-17  
 **Author:** Zubaydulla  
 **Research Type:** Technical  
-**Project:** PublicInsight AI
+**Project:** Mahalla Ovozi
 
 ---
 
@@ -69,7 +69,7 @@ This document remains a useful technical feasibility foundation, but the origina
 
 ## Research Overview
 
-This research validates the core technical feasibility of the PublicInsight AI MVP before PRD finalization. It focuses on two highest-risk unknowns:
+This research validates the core technical feasibility of the Mahalla Ovozi MVP before PRD finalization. It focuses on two highest-risk unknowns:
 
 1. Telegram Bot API constraints for group message capture.
 2. AI classification feasibility for Uzbek-language civic messages.
@@ -526,3 +526,4 @@ Confidence is **medium-high**, not absolute. The high-level architecture is soun
 ---
 
 _This corrected document should be used as the technical feasibility foundation for Architecture and Epics/Stories. It intentionally avoids freezing unstable provider/model/pricing details before implementation-time validation._
+

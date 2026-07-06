@@ -1,4 +1,4 @@
-# Story Validation Report: 1.4 Keyword Registry & Three-Mode Filtering Pipeline
+﻿# Story Validation Report: 1.4 Keyword Registry & Three-Mode Filtering Pipeline
 
 Date: 2026-06-09
 Status: Passed after verification edit
@@ -72,3 +72,4 @@ Initial sandbox attempts failed because Vitest/esbuild could not spawn a helper 
 ## Recommendation
 
 Keep Story 1.4 in `ready-for-dev` and run `bmad-dev-story`.
+

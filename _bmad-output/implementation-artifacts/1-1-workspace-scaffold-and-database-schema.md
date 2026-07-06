@@ -1,4 +1,4 @@
-# Story 1.1 — Workspace Scaffold & Database Schema
+﻿# Story 1.1 — Workspace Scaffold & Database Schema
 
 **Epic:** 1 — Project Foundation & AI Signal Pipeline
 **Story ID:** 1.1
@@ -948,3 +948,4 @@ All files created/modified (paths relative to repo root):
 - [x] [Review][Patch] Declare the project Node.js engine requirement enforced by Vite 8 [package.json:1]
 - [x] [Review][Patch] Lint configuration includes scripts, but the lint command checks only `apps/` [package.json:10]
 - [x] [Review][Patch] Update the approved Vitest baseline to `^3.2.6` and correct inaccurate completion records: exact-step claim, incomplete file inventory, lockfile gitignore claim, and false Vitest registry rationale [1-1-workspace-scaffold-and-database-schema.md:126]
+

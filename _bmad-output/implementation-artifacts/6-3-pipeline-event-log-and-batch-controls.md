@@ -1,4 +1,4 @@
-# Story 6.3: Pipeline Event Log and Batch Controls
+﻿# Story 6.3: Pipeline Event Log and Batch Controls
 
 Status: done
 
@@ -709,3 +709,4 @@ Claude Sonnet 4.6 (Thinking)
 - 2026-06-22: Story 6.3 specification created.
 - 2026-06-22: Story 6.3 validation fixes applied.
 - 2026-06-22: Story 6.3 implementation complete. All 8 tasks done, 424 tests passing, lint + typecheck clean. Status → review.
+

@@ -1,4 +1,4 @@
-# Story 4.2 Validation Report
+﻿# Story 4.2 Validation Report
 
 Date: 2026-06-16
 
@@ -151,3 +151,4 @@ The feature should proceed after patching the story. No architecture redesign is
 - Ant Design MCP: `DatePicker`, `Input`
 - Context7: React official docs for controlled inputs
 - Context7: TanStack Query v5 docs for query loading and background fetching states
+

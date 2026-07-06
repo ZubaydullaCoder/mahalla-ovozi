@@ -1,8 +1,8 @@
-# Desired Emotional Response
+﻿# Desired Emotional Response
 
 ## Primary Emotional Goals
 
-The primary emotional goal for PublicInsight AI is **Calm Authority**.
+The primary emotional goal for Mahalla Ovozi is **Calm Authority**.
 
 The hokim should feel like a commander with a clear view of the battlefield — not anxious, not overwhelmed, and not confused. Every design decision should reinforce this feeling: structured data, predictable interactions, and clean visual hierarchy that communicates "this system is working and you are in control."
 
@@ -64,3 +64,4 @@ Emotional trust in a tool is built through repetition and consistency. The layou
 
 **4. Quiet Delight over Showmanship**
 Micro-interactions (drawer slide, skeleton shimmer, card highlight transition) should add polish and smoothness without drawing attention to themselves. The goal is that users feel the UI is "responsive" and "smooth" without consciously noticing the animations. If an animation is noticed, it is too prominent.
+

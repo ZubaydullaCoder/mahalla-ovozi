@@ -1,8 +1,8 @@
-# Component Strategy
+﻿# Component Strategy
 
 ## Design System Components (AntD v6 — Used As-Is)
 
-| Component | AntD v6 | Usage in PublicInsight AI |
+| Component | AntD v6 | Usage in Mahalla Ovozi |
 |---|---|---|
 | `Drawer` | ✅ | Context evidence drawer overlay |
 | `Badge` | ✅ | Lane signal count on lane headers |
@@ -149,7 +149,7 @@ interface SignalCardProps {
 
 Signal cards rendered **inside the context drawer** follow additional constraints beyond the lane card spec:
 
-- **No action menus.** Drawer cards must not render any action trigger (three-dot menus, context menus, buttons, or links). PublicInsight AI is a passive monitoring tool — there are no actions a user can take on a signal. Any interactive affordance on a drawer card is a false signal.
+- **No action menus.** Drawer cards must not render any action trigger (three-dot menus, context menus, buttons, or links). Mahalla Ovozi is a passive monitoring tool — there are no actions a user can take on a signal. Any interactive affordance on a drawer card is a false signal.
 - **No pagination footer.** The drawer has no "See All" or "Load More" button. The drawer scrolls internally. All context signals within the active time range are fetched in a single API call and rendered in a continuous scrollable list.
 - **No "selected" label badge.** The anchor signal's active state is communicated solely by its highlight (category border/ring + category tint background). No additional label, badge, or checkmark is added.
 - **Drawer card text clamp:** Full raw message text is shown inside the drawer — no 3-line clamp. The drawer is the reading surface; the lane is the scanning surface.
@@ -184,3 +184,4 @@ Signal cards rendered **inside the context drawer** follow additional constraint
 - Print-friendly `<SignalCard>` CSS for potential export view
 
 ---
+

@@ -1,4 +1,4 @@
-# Story 4.5: Drawer Card Swap & Filter State Persistence
+﻿# Story 4.5: Drawer Card Swap & Filter State Persistence
 
 Status: done
 
@@ -461,3 +461,4 @@ Story 4.5 is primarily a test-coverage story. All swap/persistence/keyboard logi
 |------|---------|
 | 2026-06-24 | Story 4.5 implementation: added 4 new tests (2 swap tests in context-drawer.test.tsx, 2 filter-persistence tests in dashboard-page.test.tsx); upgraded useFilters mock to stateful/spy pattern; added secondSignal fixture; updated LaneGrid mock to expose two signal buttons. 555 tests pass, 0 lint errors, 0 type errors. |
 | 2026-06-24 | Review fixes: strengthened AC-1 no-close/reopen test coverage, resolved story/tracker status consistency, and cleared whitespace check. |
+

@@ -1,4 +1,4 @@
-# Story Validation Report: 2.1 Login & Session Issuance
+﻿# Story Validation Report: 2.1 Login & Session Issuance
 
 Date: 2026-06-11
 Status: Passed after validation edits
@@ -57,3 +57,4 @@ After the validation edits below, the story is ready for `bmad-dev-story`.
 ## Recommendation
 
 Keep Story 2.1 in `ready-for-dev` and run `bmad-dev-story` for implementation.
+

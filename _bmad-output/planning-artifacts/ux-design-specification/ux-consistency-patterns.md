@@ -1,4 +1,4 @@
-# UX Consistency Patterns
+﻿# UX Consistency Patterns
 
 ## Interaction & Cursor Contract
 
@@ -125,3 +125,4 @@ Architecture must define a lightweight technical enforcement mechanism for user-
 This enforcement is intentionally narrow. It should not block Telegram sender display names, raw resident message text, logs, test fixtures, or AI/classifier examples, because those may legitimately contain Latin, Russian, mixed script, or user-generated content.
 
 ---
+

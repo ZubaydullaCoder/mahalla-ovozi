@@ -1,4 +1,4 @@
-# Story 6.4: Keyword Registry CRUD
+﻿# Story 6.4: Keyword Registry CRUD
 
 Status: done
 
@@ -905,3 +905,4 @@ Claude Opus 4.6 (Thinking)
 ### Change Log
 
 - 2026-06-22: Implemented Story 6.4 — Keyword Registry CRUD (AC-1 through AC-7). Added 5 backend routes, 5 frontend hooks, full KeywordRegistryPanel UI, 34 backend tests, 16 frontend tests. All checks pass.
+

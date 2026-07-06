@@ -1,4 +1,4 @@
----
+﻿---
 stepsCompleted: ['step-01-init', 'step-02-discovery', 'step-02b-vision', 'step-02c-executive-summary', 'step-03-success', 'step-04-journeys', 'step-05-domain', 'step-06-innovation-skipped', 'step-07-project-type', 'step-08-scoping', 'step-09-functional', 'step-10-nonfunctional', 'step-11-polish', 'step-12-complete']
 workflowStatus: 'complete'
 releaseMode: 'single-release'
@@ -22,7 +22,7 @@ projectDocsCount: 0
 lastConsistencyPatch: '2026-05-18 PRD cleanup before UX design'
 ---
 
-# Product Requirements Document - public-insight-ai
+# Product Requirements Document - mahalla-ovozi
 
 **Author:** Zubaydulla  
 **Date:** 2026-05-16  
@@ -32,9 +32,9 @@ lastConsistencyPatch: '2026-05-18 PRD cleanup before UX design'
 
 ## Executive Summary
 
-PublicInsight AI is a private internal civic signal monitoring system for district (tuman) leadership in Uzbekistan. It captures resident-reported text messages from selected mahalla Telegram supergroups via an official Telegram bot, filters them using AI classification, and surfaces relevant civic signals in a structured web dashboard — organized by service category, mahalla, and time.
+Mahalla Ovozi is a private internal civic signal monitoring system for district (tuman) leadership in Uzbekistan. It captures resident-reported text messages from selected mahalla Telegram supergroups via an official Telegram bot, filters them using AI classification, and surfaces relevant civic signals in a structured web dashboard — organized by service category, mahalla, and time.
 
-The primary user is the tuman hokimi. The product solves a specific operational problem: district leadership cannot reliably monitor what residents are reporting in real Telegram group chats at scale. Important civic signals — about water, electricity, gas, waste, and hokim-related matters — are buried in high-volume, noisy group conversations. Existing channels (formal complaints, staff briefings) are delayed, filtered, and incomplete. PublicInsight AI gives the hokim direct, structured visibility into these signals without reading raw group chats.
+The primary user is the tuman hokimi. The product solves a specific operational problem: district leadership cannot reliably monitor what residents are reporting in real Telegram group chats at scale. Important civic signals — about water, electricity, gas, waste, and hokim-related matters — are buried in high-volume, noisy group conversations. Existing channels (formal complaints, staff briefings) are delayed, filtered, and incomplete. Mahalla Ovozi gives the hokim direct, structured visibility into these signals without reading raw group chats.
 
 The product is explicitly scoped. It is not a complaint portal, a resolution tracker, a citizen-facing chatbot, or a full Telegram archive. It captures, filters, and displays. Decision and action remain with the hokim and existing institutional processes.
 
@@ -42,7 +42,7 @@ The product is explicitly scoped. It is not a complaint portal, a resolution tra
 
 The core insight is that Telegram groups are where civic signals surface earliest and most authentically — before formal channels, before escalation. The gap is not signal availability; it is signal legibility for leadership.
 
-PublicInsight AI's differentiation is its discipline: it solves exactly one problem and refuses all scope creep. No issue cards. No resolution workflow. No confidence scores. No automated truth claims. The product's value is a clean, evidence-backed signal stream that lets a busy non-technical leader scan what residents are saying in 60 seconds, not 60 minutes.
+Mahalla Ovozi's differentiation is its discipline: it solves exactly one problem and refuses all scope creep. No issue cards. No resolution workflow. No confidence scores. No automated truth claims. The product's value is a clean, evidence-backed signal stream that lets a busy non-technical leader scan what residents are saying in 60 seconds, not 60 minutes.
 
 The near-real-time AI drain pipeline keeps the system fast enough for live monitoring while controlling unnecessary AI cost. Phase 1 uses keyword-gated AI classification as the only active development and demo/pilot filtering method: structural pre-filters remove obvious non-signal updates, manually managed keywords determine which messages enter the AI queue, and AI classifies only keyword-matched messages. When a keyword-matched raw message is saved, a background classifier drain is triggered asynchronously; AI never runs inside the Telegram webhook request. A lightweight cron fallback still protects against missed triggers and restarts. Based on owner analysis of real mahalla Telegram groups showing low signal density, this keeps cost and dashboard noise under control. Full AI classification may be reconsidered later only by explicit owner decision if keyword gating underperforms.
 
@@ -157,7 +157,7 @@ Expand to multiple districts; potential integration with formal complaint tracki
 
 ### Journey 1: Hokimi — Signal Scan (Primary Success Path)
 
-Jamshid is the tuman hokimi. When he needs situational awareness across his district's mahallas, he opens the PublicInsight AI dashboard. Previously this meant manually flipping through multiple Telegram group chats — wading through congratulation messages, food photos, and announcements — hoping not to miss anything important. Most of the time, important signals were buried or arrived through filtered summaries from staff.
+Jamshid is the tuman hokimi. When he needs situational awareness across his district's mahallas, he opens the Mahalla Ovozi dashboard. Previously this meant manually flipping through multiple Telegram group chats — wading through congratulation messages, food photos, and announcements — hoping not to miss anything important. Most of the time, important signals were buried or arrived through filtered summaries from staff.
 
 Now he opens the dashboard. The default view shows today's signals across all monitored mahallas. He glances at the Gas lane — three complaints from Navbahor mahallasi in the last two hours. He clicks one. The context drawer opens on the right, showing all gas-related signals from Navbahor today. Four messages, all complaints, all from different residents. He has the evidence he needs.
 
@@ -187,7 +187,7 @@ She never joins or reads the actual Telegram groups. She sees the filtered signa
 
 ### Journey 4: Operator — Bot Setup and Health Check (Admin/Operations)
 
-Rustam is the developer/operator who set up PublicInsight AI. Before the pilot launch, he adds the bot to each of the 3 selected mahalla Telegram groups, confirms the required Telegram group/bot setup in a real test group, and verifies the bot is receiving messages by checking the admin health endpoint. On day 3 of the pilot, the dashboard shows a "⚠️ Signals may be delayed" indicator. Rustam checks the health endpoint — the last batch ran 45 minutes ago. He inspects the logs, finds the AI provider returned a temporary error, and sees the `node-cron` scheduled batch retried successfully on the next run. The indicator clears on the next batch run. The hokim never saw a technical error.
+Rustam is the developer/operator who set up Mahalla Ovozi. Before the pilot launch, he adds the bot to each of the 3 selected mahalla Telegram groups, confirms the required Telegram group/bot setup in a real test group, and verifies the bot is receiving messages by checking the admin health endpoint. On day 3 of the pilot, the dashboard shows a "⚠️ Signals may be delayed" indicator. Rustam checks the health endpoint — the last batch ran 45 minutes ago. He inspects the logs, finds the AI provider returned a temporary error, and sees the `node-cron` scheduled batch retried successfully on the next run. The indicator clears on the next batch run. The hokim never saw a technical error.
 
 **Capabilities revealed:** admin health endpoint (last batch time, error count, pre-filter discard counts), bot connectivity monitoring (my_chat_member events), "signals may be delayed" UI indicator for hokim (no raw errors shown), AI retry handling in the batch processor, operator-only health view vs. hokim-facing dashboard.
 
@@ -217,7 +217,7 @@ Rustam is the developer/operator who set up PublicInsight AI. Before the pilot l
 
 ### Compliance & Regulatory
 
-PublicInsight AI is a private internal tool commissioned and operated by an authorized district hokimiyat. The hokim, as the commissioned authority, owns all policy decisions related to this deployment — including data handling, sender display, resident notification, and data residency. These are not implementation blockers and do not gate development or the pilot launch.
+Mahalla Ovozi is a private internal tool commissioned and operated by an authorized district hokimiyat. The hokim, as the commissioned authority, owns all policy decisions related to this deployment — including data handling, sender display, resident notification, and data residency. These are not implementation blockers and do not gate development or the pilot launch.
 
 The developer's responsibility is to implement specified technical requirements correctly. No regulatory approval, external audit, or compliance certification is required for this product.
 
@@ -269,7 +269,7 @@ Telegram/email/push alerts are not part of the MVP unless Architecture intention
 
 ### Project-Type Overview
 
-PublicInsight AI's frontend is a **single-page application (SPA)** — a React (or Next.js) dashboard with real-time-feeling filtering, five independently scrolling category lanes, and a right-side context drawer. The primary display target is a large office monitor used by district leadership.
+Mahalla Ovozi's frontend is a **single-page application (SPA)** — a React (or Next.js) dashboard with real-time-feeling filtering, five independently scrolling category lanes, and a right-side context drawer. The primary display target is a large office monitor used by district leadership.
 
 ### Technical Architecture Considerations
 
@@ -457,3 +457,4 @@ Before Architecture is finalized, explicitly validate:
 6. Intentional duplicate display behavior for Hokim-related signals that also belong to a service lane.
 
 These validation notes do not expand MVP scope; they prevent architecture and stories from inheriting stale or overconfident technical assumptions.
+

@@ -1,4 +1,4 @@
-# Story 3.1: AntD Theme System & App Shell
+﻿# Story 3.1: AntD Theme System & App Shell
 
 Status: done
 
@@ -375,3 +375,4 @@ None — clean implementation, all checks passed first run.
 - `apps/web/src/assets/react.svg` — DELETED: unused Vite scaffold
 - `apps/web/src/assets/vite.svg` — DELETED: unused Vite scaffold
 - `apps/web/src/assets/hero.png` — DELETED: unreferenced
+

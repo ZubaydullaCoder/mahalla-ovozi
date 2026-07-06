@@ -1,4 +1,4 @@
-# Directory Index
+﻿# Directory Index
 
 ## Files
 
@@ -9,3 +9,4 @@
 ### archive/
 
 - **[project-raw-idea.md](./archive/project-raw-idea.md)** - Historical raw product concept draft (superseded, context only).
+

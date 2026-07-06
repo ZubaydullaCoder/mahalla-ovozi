@@ -1,6 +1,6 @@
-# Architecture — Developer Ops Console
+﻿# Architecture — Developer Ops Console
 
-**Project:** public-insight-ai
+**Project:** mahalla-ovozi
 **Phase:** 1 — Validation-First Development
 **Status:** Part of Phase 1 architecture
 
@@ -45,7 +45,7 @@ boundaries. Each panel is independently scrollable.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  PUBLICINSIGHT AI — DEVELOPER OPS CONSOLE  [Phase 1]       │
+│  Mahalla Ovozi — DEVELOPER OPS CONSOLE  [Phase 1]       │
 ├───────────────┬─────────────────────────────────────────┤
 │               │                                         │
 │  System       │  Filtering Mode + Keyword Registry      │
@@ -686,3 +686,4 @@ In Phase 2, the Ops Console is:
 
 The Ops Console served its purpose in Phase 1: validating pipeline correctness during development.
 In Phase 2, production observability is handled by structured pino logs + operator health endpoint.
+

@@ -1,4 +1,4 @@
-# Story 6.5: Signals Browser and System Health Dashboard
+﻿# Story 6.5: Signals Browser and System Health Dashboard
 
 Status: done
 
@@ -1285,3 +1285,4 @@ Critical AntD v6 patterns to follow — these are verified against the installed
 - **Ops Console:** Developer-facing only; dark theme; English strings; never accessible in production
 - **Sprint:** Epic 6 (in-progress), story 6.5 is the final story in Epic 6
 - **Next steps after this story:** Epic 6 retrospective (optional), then prepare for pilot launch
+

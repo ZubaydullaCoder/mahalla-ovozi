@@ -1,4 +1,4 @@
-# Story Validation Report: 1.2 Express Server & Telegram Webhook Intake
+﻿# Story Validation Report: 1.2 Express Server & Telegram Webhook Intake
 
 Date: 2026-06-07
 Status: Passed after validation edits
@@ -31,3 +31,4 @@ Story 1.2 is ready for `bmad-dev-story`.
 - `sprint-status.yaml` already marks Story 1.2 as `ready-for-dev`.
 - Story 1.2 is currently an untracked implementation artifact in Git; this report is also a new artifact file.
 - No application code was changed or tested in this validation pass.
+

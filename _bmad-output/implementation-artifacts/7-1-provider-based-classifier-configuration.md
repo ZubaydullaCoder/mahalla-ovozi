@@ -1,4 +1,4 @@
-# Story 7.1: Provider-Based Classifier Configuration
+﻿# Story 7.1: Provider-Based Classifier Configuration
 
 Status: done
 
@@ -369,3 +369,4 @@ GPT-5 Codex
 - [x] [Review][Defer] Ollama `format` field receives `zodToJsonSchema` output with `$schema` metadata — deferred, runtime environment dependency
 
 **All acceptance criteria passed.** All anti-patterns from story spec are correctly avoided.
+

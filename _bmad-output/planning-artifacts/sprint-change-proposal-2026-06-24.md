@@ -1,5 +1,5 @@
----
-project: public-insight-ai
+﻿---
+project: mahalla-ovozi
 workflow: bmad-correct-course
 date: 2026-06-24
 status: approved
@@ -143,3 +143,4 @@ Implementation guardrails:
 - Preserve existing retry behavior and raw-message safety.
 - Do not change Telegram intake, dashboard UI, Ops Console UI, database schema, or unrelated modules unless a later approved story explicitly requires it.
 - Avoid silent provider fallback; rule-only mode must be selected explicitly.
+

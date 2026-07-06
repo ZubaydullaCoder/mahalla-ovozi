@@ -1,7 +1,7 @@
-# Sprint Change Proposal - Keyword Gate Demo/Pilot Default
+﻿# Sprint Change Proposal - Keyword Gate Demo/Pilot Default
 
 Date: 2026-06-10
-Project: public-insight-ai
+Project: mahalla-ovozi
 Workflow: BMAD Correct Course
 Status: Superseded by 2026-06-11 filtering decision
 
@@ -80,3 +80,4 @@ Success criteria:
 - Code/config defaults use `keyword_gate`.
 - `ai_full` may be reconsidered later only by explicit owner decision; comparison mode is not current scope.
 - Tests and lint pass.
+
