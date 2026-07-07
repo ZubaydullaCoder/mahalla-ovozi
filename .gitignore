@@ -11,4 +11,3 @@ apps/server/src/generated/
 build/
 *.log
 .grepai/
-AGENTS.md
