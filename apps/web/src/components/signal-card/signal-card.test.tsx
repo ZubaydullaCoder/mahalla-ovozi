@@ -82,7 +82,7 @@ describe('SignalCard', () => {
     expect(screen.getAllByText(/дақ\. олдин/).length).toBeGreaterThan(0)
   })
 
-  it('timestamp remains relative at exactly 24h old', () => {
+  it('timestamp shows yesterday label at exactly 24h old', () => {
     const now = new Date('2026-06-14T12:00:00.000Z')
     vi.useFakeTimers()
     vi.setSystemTime(now)
@@ -94,14 +94,16 @@ describe('SignalCard', () => {
       },
     })
 
-    expect(screen.getAllByText('24 соат олдин').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Кеча 17:00').length).toBeGreaterThan(0)
   })
 
-  it('timestamp is absolute HH:MM for signals >24h', () => {
-    const oldTs = new Date(Date.now() - 25 * 3600000).toISOString()
-    renderCard({ signal: { ...baseSignal, telegramTimestamp: oldTs } })
+  it('timestamp includes compact month-name date and time for signals older than yesterday', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-14T12:00:00.000Z'))
+
+    renderCard({ signal: { ...baseSignal, telegramTimestamp: '2026-06-12T06:30:00.000Z' } })
     // getAllByText because timestamp also appears in aria-label
-    const matches = screen.getAllByText(/^\d{2}:\d{2}$/)
+    const matches = screen.getAllByText('12 июн 11:30')
     expect(matches.length).toBeGreaterThan(0)
   })
 

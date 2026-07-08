@@ -56,6 +56,8 @@ export const strings = {
     loadErrorTitle:       'Сигналларни юклаб бўлмади',
     loadErrorDescription: 'Саҳифани янгилаб кўринг ёки кейинроқ қайта урининг.',
     senderFallback:       'Резидент',
+    timestampYesterday:   'Кеча',
+    timestampMonthsShort: ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'],
     captionBadgeLabel:    'Расм тавсифи',
     delayBannerPrefix:    'Сигналлар янгиланмаяпти — охирги янгиланиш',
     delayBannerNoData:    'Сигналлар янгиланмаяпти — маълумот йўқ',
