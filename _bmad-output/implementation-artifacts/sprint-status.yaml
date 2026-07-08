@@ -1,5 +1,5 @@
 # generated: 2026-06-03
-# last_updated: 2026-06-24
+# last_updated: 2026-07-08
 # project: mahalla-ovozi
 # project_key: NOKEY
 # tracking_system: file-system
@@ -119,3 +119,11 @@ development_status:
   epic-7: done
   7-1-provider-based-classifier-configuration: done
   epic-7-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # EPIC 8: AI Signal Enrichment
+  # Goal: Improve dashboard readability with AI-generated professional
+  # Uzbek Cyrillic summaries replacing raw informal Telegram messages.
+  # ─────────────────────────────────────────────────────────────────────────
+  epic-8: in-progress
+  8-1-ai-summary-on-signal-cards: ready-for-dev
