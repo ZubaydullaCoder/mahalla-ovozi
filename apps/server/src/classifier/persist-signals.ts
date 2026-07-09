@@ -13,6 +13,7 @@ export async function persistSignals(
   rawMessage: RawMessage,
   aiResult: Extract<ClassifierOutput, { decision: 'signal' }>,
   categories: string[],
+  aiSummary: string | null,
 ): Promise<PersistSignalsResult> {
   const baseSignalRow = {
     telegram_update_id:  rawMessage.telegram_update_id,
@@ -28,6 +29,7 @@ export async function persistSignals(
     keyword_matched:     rawMessage.keyword_matched,
     matched_keyword:     rawMessage.matched_keyword,
     short_label:         aiResult.classify_reason ?? null,
+    ai_summary:          aiSummary,
     classified_at:       new Date(),
   }
 

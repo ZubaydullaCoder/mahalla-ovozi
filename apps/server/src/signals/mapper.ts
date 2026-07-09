@@ -64,6 +64,7 @@ export function mapSignalRow(row: SignalMessageWithMahalla): Signal {
     keywordMatched:     row.keyword_matched,
     matchedKeyword:     row.matched_keyword ?? null,
     shortLabel:         row.short_label ?? null,
+    aiSummary:          row.ai_summary ?? null,
     classifiedAt:       row.classified_at.toISOString(),
   }
 }

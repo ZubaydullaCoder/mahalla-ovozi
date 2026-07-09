@@ -41,6 +41,7 @@ const MOCK_SIGNAL: Signal = {
   keywordMatched:     true,
   matchedKeyword:     'газ',
   shortLabel:         null,
+  aiSummary:          null,
   classifiedAt:       '2026-06-24T05:43:00.000Z',
 }
 

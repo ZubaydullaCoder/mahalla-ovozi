@@ -22,6 +22,7 @@ function makeSignal(overrides: Partial<Signal> & { id: number }): Signal {
     keywordMatched: true,
     matchedKeyword: null,
     shortLabel: null,
+    aiSummary: null,
     classifiedAt: new Date().toISOString(),
     ...overrides,
   }

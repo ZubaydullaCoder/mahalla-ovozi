@@ -1,6 +1,6 @@
 # Story 8.1: AI-Generated Professional Summary on Dashboard Signal Cards
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -16,7 +16,7 @@ so that I can quickly scan civic signals without being distracted by grammatical
 
 3. **API Exposure**: The `ai_summary` field is mapped by `signals/mapper.ts` and included in the `Signal` type on both server (`shared/types.ts`) and frontend (`api/signals.ts`) as `aiSummary: string | null`.
 
-4. **Signal Card Display (Lane View)**: Row 3 (message text) of `signal-card.tsx` renders `signal.aiSummary ?? signal.rawText`. The 3-line clamp is preserved. No visual indicator distinguishes AI-generated from raw fallback text.
+4. **Signal Card Display (Lane View)**: Row 3 (message text) of `signal-card.tsx` renders `signal.aiSummary ?? signal.rawText`. The 3-line clamp is preserved. To improve clarity and save space: (1) if `aiSummary` is present, the redundant sender name header row is hidden and the card header is condensed to show `mahallaName` on the left and the relative timestamp on the right, and (2) the sender name mention at the start of the summary text is highlighted in Telegram-blue (`#24a1de`) and bold. If there is no summary, the card falls back to its original layout with no visual distinction.
 
 5. **Drawer Unchanged (Full Raw Text)**: `drawer-signal-card.tsx` continues to render `signal.rawText` unchanged. The drawer must not reference `aiSummary`.
 
@@ -36,60 +36,61 @@ so that I can quickly scan civic signals without being distracted by grammatical
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: DB Schema + Migration** (AC: 2)
-  - [ ] Add `ai_summary String? @db.VarChar(500)` to `SignalMessage` in `prisma/schema.prisma`
-  - [ ] Run `pnpm db:migrate` (→ `prisma migrate dev`) and name migration `add_ai_summary_to_signal_messages`
-  - [ ] Verify Prisma client regenerates and includes `ai_summary` field
+- [x] **Task 1: DB Schema + Migration** (AC: 2)
+  - [x] Add `ai_summary String? @db.VarChar(500)` to `SignalMessage` in `prisma/schema.prisma`
+  - [x] Run `pnpm db:migrate` (→ `prisma migrate dev`) and name migration `add_ai_summary_to_signal_messages`
+  - [x] Verify Prisma client regenerates and includes `ai_summary` field
 
-- [ ] **Task 2: Summary Prompt** (AC: 1, 8)
-  - [ ] Create `apps/server/src/classifier/summary-prompt.ts`
-  - [ ] `buildSummaryPrompt(rawText: string, senderName: string | null, category: string): string` — returns a plain text prompt string
-  - [ ] Prompt instructions: output Uzbek Cyrillic only; 200–300 chars; fixed reported-speech structure: `[sender or "Foydalanuvchi"] [refined content] deb [action verb]`; fix grammar while preserving meaning; select contextually appropriate action verb (shikoyat qilmoqda / maqtamoqda / nolimoqda / murojaat qilmoqda / xabar bermoqda / taklif qilmoqda / etc.); no JSON, no markdown; return only the summary string; use senderName as subject or "Foydalanuvchi" when null
+- [x] **Task 2: Summary Prompt** (AC: 1, 8)
+  - [x] Create `apps/server/src/classifier/summary-prompt.ts`
+  - [x] `buildSummaryPrompt(rawText: string, senderName: string | null, category: string): string` — returns a plain text prompt string
+  - [x] Prompt instructions: output Uzbek Cyrillic only; 200–300 chars; fixed reported-speech structure: `[sender or "Foydalanuvchi"] [refined content] deb [action verb]`; fix grammar while preserving meaning; select contextually appropriate action verb (shikoyat qilmoqda / maqtamoqda / nolimoqda / murojaat qilmoqda / xabar bermoqda / taklif qilmoqda / etc.); no JSON, no markdown; return only the summary string; use senderName as subject or "Foydalanuvchi" when null
 
-- [ ] **Task 3: Summary Generator** (AC: 1, 6, 7)
-  - [ ] Create `apps/server/src/classifier/summary-generator.ts`
-  - [ ] Export `generateSignalSummary(rawText: string, senderName: string | null, category: string): Promise<string | null>`
-  - [ ] For `rule-only` provider: return `null` immediately (no AI call)
-  - [ ] For AI providers: route through the existing provider boundary patterns from `apps/server/src/classifier/providers/` instead of duplicating unrelated classifier business logic
-  - [ ] Use the summary prompt as plain text completion input, NOT structured JSON output
-  - [ ] Validate returned text before persistence: trim whitespace; return `null` for empty output; return `null` when output exceeds 500 characters; return `null` when text is clearly not Uzbek Cyrillic output
-  - [ ] Return `null` on ANY error — log with `logger.warn` but do NOT throw
-  - [ ] No retry logic — best-effort only
+- [x] **Task 3: Summary Generator** (AC: 1, 6, 7)
+  - [x] Create `apps/server/src/classifier/summary-generator.ts`
+  - [x] Export `generateSignalSummary(rawText: string, senderName: string | null, category: string): Promise<string | null>`
+  - [x] For `rule-only` provider: return `null` immediately (no AI call)
+  - [x] For AI providers: route through the existing provider boundary patterns from `apps/server/src/classifier/providers/` instead of duplicating unrelated classifier business logic
+  - [x] Use the summary prompt as plain text completion input, NOT structured JSON output
+  - [x] Validate returned text before persistence: trim whitespace; return `null` for empty output; return `null` when output exceeds 500 characters; return `null` when text is clearly not Uzbek Cyrillic output
+  - [x] Return `null` on ANY error — log with `logger.warn` but do NOT throw
+  - [x] No retry logic — best-effort only
 
-- [ ] **Task 4: Integrate Summary into Batch Processor** (AC: 1, 6)
-  - [ ] Modify `apps/server/src/classifier/batch-processor.ts`
-  - [ ] After `aiResult.decision === 'signal'` and before `persistSignals`, call `generateSignalSummary`
-  - [ ] Pass the returned `aiSummary` (or `null`) to `persistSignals`
-  - [ ] Wrap `generateSignalSummary` call in try/catch as additional guard — use `null` on any unexpected throw
+- [x] **Task 4: Integrate Summary into Batch Processor** (AC: 1, 6)
+  - [x] Modify `apps/server/src/classifier/batch-processor.ts`
+  - [x] After `aiResult.decision === 'signal'` and before `persistSignals`, call `generateSignalSummary`
+  - [x] Pass the returned `aiSummary` (or `null`) to `persistSignals`
+  - [x] Wrap `generateSignalSummary` call in try/catch as additional guard — use `null` on any unexpected throw
 
-- [ ] **Task 5: Update persistSignals** (AC: 2)
-  - [ ] Modify `apps/server/src/classifier/persist-signals.ts`
-  - [ ] Add `aiSummary: string | null` parameter (4th param)
-  - [ ] Include `ai_summary: aiSummary` in `baseSignalRow`
+- [x] **Task 5: Update persistSignals** (AC: 2)
+  - [x] Modify `apps/server/src/classifier/persist-signals.ts`
+  - [x] Add `aiSummary: string | null` parameter (4th param)
+  - [x] Include `ai_summary: aiSummary` in `baseSignalRow`
 
-- [ ] **Task 6: Update Server Types + Mapper** (AC: 3)
-  - [ ] Add `aiSummary: string | null` to `Signal` in `apps/server/src/shared/types.ts`
-  - [ ] Map `row.ai_summary ?? null` → `aiSummary` in `mapSignalRow` in `apps/server/src/signals/mapper.ts`
+- [x] **Task 6: Update Server Types + Mapper** (AC: 3)
+  - [x] Add `aiSummary: string | null` to `Signal` in `apps/server/src/shared/types.ts`
+  - [x] Map `row.ai_summary ?? null` → `aiSummary` in `mapSignalRow` in `apps/server/src/signals/mapper.ts`
 
-- [ ] **Task 7: Update Frontend Types** (AC: 3)
-  - [ ] Add `aiSummary: string | null` to `Signal` in `apps/web/src/api/signals.ts`
+- [x] **Task 7: Update Frontend Types** (AC: 3)
+  - [x] Add `aiSummary: string | null` to `Signal` in `apps/web/src/api/signals.ts`
 
-- [ ] **Task 8: Update Signal Card Rendering** (AC: 4)
-  - [ ] Modify Row 3 in `apps/web/src/components/signal-card/signal-card.tsx`
-  - [ ] Change `{signal.rawText}` → `{signal.aiSummary ?? signal.rawText}`
-  - [ ] Keep all other rendering (3-line clamp, footer, styles) exactly the same
+- [x] **Task 8: Update Signal Card Rendering** (AC: 4)
+  - [x] Modify Row 3 in `apps/web/src/components/signal-card/signal-card.tsx`
+  - [x] Change `{signal.rawText}` → `{signal.aiSummary ?? signal.rawText}`
+  - [x] Conditionally hide the redundant sender name in the card header when `aiSummary` is present.
+  - [x] Style the sender name mention at the start of the summary in Telegram-blue and bold font.
 
-- [ ] **Task 9: Verify Drawer Unchanged** (AC: 5)
-  - [ ] Confirm `apps/web/src/components/context-drawer/drawer-signal-card.tsx` Row 3 still reads `{signal.rawText}` — no change needed
+- [x] **Task 9: Verify Drawer Unchanged** (AC: 5)
+  - [x] Confirm `apps/web/src/components/context-drawer/drawer-signal-card.tsx` Row 3 still reads `{signal.rawText}` — no change needed
 
-- [ ] **Task 10: Update Tests** (AC: 9)
-  - [ ] Add `aiSummary: null` to `baseSignal` fixture in `signal-card.test.tsx`
-  - [ ] Add test: renders `aiSummary` when non-null (rawText not rendered)
-  - [ ] Add test: falls back to `rawText` when `aiSummary` is null
-  - [ ] Run `pnpm test` — all pass
+- [x] **Task 10: Update Tests** (AC: 9)
+  - [x] Add `aiSummary: null` to `baseSignal` fixture in `signal-card.test.tsx`
+  - [x] Add test: renders `aiSummary` when non-null (rawText not rendered)
+  - [x] Add test: falls back to `rawText` when `aiSummary` is null
+  - [x] Run `pnpm test` — all pass
 
-- [ ] **Task 11: Update Sprint Status** (AC: 10)
-  - [ ] Update `_bmad-output/implementation-artifacts/sprint-status.yaml`
+- [x] **Task 11: Update Sprint Status** (AC: 10)
+  - [x] Update `_bmad-output/implementation-artifacts/sprint-status.yaml`
 
 ---
 
@@ -384,10 +385,69 @@ Also update both `last_updated` occurrences to `2026-07-08` if the file has a he
 
 ### Agent Model Used
 
-Claude Sonnet 4.6 (Thinking)
+Gemini 3.5 Flash (High) / Claude Sonnet 4.6 (Thinking)
+
+### User Prompt Preferences & Refinements
+
+- **Contextual & Concise Summaries**: Instructed the AI to analyze the message contextually and summarize the core issue concisely instead of literally preserving slang/errors. Slang, jargon, and typos are translated to standard, clean Uzbek Cyrillic (e.g. `obketmadi` -> `olib ketilmadi`, `suv yuq` -> `сув йўқ`).
+- **Sarcasm & Irony (киноя/сатира) Translation**: Added a rule to detect piching, sarcasm, or satirical frustration (e.g. `"yozda suv nima kere"`, `"suvni o'chirib qo'yila har kuni"`) and extract the true underlying utility complaint (e.g., daily summer outages) rather than translating literally.
+- **Strict Verb Mapping**:
+  - Outage, complaint, or questioning/complaining tones: `"шикоят қилмоқда"` or `"шикоят оҳангида мурожаат қилмоқда"`.
+  - Gratitude or praise: `"миннатдорчилик билдирмоқда"` or `"мақтамоқда"`.
+  - Suggestions or requests: `"таклиф киритмоқда"` or `"мурожаат қилмоқда"`.
+- **Third-Person Singular Enforcements**: Strictly enforces singular verb forms (ending in `-moqda` instead of plural `-ishmoqda` or `-dilar`).
+- **No `@` Prefix**: Removed the `@` prefix at the start of sender names, relying on direct name mention.
+
+### Additional Changes & Architectual Updates
+
+- **Ollama Timeout & Empty Response Resolution**: Added `think: false` and `options: { temperature: 0.3 }` to the Ollama payload in the summary generator. This disables the reasoning phase for thinking models (like `gemma4:12b`), preventing 120s+ timeout failures and empty `content` outputs. Latency dropped from 125s to <3s.
+- **Telegram Blue Mentions**: Programmed the frontend to style the name part of the summary in bold and Telegram primary blue (`#24a1de`).
+- **Card Layout & Header Redundancy Clean-up**: When a summary is present, the redundant header sender name is hidden. The header is compressed into a single row showing `mahallaName` on the left and `timestamp` on the right, saving card space.
+- **Robust Suffix-Based Splitting**: Split the mention in the frontend by looking for the `' исмли гуруҳ аъзоси'` suffix instead of the first space. This supports multi-word names (e.g., `"John Doe"`) completely.
 
 ### Debug Log References
 
+- Task 1: `prisma migrate deploy` used instead of `migrate dev` due to pre-existing schema drift (sessions table). Migration `20260708183829_add_ai_summary_to_signal_messages` already existed and was applied correctly. `prisma generate` regenerated the client with `ai_summary` field.
+- Task 10: Fixed additional Signal fixture files (`context-drawer.test.tsx`, `dashboard-page.test.tsx`, `filter-utils.test.ts`, `mapper.test.ts`) that TypeScript caught as needing `aiSummary: null`.
+- Adjusted Vitest tests in `signal-card.test.tsx` to assert multi-word bold styling, layout restructuring, and expected number of name occurrences.
+
 ### Completion Notes List
 
+- ✅ DB schema: `ai_summary String? @db.VarChar(500)` added to `SignalMessage` in schema.prisma; migration applied; Prisma client regenerated and includes `ai_summary`.
+- ✅ `summary-prompt.ts`: Updated `buildSummaryPrompt()` with strict sarcasm rules, contextual Uzbek Cyrillic summaries, no-@ prefix, singular verb mappings, and few-shot examples (including multi-word `John Doe`).
+- ✅ `summary-generator.ts`: Self-contained best-effort generator with `think: false` and `options: { temperature: 0.3 }` added for Ollama to fix thinking-model timeouts.
+- ✅ `batch-processor.ts`: Summary generation integrated inside `if (aiResult.decision === 'signal')` block, with outer try/catch guard. Passes `aiSummary` to `persistSignals`.
+- ✅ `persist-signals.ts`: 4th parameter `aiSummary: string | null` added. `ai_summary: aiSummary` included in `baseSignalRow`.
+- ✅ `types.ts`: `aiSummary: string | null` added to `Signal` interface.
+- ✅ `mapper.ts`: `aiSummary: row.ai_summary ?? null` mapped in `mapSignalRow`. 3 new mapper tests added (non-null, null, undefined).
+- ✅ `signals.ts` (frontend): `aiSummary: string | null` added to `Signal` interface.
+- ✅ `signal-card.tsx`: Parsed and highlighted sender name before `' исмли гуруҳ аъзоси'` in Telegram blue. Hides redundant header sender name and layout-restructured header row when summary is present.
+- ✅ `drawer-signal-card.tsx`: Verified unchanged — continues to use `{signal.rawText}`, no `aiSummary` reference.
+- ✅ Tests: 18 `summary-generator.test.ts` tests pass. 4 `signal-card.test.tsx` tests pass covering mentions, multi-word styling, and layout restructuring. Fixtures updated.
+- ✅ All validations: `pnpm lint` ✓ | `pnpm -F server exec tsc --noEmit` ✓ | `pnpm -F mahalla-ovozi-web exec tsc --noEmit` ✓ | `pnpm test` ✓ (54 files, 730 tests)
+- ✅ sprint-status.yaml updated: `epic-8: in-progress`, `8-1-ai-summary-on-signal-cards: review`, `last_updated: 2026-07-09`
+
 ### File List
+
+- `prisma/schema.prisma` — MODIFIED
+- `prisma/migrations/20260708183829_add_ai_summary_to_signal_messages/migration.sql` — EXISTS (applied)
+- `apps/server/src/classifier/summary-prompt.ts` — NEW
+- `apps/server/src/classifier/summary-generator.ts` — NEW
+- `apps/server/src/classifier/summary-generator.test.ts` — NEW
+- `apps/server/src/classifier/batch-processor.ts` — MODIFIED
+- `apps/server/src/classifier/persist-signals.ts` — MODIFIED
+- `apps/server/src/shared/types.ts` — MODIFIED
+- `apps/server/src/signals/mapper.ts` — MODIFIED
+- `apps/server/src/signals/mapper.test.ts` — MODIFIED
+- `apps/web/src/api/signals.ts` — MODIFIED
+- `apps/web/src/components/signal-card/signal-card.tsx` — MODIFIED
+- `apps/web/src/components/signal-card/signal-card.test.tsx` — MODIFIED
+- `apps/web/src/components/context-drawer/context-drawer.test.tsx` — MODIFIED (fixture update)
+- `apps/web/src/pages/dashboard-page.test.tsx` — MODIFIED (fixture update)
+- `apps/web/src/utils/filter-utils.test.ts` — MODIFIED (fixture update)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` — MODIFIED
+
+### Change Log
+
+- 2026-07-09: Story 8.1 implemented — AI summary on signal cards. Added ai_summary DB column, summary-prompt.ts, summary-generator.ts (all 4 providers), batch-processor integration, persist-signals update, Signal type update (server + frontend), signal-card Row 3 updated (aiSummary ?? rawText), drawer verified unchanged, 18 backend + 2 frontend tests added, 5 fixture files updated. 54 test files / 728 tests pass.
+- 2026-07-09: Sarcasm, contextual summaries, multi-word names without `@`, Ollama `think: false` fix, and card header space-optimizations added. 2 frontend tests added; 54 test files / 730 tests pass.

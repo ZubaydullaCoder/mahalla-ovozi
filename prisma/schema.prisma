@@ -97,6 +97,7 @@ model SignalMessage {
   keyword_matched     Boolean  @default(false)
   matched_keyword     String?  @db.VarChar(120)
   short_label         String?  @db.VarChar(100)
+  ai_summary          String?  @db.VarChar(500)
   classified_at       DateTime
   created_at          DateTime @default(now())
 

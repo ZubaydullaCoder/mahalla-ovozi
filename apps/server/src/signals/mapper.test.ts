@@ -22,6 +22,7 @@ const BASE_ROW = {
   keyword_matched:      true,
   matched_keyword:      'gaz',
   short_label:          null,
+  ai_summary:           null,
   classified_at:        new Date('2026-06-14T10:20:00.000Z'),
   mahalla: {
     name:             'Navbahor',
@@ -77,6 +78,7 @@ describe('mapSignalRow', () => {
       keywordMatched:       true,
       matchedKeyword:       'gaz',
       shortLabel:           null,
+      aiSummary:            null,
       classifiedAt:         '2026-06-14T10:20:00.000Z',
     })
   })
@@ -160,5 +162,23 @@ describe('mapSignalRow', () => {
       const row = { ...BASE_ROW, category: cat } as unknown as SignalMessageWithMahalla
       expect(mapSignalRow(row).category).toBe(cat)
     }
+  })
+
+  it('maps a non-null ai_summary to aiSummary', () => {
+    const row = {
+      ...BASE_ROW,
+      ai_summary: 'Алиев газимиз йўқ деб шикоят қилмоқда.',
+    } as unknown as SignalMessageWithMahalla
+    expect(mapSignalRow(row).aiSummary).toBe('Алиев газимиз йўқ деб шикоят қилмоқда.')
+  })
+
+  it('normalizes null ai_summary to null', () => {
+    const row = { ...BASE_ROW, ai_summary: null } as unknown as SignalMessageWithMahalla
+    expect(mapSignalRow(row).aiSummary).toBeNull()
+  })
+
+  it('normalizes undefined ai_summary to null', () => {
+    const row = { ...BASE_ROW, ai_summary: undefined } as unknown as SignalMessageWithMahalla
+    expect(mapSignalRow(row).aiSummary).toBeNull()
   })
 })

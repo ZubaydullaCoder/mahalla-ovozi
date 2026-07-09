@@ -73,24 +73,39 @@ export function SignalCard({ signal, isActive, categoryColor, onClick }: SignalC
         ;(e.currentTarget as HTMLDivElement).style.transform = ''
       }}
     >
-      {/* Row 1: sender + timestamp */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
-        <Tooltip title={isTruncated ? senderName : undefined} placement="top">
-          <span style={{ fontSize: 13, fontWeight: 600, color: token.colorText, lineHeight: 1.4 }}>
-            {displaySender}
+      {/* Card Header & Metadata */}
+      {!signal.aiSummary ? (
+        <>
+          {/* Row 1: sender + timestamp */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
+            <Tooltip title={isTruncated ? senderName : undefined} placement="top">
+              <span style={{ fontSize: 13, fontWeight: 600, color: token.colorText, lineHeight: 1.4 }}>
+                {displaySender}
+              </span>
+            </Tooltip>
+            <span style={{ fontSize: 11, color: token.colorTextSecondary, flexShrink: 0, marginLeft: 8 }}>
+              {timestamp}
+            </span>
+          </div>
+
+          {/* Row 2: mahalla */}
+          <div style={{ fontSize: 12, color: token.colorTextSecondary, marginBottom: 4 }}>
+            {signal.mahallaName}
+          </div>
+        </>
+      ) : (
+        /* Senders are mentioned in the summary, so we show only mahalla and timestamp in header to prevent redundancy */
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+          <span style={{ fontSize: 12, color: token.colorTextSecondary, fontWeight: 500 }}>
+            {signal.mahallaName}
           </span>
-        </Tooltip>
-        <span style={{ fontSize: 11, color: token.colorTextSecondary, flexShrink: 0, marginLeft: 8 }}>
-          {timestamp}
-        </span>
-      </div>
+          <span style={{ fontSize: 11, color: token.colorTextSecondary, flexShrink: 0, marginLeft: 8 }}>
+            {timestamp}
+          </span>
+        </div>
+      )}
 
-      {/* Row 2: mahalla */}
-      <div style={{ fontSize: 12, color: token.colorTextSecondary, marginBottom: 4 }}>
-        {signal.mahallaName}
-      </div>
-
-      {/* Row 3: raw text (3-line clamp) */}
+      {/* Row 3: summary (AI-generated) or raw text fallback (3-line clamp) */}
       <div
         style={{
           fontSize: 13,
@@ -103,7 +118,23 @@ export function SignalCard({ signal, isActive, categoryColor, onClick }: SignalC
           marginBottom: hasFooter ? 6 : 0,
         }}
       >
-        {signal.rawText}
+        {(() => {
+          if (signal.aiSummary) {
+            const suffix = ' исмли гуруҳ аъзоси'
+            const suffixIdx = signal.aiSummary.indexOf(suffix)
+            if (suffixIdx !== -1) {
+              const senderName = signal.aiSummary.substring(0, suffixIdx)
+              const rest = signal.aiSummary.substring(suffixIdx)
+              return (
+                <>
+                  <span style={{ color: '#24a1de', fontWeight: 600 }}>{senderName}</span>
+                  {rest}
+                </>
+              )
+            }
+          }
+          return signal.aiSummary ?? signal.rawText
+        })()}
       </div>
 
       {/* Footer: CaptionBadge + HokimStar */}

@@ -42,6 +42,7 @@ const mockSignal = vi.hoisted((): Signal => ({
   keywordMatched:     true,
   matchedKeyword:     'газ',
   shortLabel:         null,
+  aiSummary:          null,
   classifiedAt:       '2026-06-24T05:43:00.000Z',
 }))
 
@@ -64,6 +65,7 @@ const secondSignal = vi.hoisted((): Signal => ({
   keywordMatched:     true,
   matchedKeyword:     'сув',
   shortLabel:         null,
+  aiSummary:          null,
   classifiedAt:       '2026-06-24T05:51:00.000Z',
 }))
 

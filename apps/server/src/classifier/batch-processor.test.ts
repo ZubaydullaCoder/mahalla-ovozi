@@ -71,6 +71,14 @@ vi.mock('./ai-client.js', () => ({
   classifyMessage: aiMocks.classifyMessage,
 }))
 
+const summaryMocks = vi.hoisted(() => ({
+  generateSignalSummary: vi.fn(),
+}))
+
+vi.mock('./summary-generator.js', () => ({
+  generateSignalSummary: summaryMocks.generateSignalSummary,
+}))
+
 import {
   aggregateIntakeMetrics,
   classifyBatch,
@@ -131,6 +139,7 @@ describe('classifyBatch', () => {
     prismaMocks.batchHealthCreate.mockResolvedValue({ id: 1 })
     prismaMocks.pipelineEventCreate.mockResolvedValue({ id: 30 })
     prismaMocks.queryRaw.mockResolvedValue([])
+    summaryMocks.generateSignalSummary.mockResolvedValue(null)
   })
 
   it('writes a signal and deletes the raw message in one transaction', async () => {
@@ -177,6 +186,44 @@ describe('classifyBatch', () => {
         }),
       }),
     })
+  })
+
+  it('integrates summary generation successfully during batch classification and persists it', async () => {
+    aiMocks.classifyMessage.mockResolvedValue(signalOutput())
+    summaryMocks.generateSignalSummary.mockResolvedValue('Ali Karimov исмли гуруҳ аъзоси сув таъминоти ҳақида шикоят қилмоқда.')
+
+    const result = await classifyBatch(1)
+
+    expect(result.status).toBe('ok')
+    expect(summaryMocks.generateSignalSummary).toHaveBeenCalledWith(
+      rawMessage.text,
+      rawMessage.sender_display_name,
+      'water'
+    )
+    expect(prismaMocks.signalMessageCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        raw_text: rawMessage.text,
+        category: 'water',
+        ai_summary: 'Ali Karimov исмли гуруҳ аъзоси сув таъминоти ҳақида шикоят қилмоқда.',
+      }),
+    })
+  })
+
+  it('persists null when summary generation fails or returns null, and does not block the classification transaction', async () => {
+    aiMocks.classifyMessage.mockResolvedValue(signalOutput())
+    summaryMocks.generateSignalSummary.mockRejectedValue(new Error('AI summary generation timeout'))
+
+    const result = await classifyBatch(1)
+
+    expect(result.status).toBe('ok')
+    expect(prismaMocks.signalMessageCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        raw_text: rawMessage.text,
+        category: 'water',
+        ai_summary: null,
+      }),
+    })
+    expect(prismaMocks.rawMessageDelete).toHaveBeenCalledWith({ where: { id: rawMessage.id } })
   })
 
   it('records zero written signals when an accepted result only matches existing categories', async () => {

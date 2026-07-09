@@ -26,6 +26,7 @@ const baseSignal: Signal = {
   keywordMatched: true,
   matchedKeyword: 'gaz',
   shortLabel: null,
+  aiSummary: null,
   classifiedAt: new Date().toISOString(),
 }
 
@@ -183,5 +184,35 @@ describe('SignalCard', () => {
     const card = articles.find((el) => el.classList.contains('signal-card'))
     expect(card).toBeDefined()
     expect(card!.getAttribute('tabindex')).toBe('0')
+  })
+  it('renders aiSummary when aiSummary is non-null (rawText not rendered in message row)', () => {
+    renderCard({ signal: { ...baseSignal, aiSummary: 'Алиев исмли гуруҳ аъзоси газимиз йўқ деб шикоят қилмоқда.' } })
+    expect(screen.getByText('исмли гуруҳ аъзоси газимиз йўқ деб шикоят қилмоқда.')).toBeTruthy()
+    // rawText should NOT be visible in the card message row
+    expect(screen.queryByText('Газ йўқ, уй совуқ')).toBeNull()
+  })
+
+  it('falls back to rawText when aiSummary is null', () => {
+    renderCard({ signal: { ...baseSignal, aiSummary: null } })
+    expect(screen.getByText('Газ йўқ, уй совуқ')).toBeTruthy()
+  })
+
+  it('when aiSummary is present, it hides sender name in header and renders mahallaName on left in header', () => {
+    renderCard({ signal: { ...baseSignal, aiSummary: 'Alisher John исмли гуруҳ аъзоси ...' } })
+    // The sender name 'Alisher John' should NOT be rendered in the header (which would make it 2 matches total).
+    // It is only rendered once inside the summary text.
+    const boldSpans = screen.queryAllByText('Alisher John')
+    expect(boldSpans.length).toBe(1)
+    expect(screen.getByText('Навбаҳор маҳалласи')).toBeTruthy()
+  })
+
+  it('styles full sender name inside summary with blue color and bold font (even with spaces and no @ prefix)', () => {
+    renderCard({ signal: { ...baseSignal, aiSummary: 'John Doe Senior исмли гуруҳ аъзоси газимиз йўқ деб шикоят қилмоқда.' } })
+    const mentionSpan = screen.getByText('John Doe Senior')
+    expect(mentionSpan).toBeTruthy()
+    expect(mentionSpan).toHaveStyle({
+      color: '#24a1de',
+      fontWeight: '600',
+    })
   })
 })

@@ -6,6 +6,7 @@ import { writeClassifierEvent } from './events.js'
 import { aggregateIntakeMetrics, zeroIntakeMetrics } from './intake-metrics.js'
 import { persistSignals } from './persist-signals.js'
 import { classifyMessageWithRetry } from './retry.js'
+import { generateSignalSummary } from './summary-generator.js'
 
 export { aggregateIntakeMetrics } from './intake-metrics.js'
 export { classifyMessageWithRetry } from './retry.js'
@@ -64,7 +65,22 @@ export async function classifyBatch(
         const aiResult = await classifyMessageWithRetry(rawMessage.text, 3, sleepFn)
 
         if (aiResult.decision === 'signal') {
-          const persistResult = await persistSignals(rawMessage, aiResult, aiResult.categories)
+          // Generate AI summary (best-effort — never blocks signal write)
+          let aiSummary: string | null = null
+          try {
+            aiSummary = await generateSignalSummary(
+              rawMessage.text,
+              rawMessage.sender_display_name ?? rawMessage.sender_username ?? null,
+              aiResult.categories.join(', '),
+            )
+          } catch (err) {
+            logger.warn(
+              { rawMessageId: rawMessage.id, err },
+              'Summary generation unexpected error; using null',
+            )
+          }
+
+          const persistResult = await persistSignals(rawMessage, aiResult, aiResult.categories, aiSummary)
           signalsWritten += persistResult.signalsWritten
 
           await writeClassifierEvent({
