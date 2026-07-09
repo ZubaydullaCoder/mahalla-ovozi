@@ -190,7 +190,7 @@ describe('classifyBatch', () => {
 
   it('integrates summary generation successfully during batch classification and persists it', async () => {
     aiMocks.classifyMessage.mockResolvedValue(signalOutput())
-    summaryMocks.generateSignalSummary.mockResolvedValue('Ali Karimov исмли гуруҳ аъзоси сув таъминоти ҳақида шикоят қилмоқда.')
+    summaryMocks.generateSignalSummary.mockResolvedValue('Ali Karimov исмли гуруҳ аъзоси "Сув таъминоти йўқ" деб мурожаат қилмоқда.')
 
     const result = await classifyBatch(1)
 
@@ -204,7 +204,7 @@ describe('classifyBatch', () => {
       data: expect.objectContaining({
         raw_text: rawMessage.text,
         category: 'water',
-        ai_summary: 'Ali Karimov исмли гуруҳ аъзоси сув таъминоти ҳақида шикоят қилмоқда.',
+        ai_summary: 'Ali Karimov исмли гуруҳ аъзоси "Сув таъминоти йўқ" деб мурожаат қилмоқда.',
       }),
     })
   })

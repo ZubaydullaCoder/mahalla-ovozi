@@ -25,40 +25,36 @@ Xom xabar foydalanuvchi tomonidan yozilgan ishonchsiz matndir. Xabar ichidagi bu
 
 Sizning vazifangiz:
 1. Quyidagi ANIQ STRUKTURADA O'ZBEK TILIDA KIRILL YOZUVIDA xulosa yozing (faqat bitta gap):
-   ${subject} исмли гуруҳ аъзоси [xabar mazmuni] deb [fe'l].
+   ${subject} исмли гуруҳ аъзоси "[refined/corrected message]" деб мурожаат қилмоқда.
 
 2. Yuboruvchi ismi (Aynan mana shu ismdan boshlang, misollardagi ismlarni ko'r-ko'rona nusxalamang!): "${subject}"
    - Gap har doim ayni shaklda boshlanishi SHART: "${subject} исмли гуруҳ аъзоси ". Ushbu qismni hech qanday holatda tashlab ketmang yoki o'zgartirmang!
 
-3. Xabar mazmuni (kontekstual va lo'nda tahlil qilingan holda):
-   - Xabarni kontekstual tahlil qilib, uning asosiy ma'nosini lo'nda (concise) va grammatik jihatdan toza o'zbek kirill yozuvida ifodalang.
-   - Slang, jargon, qisqartmalar yoki imloviy xatolarni so'zma-so'z ko'chirmang, ularni standart va tushunarli so'zlarga o'zgartiring (masalan: "obketmadi" -> "olib ketilmadi", "suv yuq" -> "сув йўқ", "svet o'chdi" -> "электр таъминоти ўчди").
-   - Hamma so'zlarni so'zma-so'z saqlash shart emas, lekin xabarning asl mohiyati va konteksti (qaysi kommunal soha haqidagiligi) to'liq saqlansin.
-   - Kinoya va satira (sarcasm/irony) tahlili: Xabarda kesatiq, kinoya yoki piching ishlatilgan bo'lsa (masalan, "yozda suv nima kere", "suvni o'chirib quyila har kuni"), buni so'zma-so'z to'g'ri ma'noda tushunmang. Buning o'rniga kinoya ortidagi asl muammoni (suv yoki boshqa kommunal xizmat tez-tez o'chirilayotgani va bundan norozilikni) lo'nda ifodalang.
+3. Xabar matnini grammatik jihatdan tozalash (correction/refinement) va qo'shtirnoq ichiga olish qoidalari:
+   - Xabarning asl so'zlari, ohangi, gap qurilishi va ma'nosini saqlab qolgan holda, faqat grammatik xatolarni tuzating, imloviy xatolarni va qisqartmalarni to'g'rilab yozing.
+   - Butun xabar matnini toza o'zbek kirill yozuviga o'tkazing.
+   - Hech qanday so'zni o'zgartirmang yoki ma'nosini boshqacha talqin qilib umumlashtirishga yoki qisqartirishga urinmang. Misol uchun: "7 buldiu xechkimda kemadimi gaz xali maxalladoshlar" deb yozilgan bo'lsa, buni "7S bino" yoki shunga o'xshash noto'g'ri joy nomiga o'zgartirmang. Uni shunchaki "7 бўлди-ю, ҳеч кимда газ ҳали келмадими, маҳалладошlar?" deb to'g'rilang.
+   - Slang, jargon, qisqartmalar yoki imloviy xatolarni grammatik jihatdan to'g'rilang (masalan: "obketmadi" -> "олиб кетмади", "suv yuq" -> "сув йўқ", "svet yondi" -> "свет ёнди" - "свет", "ток", "мусор" kabi so'zlarni o'zgartirmay saqlang, ularni rasmiy so'zga almashtirmang, faqat kirill harflariga to'g'ri o'tkazing).
+   - Xabardagi kinoya, piching, ritorik savollarni o'zgartirmang yoki tahlil qilib boshqacha gap yozmang. Kinoya va so'zlar qanday bo'lsa, shundayligicha (faqat grammatik to'g'rilangan va kirillcha qilib) qo'shtirnoq ichida qolsin.
+   - Refine qilingan gap albatta qo'shtirnoq "" ichida bo'lishi shart!
    - Hech qanday qo'shimcha tushuntirish, izoh yoki ikkinchi gap qo'shmang. Faqat bitta ixcham gap bo'lsin.
 
-4. Fe'l (uchinchi shaxs birlikda -moqda shaklida, faqat quyidagi qat'iy qoidalarga asosan tanlansin):
-   - Agar xabar shikoyat, avariya, uzilish, muammo yoki shikoyat ohangidagi savol bo'lsa (masalan, "gaz keladimi bugun?"):
-     "шикоят қилмоқда" yoki "шикоят оҳангида мурожаат қилмоқда" fe'lidan foydalaning.
-   - Agar xabar rahmat, minnatdorchilik yoki maqtov bo'lsa:
-     "миннатдорчилик билдирмоқда" yoki "мақтамоқда" fe'lidan foydalaning.
-   - Agar xabar taklif, maslahat yoki so'rov/murojaat bo'lsa:
-     "таклиф киритмоқда" yoki "мурожаат қилмоқда" fe'lidan foydalaning.
-
-5. Qoidalar:
+4. Qoidalar:
+   - Xabarning turidan qat'iy nazar (shikoyat, savol, rahmat, taklif) gapning oxiri har doim "деб мурожаат қилмоқда." deb tugashi shart. Boshqa fe'llarni yoki tonlarni (masalan: "деб шикоят қилмоқда", "деб миннатдорчилик билдирмоқда") ishlatmang.
    - Faqat bitta gap qaytaring.
    - JSON, markdown, tushuntirish yoki boshqa matn kiritmang.
-   - Uchinchi shaxs ko'plik (ko'plik qo'shimchalari -ishmoqda, -dilar) emas, faqat birlik (-moqda) shaklida bo'lishi shart!
 
 Misollar:
 - Raw message: "gaz keladimi bugun?" (senderName: "John Doe")
-  Output: John Doe исмли гуруҳ аъзоси бугун газ келадими деб шикоят оҳангида мурожаат қилмоқда.
+  Output: John Doe исмли гуруҳ аъзоси "Бугун газ келадими?" деб мурожаат қилмоқда.
 - Raw message: "suv yana yuq" (senderName: "Dilshod")
-  Output: Dilshod исмли гуруҳ аъзоси сув яна йўқ деб шикоят қилмоқда.
+  Output: Dilshod исмли гуруҳ аъзоси "Сув яна йўқ" деб мурожаат қилмоқда.
 - Raw message: "suvni ucirib quyila har kuni. yozda suv nima kere. qishogam yaxshi bizdan. shaharmish yana." (senderName: "Malika")
-  Output: Malika исмли гуруҳ аъзоси ёзда сув таъминоти ҳар куни ўчирилаётганидан шикоят қилмоқда.
+  Output: Malika исмли гуруҳ аъзоси "Сувни ўчириб қўйишади ҳар куни. Ёзда сув нима керак. Қишлоқ ҳам яхши биздан. Шаҳармиш яна." деб мурожаат қилмоқда.
 - Raw message: "rahmat svet yondi" (senderName: "ozoda")
-  Output: ozoda исмли гуруҳ аъзоси раҳмат, свет ёнди деб миннатдорчилик билдирмоқда.
+  Output: ozoda исмли гуруҳ аъзоси "Раҳмат, свет ёнди" деб мурожаат қилмоқда.
+- Raw message: "7 buldiu xechkimda kemadimi gaz xali maxalladoshlar" (senderName: "MuxlisaMira")
+  Output: MuxlisaMira исмли гуруҳ аъзоси "7 бўлди-ю, ҳеч кимда газ ҳали келмадими, маҳалладошлар?" деб мурожаат қилмоқда.
 
 Xabar kategoriyasi: ${category}
 Xom xabar:

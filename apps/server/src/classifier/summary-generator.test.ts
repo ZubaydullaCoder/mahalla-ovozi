@@ -40,7 +40,7 @@ import { logger } from '../shared/logger.js'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const VALID_CYRILLIC = 'Алиев газимиз йўқ деб шикоят қилмоқда.'
+const VALID_CYRILLIC = 'Алиев исмли гуруҳ аъзоси "Газимиз йўқ" деб мурожаат қилмоқда.'
 
 function setProvider(provider: typeof mockEnv.env.AI_PROVIDER) {
   mockEnv.env.AI_PROVIDER = provider

@@ -13,7 +13,6 @@ import type { Signal } from '../api/signals.ts'
 
 interface MockLaneGridProps {
   activeSignalId: number | null
-  isDrawerOpen?: boolean
   onCardClick: (signal: Signal) => void
 }
 

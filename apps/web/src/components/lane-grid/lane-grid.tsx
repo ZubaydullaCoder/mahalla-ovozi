@@ -15,10 +15,9 @@ export interface LaneGridProps {
   activeSignalId: number | null
   onCardClick: (signal: Signal) => void
   isKeywordSearch?: boolean   // when true, shows keyword-search-specific empty state
-  isDrawerOpen?: boolean      // when true, LaneColumn scroll containers freeze (AC-8)
 }
 
-export function LaneGrid({ signals, activeSignalId, onCardClick, isKeywordSearch, isDrawerOpen }: LaneGridProps) {
+export function LaneGrid({ signals, activeSignalId, onCardClick, isKeywordSearch }: LaneGridProps) {
   return (
     <div
       className="lane-board"
@@ -37,7 +36,6 @@ export function LaneGrid({ signals, activeSignalId, onCardClick, isKeywordSearch
           activeSignalId={activeSignalId}
           onCardClick={onCardClick}
           isKeywordSearch={isKeywordSearch}
-          isDrawerOpen={isDrawerOpen}
         />
       ))}
     </div>

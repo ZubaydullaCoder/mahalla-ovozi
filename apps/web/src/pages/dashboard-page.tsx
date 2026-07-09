@@ -149,7 +149,6 @@ export function DashboardPage() {
                 activeSignalId={activeSignalId}
                 onCardClick={openDrawer}
                 isKeywordSearch={isKeywordActive}
-                isDrawerOpen={isDrawerOpen}
               />
             </div>
           </div>
