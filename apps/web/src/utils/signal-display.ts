@@ -1,7 +1,7 @@
 import type { Signal } from '../api/signals.ts'
 import { strings } from '../strings.ts'
+import { UTC5_OFFSET_MS, formatUTC5Time } from './utc5-time.ts'
 
-const UTC5_OFFSET_MS = 5 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
 
 export function getSignalSenderName(signal: Pick<Signal, 'senderDisplayName' | 'senderUsername'>): string {
@@ -59,9 +59,4 @@ function formatUTC5DateTime(date: Date, now: Date): string {
   return `${day} ${monthLabel}${yearLabel} ${formatUTC5Time(date)}`
 }
 
-function formatUTC5Time(date: Date): string {
-  const { hours, minutes } = getUTC5Parts(date)
-  const hh = String(hours).padStart(2, '0')
-  const mm = String(minutes).padStart(2, '0')
-  return `${hh}:${mm}`
-}
+

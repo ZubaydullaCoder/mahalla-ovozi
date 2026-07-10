@@ -1,57 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { OPS_QUERY_KEY } from './common.ts'
 
-export interface OpsSignal {
-  id:                 number
-  telegramUpdateId:   number
-  telegramMessageId:  number
-  telegramMessageUrl: string | null
-  districtId:         number
-  mahallaId:          number
-  mahallaName:        string
-  senderDisplayName:  string | null
-  senderUsername:     string | null
-  telegramTimestamp:  string
-  rawText:            string
-  textSource:         'text' | 'caption'
-  category:           'water' | 'electricity' | 'gas' | 'waste'
-  hokimRelated:       boolean
-  keywordMatched:     boolean
-  matchedKeyword:     string | null
-  shortLabel:         string | null
-  classifiedAt:       string
-}
-
-export interface RawMessageRow {
-  id:                number
-  mahallaId:         number
-  mahallaName:       string
-  text:              string
-  textSource:        'text' | 'caption'
-  keywordMatched:    boolean
-  matchedKeyword:    string | null
-  telegramTimestamp: string
-  isSimulated:       boolean
-}
-
-export interface OpsSystemHealth {
-  database:        { status: 'ok' | 'error'; latencyMs: number | null }
-  scheduler:       { status: 'running' | 'stopped'; nextRunInSeconds: number | null }
-  aiApi:           { status: 'ok' | 'error' | 'unknown'; lastCheckedAt: string | null }
-  bot:             { status: 'ok' | 'error' }
-  botConnectivity: Array<{
-    mahallaId:    number
-    mahallaName:  string
-    botStatus:    'active' | 'removed' | 'unknown'
-    botLastSeenAt: string | null
-  }>
-}
-
-export interface OpsSignalsFilters {
-  category?:    'water' | 'electricity' | 'gas' | 'waste' | ''
-  mahallaId?:   number | null
-  hokimRelated?: boolean | null
-}
+import type { OpsSignal, RawMessageRow, OpsSystemHealth, OpsSignalsFilters } from '@mahalla-ovozi/contracts'
+export type { OpsSignal, RawMessageRow, OpsSystemHealth, OpsSignalsFilters }
 
 async function fetchOpsSignals(
   filters: OpsSignalsFilters = {},

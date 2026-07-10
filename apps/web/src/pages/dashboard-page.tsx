@@ -2,8 +2,8 @@
 import { Alert, Skeleton } from 'antd'
 import { AppShell } from '../components/app-shell.tsx'
 import { UnsupportedScreen } from '../components/unsupported-screen.tsx'
-import { LaneGrid, type SignalsByCategory } from '../components/lane-grid/lane-grid.tsx'
-import { useSignals, type Signal } from '../api/signals.ts'
+import { LaneGrid } from '../components/lane-grid/lane-grid.tsx'
+import { useSignals } from '../api/signals.ts'
 import { useHealth } from '../api/health.ts'
 import { DelayBanner } from '../components/delay-banner.tsx'
 import { FilterBar } from '../components/filter-bar/filter-bar.tsx'
@@ -11,6 +11,7 @@ import { useFilters } from '../hooks/use-filters.ts'
 import { useDashboardDrawerState } from '../hooks/use-dashboard-drawer-state.ts'
 import { useDashboardSearchState } from '../hooks/use-dashboard-search-state.ts'
 import { filterByTimeRange, filterByMahalla, filterByKeyword } from '../utils/filter-utils.ts'
+import { groupSignals } from '../utils/group-signals.ts'
 import { strings } from '../strings.ts'
 import { ContextDrawer } from '../components/context-drawer/context-drawer.tsx'
 
@@ -23,29 +24,7 @@ const SKELETON_LANE_LABELS = [
   strings.dashboard.lanes.waste,
 ] as const
 
-// Group raw Signal[] into 5 lanes.
-// Hokim lane duplication: signals with hokimRelated===true appear in BOTH
-// their service lane AND the hokim lane (same object reference — not a copy).
-function groupSignals(signals: Signal[]): SignalsByCategory {
-  const lanes: SignalsByCategory = {
-    hokim:       [],
-    water:       [],
-    electricity: [],
-    gas:         [],
-    waste:       [],
-  }
 
-  for (const signal of signals) {
-    // Always add to service lane
-    lanes[signal.category].push(signal)
-    // Also add to hokim lane if hokimRelated — same reference
-    if (signal.hokimRelated) {
-      lanes.hokim.push(signal)
-    }
-  }
-
-  return lanes
-}
 
 export function DashboardPage() {
   const {

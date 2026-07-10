@@ -11,13 +11,16 @@
     "dev:server": "tsx watch apps/server/src/web/index.ts",
     "dev:web": "pnpm --filter mahalla-ovozi-web dev",
     "lint": "eslint apps/ scripts/ prisma/*.ts prisma.config.ts vitest.config.ts",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset",
-    "db:seed": "pnpm db:generate && prisma db seed"
+    "db:seed": "pnpm db:generate && prisma db seed",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "eval:classifier": "tsx eval/run-classifier-eval.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.28.0",

@@ -1,6 +1,7 @@
 // apps/web/src/hooks/use-filters.ts
 import { useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { getUTC5DayStart } from '../utils/utc5-time.ts'
 
 export type TimeRangePreset = '1h' | '3h' | '6h' | 'today' | 'yesterday' | '7d' | 'custom'
 
@@ -15,19 +16,7 @@ const TIME_RANGE_PRESETS = ['1h', '3h', '6h', 'today', 'yesterday', '7d', 'custo
 const ISO_DATE_TIME_WITH_ZONE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/
 const MAX_ID_PARAM = 2_147_483_647
 
-// UTC+5 offset in milliseconds
-const UTC5_OFFSET_MS = 5 * 60 * 60 * 1000
 
-/**
- * Returns the start of the current UTC+5 calendar day as a UTC Date.
- * Shift to UTC+5, floor to midnight, shift back.
- */
-function getUTC5DayStart(dateMs: number): Date {
-  const utc5Ms = dateMs + UTC5_OFFSET_MS
-  const midnight = new Date(utc5Ms)
-  midnight.setUTCHours(0, 0, 0, 0)
-  return new Date(midnight.getTime() - UTC5_OFFSET_MS)
-}
 
 function isTimeRangePreset(value: string | null): value is TimeRangePreset {
   return TIME_RANGE_PRESETS.includes(value as TimeRangePreset)

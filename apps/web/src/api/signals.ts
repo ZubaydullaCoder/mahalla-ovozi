@@ -3,28 +3,9 @@
 // DO NOT import server source into apps/web
 
 import { useQuery } from '@tanstack/react-query'
-
-export interface Signal {
-  id:                 number
-  telegramUpdateId:   number
-  telegramMessageId:  number
-  telegramMessageUrl: string | null
-  districtId:         number
-  mahallaId:          number
-  mahallaName:        string
-  senderDisplayName:  string | null
-  senderUsername:     string | null
-  telegramTimestamp:  string    // ISO 8601 UTC
-  rawText:            string
-  textSource:         'text' | 'caption'
-  category:           'water' | 'electricity' | 'gas' | 'waste'
-  hokimRelated:       boolean
-  keywordMatched:     boolean
-  matchedKeyword:     string | null
-  shortLabel:         string | null
-  aiSummary:          string | null
-  classifiedAt:       string    // ISO 8601 UTC
-}
+import { fetchJson } from './client.ts'
+import type { Signal } from '@mahalla-ovozi/contracts'
+export type { Signal }
 
 interface SignalsQueryParams {
   from?: string   // ISO 8601 with timezone
@@ -36,15 +17,7 @@ async function fetchSignals(params?: SignalsQueryParams): Promise<Signal[]> {
   if (params?.from) url.searchParams.set('from', params.from)
   if (params?.to) url.searchParams.set('to', params.to)
 
-  const res = await fetch(url.toString(), {
-    credentials: 'same-origin',
-  })
-
-  if (!res.ok) {
-    throw new Error(`GET /api/signals failed: ${res.status}`)
-  }
-
-  return res.json() as Promise<Signal[]>
+  return fetchJson<Signal[]>(url.toString())
 }
 
 export function useSignals(params?: SignalsQueryParams) {
@@ -68,15 +41,7 @@ async function fetchSignalContext(
   if (params?.from) url.searchParams.set('from', params.from)
   if (params?.to)   url.searchParams.set('to', params.to)
 
-  const res = await fetch(url.toString(), {
-    credentials: 'same-origin',
-  })
-
-  if (!res.ok) {
-    throw new Error(`GET /api/signals/${signalId}/context failed: ${res.status}`)
-  }
-
-  return res.json() as Promise<Signal[]>
+  return fetchJson<Signal[]>(url.toString())
 }
 
 export function useSignalContext(

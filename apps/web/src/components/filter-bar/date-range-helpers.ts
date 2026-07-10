@@ -1,10 +1,7 @@
 // apps/web/src/components/filter-bar/date-range-helpers.ts
 // Pure helper functions extracted from DateRangePicker for unit-testability.
 import dayjs, { type Dayjs } from 'dayjs'
-
-// UTC+5 offset in milliseconds — Uzbekistan Standard Time (UZT), no DST.
-// Hardcoded to match the UTC+5 boundary logic in use-filters.ts and the server.
-const UTC5_OFFSET_MS = 5 * 60 * 60 * 1000
+import { UTC5_OFFSET_MS } from '../../utils/utc5-time.ts'
 
 /**
  * Returns true when `current` date is outside a 7-calendar-day window from `from`.

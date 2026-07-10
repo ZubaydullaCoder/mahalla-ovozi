@@ -1,0 +1,4 @@
+{"id":"case-001","text":"Bizda suv yo'q, iltimos yordam bering!","expected":{"decision":"signal","categories":["water"],"hokimRelated":false}}
+{"id":"case-002","text":"Ko'chada elektr o'chdi, svet yo'q.","expected":{"decision":"signal","categories":["electricity"],"hokimRelated":false}}
+{"id":"case-003","text":"Hokimiyatga ariza yozdim, gaz masalasi bo'yicha hokim yordam bersin.","expected":{"decision":"signal","categories":["gas"],"hokimRelated":true}}
+{"id":"case-004","text":"Ertaga havo issiq bo'ladi.","expected":{"decision":"ignore"}}

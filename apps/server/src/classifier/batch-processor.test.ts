@@ -21,6 +21,7 @@ vi.mock('../shared/env.js', () => mockEnv)
 const prismaMocks = vi.hoisted(() => ({
   rawMessageFindMany:    vi.fn(),
   rawMessageDelete:      vi.fn(),
+  rawMessageUpdate:      vi.fn(),
   signalMessageCreate:   vi.fn(),
   signalMessageFindMany: vi.fn(),
   batchHealthFindFirst:  vi.fn(),
@@ -35,6 +36,7 @@ vi.mock('../shared/db.js', () => ({
     rawMessage: {
       findMany: prismaMocks.rawMessageFindMany,
       delete:   prismaMocks.rawMessageDelete,
+      update:   prismaMocks.rawMessageUpdate,
     },
     signalMessage: {
       create:   prismaMocks.signalMessageCreate,
@@ -148,11 +150,13 @@ describe('classifyBatch', () => {
     const result = await classifyBatch(1)
 
     expect(result.status).toBe('ok')
-    expect(prismaMocks.rawMessageFindMany).toHaveBeenCalledWith({
-      where:   { district_id: 1 },
-      orderBy: { id: 'asc' },
-      take:    100,
-    })
+    expect(prismaMocks.rawMessageFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ district_id: 1 }),
+        orderBy: { id: 'asc' },
+        take:    100,
+      })
+    )
     expect(prismaMocks.signalMessageCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         telegram_update_id:  rawMessage.telegram_update_id,
@@ -332,10 +336,10 @@ describe('classifyBatch', () => {
       expect.objectContaining({
         districtId:    1,
         rawMessageId:  10,
-        attempts:      3,
+        attempts:      1,
         err:           expect.any(Error),
       }),
-      'AI classification failed after max retries; message stays in raw_messages',
+      expect.stringContaining('AI classification failed; scheduled next retry'),
     )
   })
 
@@ -429,6 +433,69 @@ describe('classifyBatch', () => {
     expect(prismaMocks.rawMessageFindMany).toHaveBeenCalledWith(
       expect.objectContaining({ take: 25 }),
     )
+  })
+
+  describe('Retry and Dead-letter queue', () => {
+    it('queries only raw messages that are not dead-lettered and are due for retry', async () => {
+      prismaMocks.rawMessageFindMany.mockResolvedValue([])
+      
+      await classifyBatch(1)
+
+      expect(prismaMocks.rawMessageFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            dead_lettered_at: null,
+            OR: [
+              { next_retry_at: null },
+              { next_retry_at: { lte: expect.any(Date) } }
+            ]
+          })
+        })
+      )
+    })
+
+    it('increments attempt_count and schedules next retry on classification failure', async () => {
+      const messageToFail = { ...rawMessage, id: 99, attempt_count: 1 }
+      prismaMocks.rawMessageFindMany.mockResolvedValue([messageToFail])
+      aiMocks.classifyMessage.mockRejectedValue(new Error('AI provider error'))
+
+      await classifyBatch(1, { sleep: async () => {} })
+
+      expect(prismaMocks.rawMessageUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 99 },
+          data: expect.objectContaining({
+            attempt_count: 2,
+            last_error: 'AI provider error',
+            last_attempted_at: expect.any(Date),
+            next_retry_at: expect.any(Date),
+          })
+        })
+      )
+      expect(prismaMocks.rawMessageDelete).not.toHaveBeenCalled()
+    })
+
+    it('marks raw message as dead-lettered when attempt_count reaches 5', async () => {
+      const messageToDeadLetter = { ...rawMessage, id: 101, attempt_count: 4 }
+      prismaMocks.rawMessageFindMany.mockResolvedValue([messageToDeadLetter])
+      aiMocks.classifyMessage.mockRejectedValue(new Error('AI persistent error'))
+
+      await classifyBatch(1, { sleep: async () => {} })
+
+      expect(prismaMocks.rawMessageUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 101 },
+          data: expect.objectContaining({
+            attempt_count: 5,
+            last_error: 'AI persistent error',
+            last_attempted_at: expect.any(Date),
+            next_retry_at: null,
+            dead_lettered_at: expect.any(Date),
+          })
+        })
+      )
+      expect(prismaMocks.rawMessageDelete).not.toHaveBeenCalled()
+    })
   })
 })
 

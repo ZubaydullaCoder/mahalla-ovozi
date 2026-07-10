@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@mahalla-ovozi/contracts": "workspace:*",
     "@tanstack/react-query": "^5.80.6",
     "@tanstack/react-virtual": "^3.13.9",
     "antd": "^6.4.3",

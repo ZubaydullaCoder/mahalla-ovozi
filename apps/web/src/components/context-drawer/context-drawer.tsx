@@ -9,6 +9,7 @@ import { CATEGORY_COLORS, CATEGORY_LIGHT_COLORS } from '../../theme.ts'
 import { CategoryIcon } from '../category-icon.tsx'
 import { strings } from '../../strings.ts'
 import { formatMahallaLabel } from '../../utils/mahalla-label.ts'
+import { formatUTC5Time } from '../../utils/utc5-time.ts'
 import type { Signal } from '../../api/signals.ts'
 
 // Uzbek Cyrillic service category names for breadcrumb.
@@ -21,13 +22,7 @@ const CATEGORY_LABELS: Record<Signal['category'], string> = {
   waste:       strings.dashboard.lanes.waste,
 }
 
-// Format a Date as HH:MM in UTC+5. Captured once at click time — NOT recomputed on re-render.
-function formatUTC5Time(date: Date): string {
-  const utc5 = new Date(date.getTime() + 5 * 3600000)
-  const hh = String(utc5.getUTCHours()).padStart(2, '0')
-  const mm = String(utc5.getUTCMinutes()).padStart(2, '0')
-  return `${hh}:${mm}`
-}
+
 
 // Build breadcrumb: CategoryName · MahallaName (MFY) · HH:MM (AC-2)
 function buildBreadcrumb(signal: Signal, clickedAt: Date | null): string {

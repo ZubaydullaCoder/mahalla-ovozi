@@ -1,26 +1,11 @@
-// apps/web/src/api/health.ts
-// Intentional frontend API-boundary type — do NOT import from apps/server
 import { useQuery } from '@tanstack/react-query'
+import { fetchJson } from './client.ts'
+import type { HealthStatus } from '@mahalla-ovozi/contracts'
 
-export interface DashboardHealthStatus {
-  status:            'current' | 'delayed' | 'no_data'
-  lastBatchAt:       string | null   // ISO 8601 UTC
-  lastBatchStatus:   'success' | 'failed' | null
-  messagesProcessed: number | null
-  signalsWritten:    number | null
-  queueDepth:        number
-}
+export type DashboardHealthStatus = HealthStatus
 
 async function fetchHealth(): Promise<DashboardHealthStatus> {
-  const res = await fetch('/api/health', {
-    credentials: 'same-origin',
-  })
-
-  if (!res.ok) {
-    throw new Error(`GET /api/health failed: ${res.status}`)
-  }
-
-  return res.json() as Promise<DashboardHealthStatus>
+  return fetchJson<DashboardHealthStatus>('/api/health')
 }
 
 export function useHealth() {

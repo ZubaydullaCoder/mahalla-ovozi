@@ -1,4 +1,4 @@
-﻿# Mahalla Ovozi
+# Mahalla Ovozi
 
 Mahalla Ovozi is a private internal civic signal monitoring system for district leadership in Uzbekistan.
 
@@ -16,6 +16,14 @@ Current status: local validation MVP. It is not production-ready without deploym
 - `prisma/schema.prisma` - database schema
 - `apps/server/src` - backend, bot, classifier, Ops API
 - `apps/web/src` - frontend dashboard and Ops Console
+
+If sources conflict, prefer:
+1. Active stakeholder decisions
+2. Project context
+3. PRD
+4. Architecture
+5. Sprint status/story files
+6. Code/schema as implemented reality
 
 ## Requirements
 

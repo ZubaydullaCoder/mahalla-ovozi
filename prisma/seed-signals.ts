@@ -184,7 +184,12 @@ async function main() {
 
     try {
       await prisma.signalMessage.upsert({
-        where:  { telegram_update_id: updateId },
+        where: {
+          telegram_update_id_category: {
+            telegram_update_id: updateId,
+            category: s.category,
+          },
+        },
         update: {},
         create: {
           telegram_update_id:  updateId,

@@ -1,13 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { OPS_QUERY_KEY, readErrorMessage } from './common.ts'
 
-export interface OpsKeyword {
-  id:        number
-  phrase:    string
-  isActive:  boolean
-  createdAt: string
-  updatedAt: string
-}
+import type { OpsKeyword } from '@mahalla-ovozi/contracts'
+export type { OpsKeyword }
 
 async function fetchFilteringMode(): Promise<{ filterMode: string }> {
   const res = await fetch('/api/ops/filtering-mode', { credentials: 'same-origin' })

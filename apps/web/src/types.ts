@@ -1,21 +1,9 @@
-// Auth API response shapes — mirrors server response contracts from Stories 2.1–2.3
+// apps/web/src/types.ts
+// Re-export response shapes from central contracts package
 
-export interface LoginSuccessResponse {
-  ok: true
-}
-
-export interface LogoutSuccessResponse {
-  ok: true
-}
-
-export interface CurrentSessionResponse {
-  authenticated: true
-  userId:        number
-  districtId:    number
-}
-
-export interface ApiErrorResponse {
-  statusCode: number
-  error: string
-  message: string
-}
+export type {
+  LoginSuccessResponse,
+  LogoutSuccessResponse,
+  CurrentSessionResponse,
+  ApiErrorResponse,
+} from '@mahalla-ovozi/contracts'

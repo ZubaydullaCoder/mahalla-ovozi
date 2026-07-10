@@ -2,6 +2,7 @@
 import { theme, Tooltip } from 'antd'
 import type { Signal } from '../../api/signals.ts'
 import { formatSignalTimestamp, getSignalSenderName } from '../../utils/signal-display.ts'
+import { signalCardStyles, activeHoverBoxShadow } from './signal-card-styles.ts'
 
 export interface SignalCardProps {
   signal: Signal
@@ -19,21 +20,9 @@ export function SignalCard({ signal, isActive, categoryColor, onClick }: SignalC
   const displaySender = isTruncated ? `${senderName.slice(0, SENDER_TRUNCATE_LEN)}…` : senderName
   const timestamp = formatSignalTimestamp(signal.telegramTimestamp)
 
-  // Active state: category-tinted background + colored border
-  // Inactive state: white background + light gray border (matches reference signal-card)
-  const bgColor = isActive
-    ? `${categoryColor}0D`  // categoryColor at ~5% opacity (hex: 0D ≈ 5%)
-    : token.colorBgElevated
-
-  const border = isActive
-    ? `1.5px solid ${categoryColor}`
-    : `1.5px solid #E2E8F0`
-
-  const boxShadow = isActive
-    ? `0 0 0 2px ${categoryColor}1F, 0 2px 10px rgba(0,0,0,0.10)` // ring + shadow
-    : '0 1px 3px rgba(0,0,0,0.06)'
-
   const hasFooter = signal.textSource === 'caption' || signal.hokimRelated
+
+  const styles = signalCardStyles({ isActive, categoryColor, hasFooter, token })
 
   return (
     <div
@@ -48,28 +37,15 @@ export function SignalCard({ signal, isActive, categoryColor, onClick }: SignalC
           onClick(signal)
         }
       }}
-      style={{
-        // Full border (not left-only) — matches reference signal-card style
-        border,
-        borderRadius: token.borderRadius,
-        background: bgColor,
-        boxShadow,
-        cursor: 'pointer',
-        padding: '12px', // overridden by responsive CSS at 1024–1279px
-        marginBottom: 4,
-        transition: 'box-shadow 0.15s ease, transform 0.10s ease, border-color 0.15s ease',
-        // Keyboard focus: visible 2px outline, no outline:none
-        outline: undefined,
-      }}
+      style={styles.card}
       onMouseEnter={(e) => {
-        // Hover lift handled by CSS (.signal-card:hover); box-shadow here for active override
         if (isActive) {
           ;(e.currentTarget as HTMLDivElement).style.boxShadow =
-            `0 0 0 2px ${categoryColor}1F, 0 4px 12px rgba(0,0,0,0.12)`
+            activeHoverBoxShadow(categoryColor)
         }
       }}
       onMouseLeave={(e) => {
-        ;(e.currentTarget as HTMLDivElement).style.boxShadow = boxShadow
+        ;(e.currentTarget as HTMLDivElement).style.boxShadow = styles.card.boxShadow as string
         ;(e.currentTarget as HTMLDivElement).style.transform = ''
       }}
     >
@@ -77,47 +53,28 @@ export function SignalCard({ signal, isActive, categoryColor, onClick }: SignalC
       {!signal.aiSummary ? (
         <>
           {/* Row 1: sender + timestamp */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
+          <div style={styles.headerRow}>
             <Tooltip title={isTruncated ? senderName : undefined} placement="top">
-              <span style={{ fontSize: 13, fontWeight: 600, color: token.colorText, lineHeight: 1.4 }}>
-                {displaySender}
-              </span>
+              <span style={styles.senderName}>{displaySender}</span>
             </Tooltip>
-            <span style={{ fontSize: 11, color: token.colorTextSecondary, flexShrink: 0, marginLeft: 8 }}>
-              {timestamp}
-            </span>
+            <span style={styles.timestamp}>{timestamp}</span>
           </div>
 
           {/* Row 2: mahalla */}
-          <div style={{ fontSize: 12, color: token.colorTextSecondary, marginBottom: 4 }}>
-            {signal.mahallaName}
-          </div>
+          <div style={styles.mahalla}>{signal.mahallaName}</div>
         </>
       ) : (
         /* Senders are mentioned in the summary, so we show only mahalla and timestamp in header to prevent redundancy */
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+        <div style={styles.mahallaWithTimestamp}>
           <span style={{ fontSize: 12, color: token.colorTextSecondary, fontWeight: 500 }}>
             {signal.mahallaName}
           </span>
-          <span style={{ fontSize: 11, color: token.colorTextSecondary, flexShrink: 0, marginLeft: 8 }}>
-            {timestamp}
-          </span>
+          <span style={styles.mahallaTimestamp}>{timestamp}</span>
         </div>
       )}
 
       {/* Row 3: summary (AI-generated) or raw text fallback (3-line clamp) */}
-      <div
-        style={{
-          fontSize: 13,
-          color: token.colorText,
-          lineHeight: 1.5,
-          display: '-webkit-box',
-          WebkitLineClamp: 3,
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
-          marginBottom: hasFooter ? 6 : 0,
-        }}
-      >
+      <div style={styles.bodyText}>
         {(() => {
           if (signal.aiSummary) {
             const suffix = ' исмли гуруҳ аъзоси'
@@ -127,7 +84,7 @@ export function SignalCard({ signal, isActive, categoryColor, onClick }: SignalC
               const rest = signal.aiSummary.substring(suffixIdx)
               return (
                 <>
-                  <span style={{ color: '#24a1de', fontWeight: 600 }}>{senderName}</span>
+                  <span style={styles.senderHighlight}>{senderName}</span>
                   {rest}
                 </>
               )
@@ -139,18 +96,18 @@ export function SignalCard({ signal, isActive, categoryColor, onClick }: SignalC
 
       {/* Footer: CaptionBadge + HokimStar */}
       {hasFooter && (
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <div style={styles.footer}>
           {signal.textSource === 'caption' && (
             <span
               role="img"
               aria-label="Расм тавсифи"
-              style={{ fontSize: 11, color: token.colorTextPlaceholder }}
+              style={styles.captionBadge}
             >
               📷
             </span>
           )}
           {signal.hokimRelated && (
-            <span aria-hidden="true" style={{ fontSize: 12, color: token.colorWarning }}>
+            <span aria-hidden="true" style={styles.hokimStar}>
               ★
             </span>
           )}

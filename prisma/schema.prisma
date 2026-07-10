@@ -72,12 +72,21 @@ model RawMessage {
   telegram_timestamp  DateTime
   created_at          DateTime @default(now())
 
+  attempt_count     Int       @default(0)
+  last_error        String?
+  last_attempted_at DateTime?
+  next_retry_at     DateTime?
+  dead_lettered_at  DateTime?
+
   mahalla Mahalla @relation(fields: [mahalla_id, district_id], references: [id, district_id])
 
   @@index([district_id])
   @@index([mahalla_id])
   @@index([created_at])
   @@index([keyword_matched])
+  @@index([district_id, id])
+  @@index([district_id, next_retry_at])
+  @@index([district_id, dead_lettered_at])
   @@map("raw_messages")
 }
 

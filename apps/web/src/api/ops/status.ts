@@ -1,33 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { OPS_QUERY_KEY } from './common.ts'
 
-export interface OpsBatchStatus {
-  schedulerStatus: 'idle' | 'running'
-  lastBatchAt: string | null
-  lastBatchDuration: number | null
-  queueDepth: number
-  lastBatchResult: {
-    filterMode: string
-    messagesFetched: number
-    signalsWritten: number
-    ignoredCount: number
-    preFilterDiscards: number
-    keywordMatchedCount: number
-    keywordSkippedCount: number
-    keywordAiSignalCount: number
-    keywordAiIgnoreCount: number
-    noKeywordAiSignalCount: number
-    noKeywordAiIgnoreCount: number
-    errors: string | null
-  } | null
-  recentErrors: Array<{ message: string, occurredAt: string }>
-}
-
-export interface OpsStatus {
-  isEnabled: boolean
-  isForbidden: boolean
-  data: OpsBatchStatus | null
-}
+import type { OpsBatchStatus, OpsStatus } from '@mahalla-ovozi/contracts'
+export type { OpsBatchStatus, OpsStatus }
 
 async function fetchOpsStatus(): Promise<OpsStatus> {
   const res = await fetch('/api/ops/batch-status', {

@@ -2,17 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { OPS_QUERY_KEY } from './common.ts'
 import type { OpsBatchStatus } from './status.ts'
 
-export interface PipelineEvent {
-  id:               number
-  eventType:        string
-  districtId:       number
-  mahallaId:        number | null
-  telegramUpdateId: number | null
-  rawMessageId:     number | null
-  signalId:         number | null
-  detail:           unknown
-  createdAt:        string
-}
+import type { PipelineEvent } from '@mahalla-ovozi/contracts'
+export type { PipelineEvent }
 
 async function fetchPipelineEvents(): Promise<PipelineEvent[]> {
   const res = await fetch('/api/ops/pipeline-events?limit=100', { credentials: 'same-origin' })

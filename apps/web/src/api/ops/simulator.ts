@@ -1,35 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { OPS_QUERY_KEY, readErrorMessage } from './common.ts'
 
-export interface OpsMahalla {
-  id:   number
-  name: string
-}
-
-export interface SimulateWebhookBody {
-  mahallaId:           number
-  senderDisplayName?:  string
-  text:                string
-  textSource?:         'text' | 'caption'
-  simulatedTimestamp?: string
-}
-
-export interface SimulateWebhookResult {
-  decision:       'queued' | 'structural_discard' | 'keyword_skip'
-  reason?:        string
-  filterMode:     string
-  keywordMatched: boolean
-  matchedPhrase:  string | null
-}
-
-export interface SimulateMessageBody {
-  mahallaId:           number
-  senderDisplayName?:  string
-  senderUsername?:     string
-  text:                string
-  textSource?:         'text' | 'caption'
-  simulatedTimestamp?: string
-}
+import type { OpsMahalla, SimulateWebhookBody, SimulateWebhookResult, SimulateMessageBody } from '@mahalla-ovozi/contracts'
+export type { OpsMahalla, SimulateWebhookBody, SimulateWebhookResult, SimulateMessageBody }
 
 async function fetchMahallas(): Promise<OpsMahalla[]> {
   const res = await fetch('/api/ops/mahallas', { credentials: 'same-origin' })

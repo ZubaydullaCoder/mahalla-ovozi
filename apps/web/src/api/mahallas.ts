@@ -1,17 +1,10 @@
-// apps/web/src/api/mahallas.ts
 import { useQuery } from '@tanstack/react-query'
-
-// Frontend-boundary type — DO NOT import from apps/server/src/shared/types.ts
-export interface Mahalla {
-  id: number
-  districtId: number
-  name: string
-}
+import { fetchJson } from './client.ts'
+import type { Mahalla } from '@mahalla-ovozi/contracts'
+export type { Mahalla }
 
 async function fetchMahallas(): Promise<Mahalla[]> {
-  const res = await fetch('/api/mahallas', { credentials: 'same-origin' })
-  if (!res.ok) throw new Error(`GET /api/mahallas failed: ${res.status}`)
-  return res.json() as Promise<Mahalla[]>
+  return fetchJson<Mahalla[]>('/api/mahallas')
 }
 
 export function useMahallas() {

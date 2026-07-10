@@ -51,8 +51,16 @@ export async function classifyBatch(
       to:   intakeWindowTo,
     })
 
+    const now = new Date()
     const rawMessages = await prisma.rawMessage.findMany({
-      where:   { district_id: districtId },
+      where: {
+        district_id: districtId,
+        dead_lettered_at: null,
+        OR: [
+          { next_retry_at: null },
+          { next_retry_at: { lte: now } },
+        ],
+      },
       orderBy: { id: 'asc' },
       take:    env.CLASSIFIER_BATCH_SIZE,
     })
@@ -110,19 +118,53 @@ export async function classifyBatch(
         }
       } catch (err) {
         failedRawMessageIds.push(rawMessage.id)
+        const errorMsg = getErrorMessage(err)
         await writeClassifierEvent({
           eventType: 'classifier_error',
           rawMessage,
           signalId:  null,
           detail:    {
             decision: 'error',
-            error:    getErrorMessage(err),
+            error:    errorMsg,
           },
         })
-        logger.error(
-          { districtId, rawMessageId: rawMessage.id, attempts: 3, err },
-          'AI classification failed after max retries; message stays in raw_messages',
-        )
+
+        const nextAttempts = (rawMessage.attempt_count ?? 0) + 1
+        const now = new Date()
+
+        if (nextAttempts >= 5) {
+          // Dead lettered
+          await prisma.rawMessage.update({
+            where: { id: rawMessage.id },
+            data: {
+              attempt_count: nextAttempts,
+              last_error: errorMsg,
+              last_attempted_at: now,
+              next_retry_at: null,
+              dead_lettered_at: now,
+            },
+          })
+          logger.error(
+            { districtId, rawMessageId: rawMessage.id, attempts: nextAttempts, err },
+            'AI classification failed and reached max attempts; message is dead-lettered',
+          )
+        } else {
+          // Schedule next retry (linear backoff: attempt_count * 5 minutes)
+          const nextRetryAt = new Date(now.getTime() + nextAttempts * 5 * 60 * 1000)
+          await prisma.rawMessage.update({
+            where: { id: rawMessage.id },
+            data: {
+              attempt_count: nextAttempts,
+              last_error: errorMsg,
+              last_attempted_at: now,
+              next_retry_at: nextRetryAt,
+            },
+          })
+          logger.error(
+            { districtId, rawMessageId: rawMessage.id, attempts: nextAttempts, err },
+            `AI classification failed; scheduled next retry at ${nextRetryAt.toISOString()}`,
+          )
+        }
       }
     }
 
