@@ -10,7 +10,9 @@
   "scripts": {
     "dev:server": "tsx watch apps/server/src/web/index.ts",
     "dev:web": "pnpm --filter mahalla-ovozi-web dev",
-    "lint": "eslint apps/ scripts/ prisma/*.ts prisma.config.ts vitest.config.ts",
+    "build:contracts": "pnpm --filter @mahalla-ovozi/contracts build",
+    "build:server": "pnpm --filter @mahalla-ovozi/server build",
+    "lint": "eslint apps/ packages/ eval/ scripts/ prisma/*.ts prisma.config.ts vitest.config.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "db:generate": "prisma generate",
@@ -36,6 +38,6 @@
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.33.1",
     "vite": "^8.0.16",
-    "vitest": "^3.2.6"
+    "vitest": "^4.1.6"
   }
 }

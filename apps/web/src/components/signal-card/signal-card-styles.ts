@@ -13,7 +13,7 @@ export interface SignalCardStyleOptions {
 }
 
 export interface SignalCardStyles {
-  card: React.CSSProperties
+  card: React.CSSProperties & { '--signal-card-active-hover-shadow'?: string }
   headerRow: React.CSSProperties
   senderName: React.CSSProperties
   timestamp: React.CSSProperties
@@ -56,6 +56,7 @@ export function signalCardStyles({
       marginBottom: 4,
       transition: 'box-shadow 0.15s ease, transform 0.10s ease, border-color 0.15s ease',
       outline: undefined,   // keyboard focus: visible browser outline, no outline:none
+      '--signal-card-active-hover-shadow': `0 0 0 2px ${categoryColor}1F, 0 4px 12px rgba(0,0,0,0.12)`,
     },
 
     // Header layout when no AI summary (sender + timestamp row)
@@ -134,9 +135,4 @@ export function signalCardStyles({
       fontWeight: 600,
     },
   }
-}
-
-/** Returns the hover box-shadow for an active card (used in onMouseEnter). */
-export function activeHoverBoxShadow(categoryColor: string): string {
-  return `0 0 0 2px ${categoryColor}1F, 0 4px 12px rgba(0,0,0,0.12)`
 }

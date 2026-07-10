@@ -2,7 +2,7 @@
 import { theme, Tooltip } from 'antd'
 import type { Signal } from '../../api/signals.ts'
 import { formatSignalTimestamp, getSignalSenderName } from '../../utils/signal-display.ts'
-import { signalCardStyles, activeHoverBoxShadow } from './signal-card-styles.ts'
+import { signalCardStyles } from './signal-card-styles.ts'
 
 export interface SignalCardProps {
   signal: Signal
@@ -26,7 +26,7 @@ export function SignalCard({ signal, isActive, categoryColor, onClick }: SignalC
 
   return (
     <div
-      className="signal-card"
+      className={`signal-card${isActive ? ' signal-card--active' : ''}`}
       role="article"
       tabIndex={0}
       aria-label={`${senderName}, ${signal.mahallaName}, ${timestamp}`}
@@ -38,16 +38,6 @@ export function SignalCard({ signal, isActive, categoryColor, onClick }: SignalC
         }
       }}
       style={styles.card}
-      onMouseEnter={(e) => {
-        if (isActive) {
-          ;(e.currentTarget as HTMLDivElement).style.boxShadow =
-            activeHoverBoxShadow(categoryColor)
-        }
-      }}
-      onMouseLeave={(e) => {
-        ;(e.currentTarget as HTMLDivElement).style.boxShadow = styles.card.boxShadow as string
-        ;(e.currentTarget as HTMLDivElement).style.transform = ''
-      }}
     >
       {/* Card Header & Metadata */}
       {!signal.aiSummary ? (

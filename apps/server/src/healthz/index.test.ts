@@ -17,12 +17,12 @@ const mockEnv = vi.hoisted(() => ({
 
 vi.mock('../shared/env.js', () => ({ env: mockEnv }))
 
-const mockQueryRawUnsafe = vi.hoisted(() => vi.fn())
+const mockQueryRaw = vi.hoisted(() => vi.fn())
 const mockLoggerError = vi.hoisted(() => vi.fn())
 
 vi.mock('../shared/db.js', () => ({
   prisma: {
-    $queryRawUnsafe: mockQueryRawUnsafe,
+    $queryRaw: mockQueryRaw,
   },
 }))
 
@@ -57,11 +57,11 @@ describe('healthzRouter', () => {
   })
 
   it('GET /readyz returns 200 when database query succeeds', async () => {
-    mockQueryRawUnsafe.mockResolvedValue([{ '?column?': 1 }])
+    mockQueryRaw.mockResolvedValue([{ '?column?': 1 }])
     const app = createTestApp()
     const response = await request(app).get('/readyz')
     expect(response.status).toBe(200)
-    expect(mockQueryRawUnsafe).toHaveBeenCalledWith('SELECT 1')
+    expect(mockQueryRaw).toHaveBeenCalledOnce()
     expect(response.body).toEqual({
       status: 'ok',
       database: 'ok',
@@ -69,7 +69,7 @@ describe('healthzRouter', () => {
   })
 
   it('GET /readyz returns 503 when database query fails', async () => {
-    mockQueryRawUnsafe.mockRejectedValue(new Error('Connection failed'))
+    mockQueryRaw.mockRejectedValue(new Error('Connection failed'))
     const app = createTestApp()
     const response = await request(app).get('/readyz')
     expect(response.status).toBe(503)

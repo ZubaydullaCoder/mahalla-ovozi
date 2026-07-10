@@ -338,6 +338,12 @@ describe('GET /api/ops/batch-status', () => {
     const res = await request(app).get('/api/ops/batch-status')
     expect(res.status).toBe(200)
     expect(res.body.queueDepth).toBe(42)
+    expect(mockRawMessageCount).toHaveBeenCalledWith({
+      where: {
+        district_id:      ACTIVE_DISTRICT.id,
+        dead_lettered_at: null,
+      },
+    })
   })
 
   it('returns recentErrors populated from failed batch_health rows', async () => {

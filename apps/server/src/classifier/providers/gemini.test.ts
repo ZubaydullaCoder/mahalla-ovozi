@@ -15,16 +15,21 @@ const genaiMocks = vi.hoisted(() => ({
   constructor:     vi.fn(),
 }))
 
-vi.mock('@google/genai', () => ({
-  GoogleGenAI: vi.fn().mockImplementation((options: { apiKey: string }) => {
-    genaiMocks.constructor(options)
-    return {
-      models: {
-        generateContent: genaiMocks.generateContent,
-      },
+vi.mock('@google/genai', () => {
+  class MockGoogleGenAI {
+    models = {
+      generateContent: genaiMocks.generateContent,
     }
-  }),
-}))
+
+    constructor(options: { apiKey: string }) {
+      genaiMocks.constructor(options)
+    }
+  }
+
+  return {
+    GoogleGenAI: MockGoogleGenAI,
+  }
+})
 
 import { classifyWithGemini } from './gemini.js'
 

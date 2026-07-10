@@ -71,7 +71,7 @@ Critical `.env` values for pilot:
 pnpm db:generate
 
 # 2. Apply all pending migrations
-pnpm db:migrate
+pnpm db:migrate:deploy
 
 # 3. Seed initial data (districts, mahallas, admin user)
 pnpm db:seed
@@ -91,10 +91,12 @@ psql "$DATABASE_URL" -c "SELECT COUNT(*) FROM users;"
 ## 4. Build the Frontend
 
 ```bash
+pnpm build:contracts
+pnpm build:server
 pnpm --filter mahalla-ovozi-web build
 ```
 
-The built assets land in `apps/web/dist/`. The server Express app will serve them automatically in `NODE_ENV=production`.
+The frontend assets land in `apps/web/dist/`, and the compiled server entrypoint lands at `apps/server/dist/web/index.js`. The Express app serves the frontend automatically in `NODE_ENV=production`.
 
 ---
 
@@ -108,7 +110,7 @@ Register the bot webhook pointing to your server:
 curl -X POST "https://api.telegram.org/bot<BOT_TOKEN>/setWebhook" \
   -H "Content-Type: application/json" \
   -d '{
-    "url": "https://<your-domain>/api/webhook",
+    "url": "https://<your-domain>/webhook",
     "secret_token": "<TELEGRAM_WEBHOOK_SECRET>",
     "allowed_updates": ["message"]
   }'
@@ -165,7 +167,7 @@ Use a process manager for production reliability. Example with `pm2`:
 npm install -g pm2
 
 # Start the server
-pm2 start "node apps/server/dist/index.js" --name mahalla-ovozi
+pm2 start "pnpm --filter @mahalla-ovozi/server start" --name mahalla-ovozi
 
 # Save process list to restart on system reboot
 pm2 save
@@ -183,7 +185,7 @@ After=network.target postgresql.service
 Type=simple
 WorkingDirectory=/home/ubuntu/mahalla-ovozi
 EnvironmentFile=/home/ubuntu/mahalla-ovozi/.env
-ExecStart=/usr/bin/node apps/server/dist/index.js
+ExecStart=/usr/bin/pnpm --filter @mahalla-ovozi/server start
 Restart=always
 RestartSec=5
 User=ubuntu
@@ -203,9 +205,8 @@ systemctl status mahalla-ovozi
 ```
 
 > [!NOTE]
-> If you use the Express dev server directly (no compiled dist), run
-> `pnpm --filter @mahalla-ovozi/server start` instead of `node apps/server/dist/index.js`.
-> Adjust based on your `package.json` scripts.
+> The `start` script runs the compiled server from `apps/server/dist/web/index.js`.
+> Re-run `pnpm build:server` after every backend code change before restarting.
 
 ---
 
@@ -213,9 +214,10 @@ systemctl status mahalla-ovozi
 
 ```bash
 # Health check endpoint
-curl -f https://<your-domain>/api/health
+curl -f https://<your-domain>/healthz
+curl -f https://<your-domain>/readyz
 
-# Expected: HTTP 200 with JSON body containing {"status":"ok"} or similar
+# Expected: HTTP 200 with JSON body containing {"status":"ok"}.
 ```
 
 - Open `https://<your-domain>/` in a browser — the login page should render.

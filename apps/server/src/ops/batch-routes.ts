@@ -44,7 +44,10 @@ export function registerBatchRoutes(router: IRouter): void {
           select:  { error_message: true, completed_at: true },
         }),
         prisma.rawMessage.count({
-          where: { district_id: district.id },
+          where: {
+            district_id:      district.id,
+            dead_lettered_at: null,
+          },
         }),
       ])
 

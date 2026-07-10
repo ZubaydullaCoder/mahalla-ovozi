@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const prismaMocks = vi.hoisted(() => ({
+  rawMessageDeleteMany:     vi.fn(),
   signalMessageDeleteMany:  vi.fn(),
   pipelineEventDeleteMany:  vi.fn(),
   batchHealthDeleteMany:    vi.fn(),
@@ -8,6 +9,9 @@ const prismaMocks = vi.hoisted(() => ({
 
 vi.mock('../shared/db.js', () => ({
   prisma: {
+    rawMessage: {
+      deleteMany: prismaMocks.rawMessageDeleteMany,
+    },
     signalMessage: {
       deleteMany: prismaMocks.signalMessageDeleteMany,
     },
@@ -37,6 +41,7 @@ describe('purgeOldSignals', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers()
+    prismaMocks.rawMessageDeleteMany.mockResolvedValue({ count: 0 })
     prismaMocks.signalMessageDeleteMany.mockResolvedValue({ count: 0 })
     prismaMocks.pipelineEventDeleteMany.mockResolvedValue({ count: 0 })
     prismaMocks.batchHealthDeleteMany.mockResolvedValue({ count: 0 })
@@ -46,27 +51,44 @@ describe('purgeOldSignals', () => {
     vi.useRealTimers()
   })
 
-  it('calls deleteMany with cutoff 90 days before now', async () => {
+  it('calls deleteMany with retention cutoffs from the policy', async () => {
     const now = new Date('2026-01-01T03:00:00.000Z')
     vi.setSystemTime(now)
-    const expectedCutoff = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+    const dayMs = 24 * 60 * 60 * 1000
 
     vi.mocked(prisma.signalMessage.deleteMany).mockResolvedValueOnce({ count: 5 })
 
     await purgeOldSignals()
 
+    expect(prisma.rawMessage.deleteMany).toHaveBeenCalledWith({
+      where: {
+        dead_lettered_at: {
+          not: null,
+          lt:  new Date(now.getTime() - 7 * dayMs),
+        },
+      },
+    })
+    expect(prisma.rawMessage.deleteMany).toHaveBeenCalledWith({
+      where: {
+        dead_lettered_at: null,
+        created_at:      { lt: new Date(now.getTime() - 30 * dayMs) },
+      },
+    })
     expect(prisma.signalMessage.deleteMany).toHaveBeenCalledWith({
-      where: { created_at: { lt: expectedCutoff } },
+      where: { telegram_timestamp: { lt: new Date(now.getTime() - 90 * dayMs) } },
     })
     expect(prisma.pipelineEvent.deleteMany).toHaveBeenCalledWith({
-      where: { created_at: { lt: expectedCutoff } },
+      where: { created_at: { lt: new Date(now.getTime() - 14 * dayMs) } },
     })
     expect(prisma.batchHealth.deleteMany).toHaveBeenCalledWith({
-      where: { started_at: { lt: expectedCutoff } },
+      where: { started_at: { lt: new Date(now.getTime() - 60 * dayMs) } },
     })
   })
 
   it('logs info with deleted count and event key on success', async () => {
+    vi.mocked(prisma.rawMessage.deleteMany)
+      .mockResolvedValueOnce({ count: 2 })
+      .mockResolvedValueOnce({ count: 4 })
     vi.mocked(prisma.signalMessage.deleteMany).mockResolvedValueOnce({ count: 12 })
     vi.mocked(prisma.pipelineEvent.deleteMany).mockResolvedValueOnce({ count: 8 })
     vi.mocked(prisma.batchHealth.deleteMany).mockResolvedValueOnce({ count: 3 })
@@ -75,6 +97,8 @@ describe('purgeOldSignals', () => {
 
     expect(logger.info).toHaveBeenCalledWith(
       {
+        deletedDeadLetters:    2,
+        deletedRawMessages:    4,
         deletedSignals:        12,
         deletedPipelineEvents: 8,
         deletedBatchHealth:    3,
@@ -91,6 +115,8 @@ describe('purgeOldSignals', () => {
 
     expect(logger.info).toHaveBeenCalledWith(
       {
+        deletedDeadLetters:    0,
+        deletedRawMessages:    0,
         deletedSignals:        0,
         deletedPipelineEvents: 0,
         deletedBatchHealth:    0,
@@ -102,7 +128,7 @@ describe('purgeOldSignals', () => {
 
   it('logs error and rethrows on DB failure', async () => {
     const dbError = new Error('DB connection lost')
-    vi.mocked(prisma.signalMessage.deleteMany).mockRejectedValueOnce(dbError)
+    vi.mocked(prisma.rawMessage.deleteMany).mockRejectedValueOnce(dbError)
 
     await expect(purgeOldSignals()).rejects.toThrow('DB connection lost')
 

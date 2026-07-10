@@ -27,11 +27,15 @@ const genaiMocks = vi.hoisted(() => ({
   generateContent: vi.fn(),
 }))
 
-vi.mock('@google/genai', () => ({
-  GoogleGenAI: vi.fn().mockImplementation(() => ({
-    models: { generateContent: genaiMocks.generateContent },
-  })),
-}))
+vi.mock('@google/genai', () => {
+  class MockGoogleGenAI {
+    models = { generateContent: genaiMocks.generateContent }
+  }
+
+  return {
+    GoogleGenAI: MockGoogleGenAI,
+  }
+})
 
 // ─── Module under test ────────────────────────────────────────────────────────
 

@@ -11,7 +11,7 @@ healthzRouter.get('/healthz', (req, res) => {
 
 healthzRouter.get('/readyz', async (req, res) => {
   try {
-    await prisma.$queryRawUnsafe('SELECT 1')
+    await prisma.$queryRaw`SELECT 1`
     return res.json({
       status: 'ok',
       database: 'ok',

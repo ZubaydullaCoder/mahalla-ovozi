@@ -63,7 +63,7 @@ app.use(session({
   saveUninitialized: false,
   cookie: getSessionCookieOptions(),
 }))
-app.use(express.json({ limit: '10kb' }))
+app.use(express.json({ limit: '64kb' }))
 app.use(healthzRouter)
 app.use(webhookRouter)
 app.use('/api/auth', authRouter)

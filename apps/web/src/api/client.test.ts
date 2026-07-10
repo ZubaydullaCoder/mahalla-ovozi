@@ -17,15 +17,47 @@ describe('fetchJson helper', () => {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     })
-    
+
     vi.mocked(fetch).mockResolvedValue(mockResponse)
 
     const result = await fetchJson('/api/test-endpoint')
     expect(fetch).toHaveBeenCalledWith('/api/test-endpoint', {
       credentials: 'same-origin',
-      headers: {},
+      headers: new Headers(),
     })
     expect(result).toEqual(mockData)
+  })
+
+  it('preserves Headers objects when forwarding request init', async () => {
+    const mockData = { ok: true }
+    const mockResponse = new Response(JSON.stringify(mockData), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })
+    vi.mocked(fetch).mockResolvedValue(mockResponse)
+
+    await fetchJson('/api/test-endpoint', {
+      headers: new Headers({ 'X-Test': '1' }),
+    })
+
+    const [, init] = vi.mocked(fetch).mock.calls[0]
+    expect((init?.headers as Headers).get('X-Test')).toBe('1')
+  })
+
+  it('preserves tuple-array headers when forwarding request init', async () => {
+    const mockData = { ok: true }
+    const mockResponse = new Response(JSON.stringify(mockData), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })
+    vi.mocked(fetch).mockResolvedValue(mockResponse)
+
+    await fetchJson('/api/test-endpoint', {
+      headers: [['X-Test', '2']],
+    })
+
+    const [, init] = vi.mocked(fetch).mock.calls[0]
+    expect((init?.headers as Headers).get('X-Test')).toBe('2')
   })
 
   it('throws ApiError on non-ok response', async () => {

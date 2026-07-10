@@ -18,9 +18,7 @@ export async function fetchJson<T>(
   const res = await fetch(input, {
     credentials: 'same-origin',
     ...init,
-    headers: {
-      ...init?.headers,
-    },
+    headers: new Headers(init?.headers),
   })
 
   if (!res.ok) {

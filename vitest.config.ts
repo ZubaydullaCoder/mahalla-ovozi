@@ -18,8 +18,7 @@ export default defineConfig({
       },
       // Web React component tests — jsdom environment with React plugin
       {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        plugins: [react() as any],
+        plugins: [react()],
         test: {
           name: 'web-tests',
           include: [
@@ -27,6 +26,7 @@ export default defineConfig({
             'apps/web/**/*.spec.tsx',
           ],
           environment: 'jsdom',
+          setupFiles: ['./apps/web/src/test/setup.ts'],
         },
       },
     ],

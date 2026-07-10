@@ -302,6 +302,17 @@ describe('Secret token rejection (AC-7)', () => {
     expect(initSpy).toHaveBeenCalledOnce()
     expect(handleUpdateSpy).toHaveBeenCalledOnce()
   })
+
+  it('accepts valid long Telegram text payloads under the webhook parser limit', async () => {
+    const { app, request } = await makeApp()
+    const res = await request(app)
+      .post('/webhook')
+      .set('Content-Type', 'application/json')
+      .set('X-Telegram-Bot-Api-Secret-Token', 'mock-secret')
+      .send(makeUpdate({ text: '😀'.repeat(4096) }, 4096))
+
+    expect(res.status).toBe(200)
+  })
 })
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -75,7 +75,7 @@ export interface HealthStatus {
 }
 
 // --- Ops Console DTOs ---
-export interface OpsSignal extends Signal {}
+export type OpsSignal = Signal
 
 export interface RawMessageRow {
   id:                number
@@ -103,7 +103,7 @@ export interface OpsSignalsFilters {
   hokimRelated?: boolean | null
 }
 
-export interface OpsKeyword extends Keyword {}
+export type OpsKeyword = Keyword
 
 export interface PipelineEvent {
   id:               number

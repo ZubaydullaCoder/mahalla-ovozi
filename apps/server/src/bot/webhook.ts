@@ -5,6 +5,7 @@ import { env } from '../shared/env.js'
 import { bot } from './index.js'
 
 const router: IRouter = Router()
+const TELEGRAM_WEBHOOK_JSON_LIMIT = '64kb'
 
 function matchesSecretToken(provided: string | undefined, expected: string): boolean {
   if (provided === undefined) return false
@@ -28,7 +29,7 @@ export const validateTelegramWebhookSecret: RequestHandler = (req, res, next) =>
 router.post(
   '/webhook',
   validateTelegramWebhookSecret,
-  express.json(),
+  express.json({ limit: TELEGRAM_WEBHOOK_JSON_LIMIT }),
   webhookCallback(bot, 'express', { secretToken: env.TELEGRAM_WEBHOOK_SECRET }),
 )
 

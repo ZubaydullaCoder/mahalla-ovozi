@@ -28,9 +28,6 @@ global.ResizeObserver = class ResizeObserver {
   disconnect() {}
 }
 
-const originalGetComputedStyle = window.getComputedStyle
-window.getComputedStyle = (element: Element) => originalGetComputedStyle(element)
-
 // ─── Mock ops API hooks ────────────────────────────────────────────────────────
 
 const mockUseFilteringMode  = vi.fn()

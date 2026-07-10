@@ -94,7 +94,7 @@ openssl rand -base64 18 | tr -d '=/+'
    curl -X POST "https://api.telegram.org/bot<NEW_BOT_TOKEN>/setWebhook" \
      -H "Content-Type: application/json" \
      -d '{
-       "url": "https://<your-domain>/api/webhook",
+       "url": "https://<your-domain>/webhook",
        "secret_token": "<TELEGRAM_WEBHOOK_SECRET>"
      }'
    ```
@@ -122,7 +122,7 @@ openssl rand -base64 18 | tr -d '=/+'
    curl -X POST "https://api.telegram.org/bot<BOT_TOKEN>/setWebhook" \
      -H "Content-Type: application/json" \
      -d '{
-       "url": "https://<your-domain>/api/webhook",
+       "url": "https://<your-domain>/webhook",
        "secret_token": "<new-TELEGRAM_WEBHOOK_SECRET>"
      }'
    ```
@@ -168,7 +168,7 @@ openssl rand -base64 18 | tr -d '=/+'
    ```bash
    pm2 start mahalla-ovozi
    ```
-5. Run a health check: `curl -f https://<your-domain>/api/health`.
+5. Run a health check: `curl -f https://<your-domain>/readyz`.
 
 ---
 
@@ -195,7 +195,7 @@ openssl rand -base64 18 | tr -d '=/+'
 
 After any secret rotation:
 
-- [ ] Application health check passes: `curl -f https://<your-domain>/api/health`
+- [ ] Application readiness check passes: `curl -f https://<your-domain>/readyz`
 - [ ] Login flow works end-to-end
 - [ ] Bot receives a test message and it appears in the Ops Console raw queue
 - [ ] Classifier processes the test message and produces a signal (or `ignore`)

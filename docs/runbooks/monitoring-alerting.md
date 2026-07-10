@@ -10,7 +10,7 @@
 
 | Surface | What to watch | Cadence |
 |---|---|---|
-| Application health endpoint | HTTP 200, response body status `ok` | Every 1 minute |
+| Application liveness/readiness endpoints | `/healthz` HTTP 200 and `/readyz` HTTP 200 with status `ok` | Every 1 minute |
 | Telegram bot connectivity | `bot_status` per mahalla in DB | Every 5 minutes |
 | Classifier pipeline | `batch_health` rows, error rate, signal throughput | Every 5 minutes |
 | Dead-letter queue | `raw_messages` with `dead_lettered_at IS NOT NULL` | Every 15 minutes |
@@ -23,31 +23,39 @@
 
 ## 2. Application Health Endpoint
 
-The server exposes a dedicated health endpoint:
+The server exposes unauthenticated platform health endpoints:
 
 ```
-GET /api/health
+GET /healthz
+GET /readyz
 ```
 
-Expected response (HTTP 200):
+Expected liveness response (HTTP 200):
+
+```json
+{
+  "status": "ok"
+}
+```
+
+Expected readiness response (HTTP 200):
 
 ```json
 {
   "status": "ok",
-  "db": "ok",
-  "bot": "ok"
+  "database": "ok"
 }
 ```
 
-If `db` or `bot` are not `"ok"`, investigate immediately.
+If `/readyz` returns non-200, investigate database connectivity immediately. The authenticated dashboard health API remains at `/api/health` and reports classifier freshness, not platform liveness.
 
 ### 2.1 Simple Uptime Check with curl
 
 ```bash
 while true; do
-  STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://<your-domain>/api/health)
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://<your-domain>/readyz)
   if [ "$STATUS" != "200" ]; then
-    echo "[$(date -Iseconds)] ALERT: /api/health returned $STATUS"
+    echo "[$(date -Iseconds)] ALERT: /readyz returned $STATUS"
   fi
   sleep 60
 done
@@ -56,7 +64,7 @@ done
 ### 2.2 With an External Uptime Service
 
 Use any uptime monitoring tool (Uptime Robot, Better Uptime, Freshping) to poll:
-- **URL**: `https://<your-domain>/api/health`
+- **URL**: `https://<your-domain>/readyz`
 - **Method**: GET
 - **Expected status**: 200
 - **Check interval**: 1 minute
@@ -253,7 +261,7 @@ For the pilot phase, use lightweight alerting:
 | Method | When to use |
 |---|---|
 | Email from cron scripts | Daily backup/purge success/failure |
-| Uptime Robot / Freshping | `/api/health` downtime |
+| Uptime Robot / Freshping | `/healthz` or `/readyz` downtime |
 | Telegram message to operator group | Critical failures (bot silence, dead-letter spike) |
 
 Example: Send a Telegram alert from a cron script:
@@ -282,7 +290,7 @@ fi
 
 | Check | Frequency | Alert Condition | Response |
 |---|---|---|---|
-| `/api/health` | 1 min | Non-200 or `db/bot` not `ok` | Check logs, DB, bot token |
+| `/healthz` and `/readyz` | 1 min | Non-200 or readiness database not `ok` | Check logs and DB |
 | Bot silence | 5 min | `bot_last_seen_at` > 24h | Check webhook, bot group membership |
 | Batch health errors | 5 min | `status = error` in last 2 runs | Check AI provider, classifier logs |
 | Dead-letter queue | 15 min | Count > 0 and growing | Check `last_error`, re-queue if root cause fixed |

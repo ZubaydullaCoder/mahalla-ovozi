@@ -229,7 +229,10 @@ describe('GET /api/health', () => {
     )
     expect(mockRawMessageCount).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ district_id: SESSION_DISTRICT_ID }),
+        where: expect.objectContaining({
+          district_id:      SESSION_DISTRICT_ID,
+          dead_lettered_at: null,
+        }),
       }),
     )
   })

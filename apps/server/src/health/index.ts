@@ -34,7 +34,10 @@ healthRouter.get('/health', async (req, res) => {
         },
       }),
       prisma.rawMessage.count({
-        where: { district_id: districtId },
+        where: {
+          district_id:       districtId,
+          dead_lettered_at:  null,
+        },
       }),
     ])
 

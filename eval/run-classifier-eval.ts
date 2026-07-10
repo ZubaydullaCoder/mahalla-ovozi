@@ -16,6 +16,18 @@ interface EvalCase {
   expected: ExpectedOutput
 }
 
+interface EvalResultRow {
+  id: string
+  text: string
+  expectedDecision: ExpectedOutput['decision']
+  actualDecision: string
+  expectedCats: string
+  actualCats: string
+  expectedHokim: boolean
+  actualHokim: boolean
+  status: 'PASS' | 'FAIL' | 'ERROR'
+}
+
 async function run() {
   const casesPath = path.resolve(process.cwd(), 'eval/classifier-cases.jsonl')
   const examplePath = path.resolve(process.cwd(), 'eval/classifier-cases.example.jsonl')
@@ -43,7 +55,7 @@ async function run() {
   let falsePositives = 0
   let falseNegatives = 0
 
-  const resultsTable: any[] = []
+  const resultsTable: EvalResultRow[] = []
 
   for (const c of cases) {
     try {

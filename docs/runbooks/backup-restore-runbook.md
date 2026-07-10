@@ -156,7 +156,7 @@ systemctl start mahalla-ovozi
 ### 4.5 Smoke Test After Restore
 
 ```bash
-curl -f https://<your-domain>/api/health
+curl -f https://<your-domain>/readyz
 ```
 
 ---
