@@ -212,6 +212,24 @@ describe('generateSignalSummary', () => {
       fetchSpy.mockRestore()
     })
 
+    it('appends chat/completions without duplicating v1 when AI_BASE_URL already includes v1', async () => {
+      mockEnv.env.AI_BASE_URL = 'http://localhost:1234/v1'
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(
+          JSON.stringify({ choices: [{ message: { content: VALID_CYRILLIC } }] }),
+          { status: 200 },
+        ),
+      )
+
+      await generateSignalSummary('Elektr yoq', 'Ali', 'electricity')
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        'http://localhost:1234/v1/chat/completions',
+        expect.objectContaining({ method: 'POST' }),
+      )
+      fetchSpy.mockRestore()
+    })
+
     it('returns null and logs warn on HTTP error', async () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
         new Response('error', { status: 503 }),

@@ -1,6 +1,6 @@
 # Story 8.1: AI-Generated Professional Summary on Dashboard Signal Cards
 
-Status: review
+Status: done
 
 ## Story
 
@@ -425,7 +425,7 @@ Gemini 3.5 Flash (High) / Claude Sonnet 4.6 (Thinking)
 - ✅ `drawer-signal-card.tsx`: Verified unchanged — continues to use `{signal.rawText}`, no `aiSummary` reference.
 - ✅ Tests: 18 `summary-generator.test.ts` tests pass. 4 `signal-card.test.tsx` tests pass covering mentions, multi-word styling, and layout restructuring. Fixtures updated.
 - ✅ All validations: `pnpm lint` ✓ | `pnpm -F server exec tsc --noEmit` ✓ | `pnpm -F mahalla-ovozi-web exec tsc --noEmit` ✓ | `pnpm test` ✓ (54 files, 730 tests)
-- ✅ sprint-status.yaml updated: `epic-8: in-progress`, `8-1-ai-summary-on-signal-cards: review`, `last_updated: 2026-07-09`
+- ✅ sprint-status.yaml updated: `epic-8: in-progress`, `8-1-ai-summary-on-signal-cards: done`, `last_updated: 2026-07-15`
 
 ### File List
 
