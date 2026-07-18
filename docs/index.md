@@ -3,7 +3,7 @@
 ## Files
 
 - **[stakeholder-decisions-log.md](./stakeholder-decisions-log.md)** - Register of explicit human-stated decisions, constraints, and preferences.
-- **[classifier-evaluation.md](./classifier-evaluation.md)** - Register of message classifier quality evaluation harness and labeled cases.
+- **[classifier-evaluation.md](./classifier-evaluation.md)** - Chronological topic-triage replay format, quality metrics, and regression workflow.
 
 ## Subdirectories
 
@@ -16,7 +16,7 @@
 - **[index.md](./runbooks/index.md)** - Operational runbooks index for pilot deployment, backups, data retention, secret rotation, and monitoring.
 - **[pilot-deployment-runbook.md](./runbooks/pilot-deployment-runbook.md)** - Step-by-step first-time pilot deployment guide.
 - **[backup-restore-runbook.md](./runbooks/backup-restore-runbook.md)** - PostgreSQL backup strategy and restore procedure.
-- **[data-retention-policy.md](./runbooks/data-retention-policy.md)** - Data retention schedule and automated purge setup.
+- **[data-retention-policy.md](./runbooks/data-retention-policy.md)** - Topic evidence, irrelevant-message, diagnostic, and backup retention policy.
 - **[secret-rotation.md](./runbooks/secret-rotation.md)** - Secret rotation procedures for all application secrets.
-- **[monitoring-alerting.md](./runbooks/monitoring-alerting.md)** - Monitoring surfaces, alert conditions, and lightweight alerting setup.
+- **[monitoring-alerting.md](./runbooks/monitoring-alerting.md)** - Queue ordering, local Ollama, triage, retention, and platform monitoring.
 

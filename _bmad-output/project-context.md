@@ -1,124 +1,212 @@
-﻿---
+---
 project: mahalla-ovozi
 status: active
 purpose: AI agent implementation context
-last_updated: 2026-06-29
+last_updated: 2026-07-18
+governing_change: _bmad-output/planning-artifacts/sprint-change-proposal-2026-07-18.md
 ---
 
 # Project Context
 
 ## Purpose
 
-This file gives AI agents durable implementation context for Mahalla Ovozi: product boundaries, source-of-truth rules, stack choices, and non-obvious constraints. It is not a sprint tracker and does not replace the PRD, architecture, story files, validation reports, or stakeholder decisions log.
+This file gives AI agents durable implementation context for Mahalla Ovozi:
+product boundaries, source-of-truth rules, target architecture, and non-obvious
+constraints. It is not a sprint tracker and does not replace the PRD,
+architecture, story files, validation reports, or stakeholder decisions log.
 
 ## Product Context
 
-Mahalla Ovozi is a private internal civic signal monitoring system for district leadership in Uzbekistan.
+Mahalla Ovozi is a private internal civic monitoring system for district
+leadership in Uzbekistan. It listens passively to one approved Telegram
+supergroup per mahalla and presents evidence-backed civic topics in five
+dashboard lanes.
 
-It listens to selected mahalla Telegram supergroups through an official bot, captures text/caption messages, filters civic signals, and displays relevant messages in a dashboard organized by service category, mahalla, and time.
+The dashboard unit is a canonical topic, not an individual classified message.
+A topic groups original Telegram messages that available evidence indicates
+describe the same underlying situation. Topic summaries are AI-assisted
+descriptions of resident reports; they are not verified facts, incidents,
+administrative cases, or resolution records.
 
-It is not a complaint portal, resolution tracker, citizen chatbot, or Telegram archive. It captures, filters, and displays signals; decisions and action remain with the hokim and existing institutional processes.
+The product is not a complaint portal, citizen chatbot, Telegram archive,
+assignment system, or case-management workflow. Decisions and action remain
+with the hokim and existing institutional processes.
 
 ## Key Sources
 
-- `docs/stakeholder-decisions-log.md` - explicit owner/client decisions only.
-- `_bmad-output/planning-artifacts/prd.md` - product requirements.
-- `_bmad-output/planning-artifacts/architecture.md` - architecture and module boundaries.
-- `_bmad-output/implementation-artifacts/sprint-status.yaml` - canonical current story/status tracker.
-- `_bmad-output/implementation-artifacts/` - story files, validation reports, and implementation artifacts.
-- `prisma/schema.prisma` - database schema source of truth.
-- `apps/server/src` - backend, bot, classifier, keyword logic, and shared infrastructure.
-- `apps/web/src` - frontend app.
+- `docs/stakeholder-decisions-log.md` — explicit owner/client decisions.
+- `_bmad-output/planning-artifacts/prd.md` — product requirements.
+- `_bmad-output/planning-artifacts/architecture.md` — technical architecture.
+- `_bmad-output/planning-artifacts/architecture-ops-console.md` — protected
+  diagnostics and Hokim-keyword management.
+- `_bmad-output/planning-artifacts/ux-design-specification/` — target UX.
+- `_bmad-output/planning-artifacts/epics.md` — Epic 9 breakdown.
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` — canonical
+  delivery tracker.
+- `prisma/schema.prisma` and application source — implementation truth.
 
-Do not manually edit generated Prisma files under `apps/server/src/generated/prisma`.
+Do not manually edit generated Prisma files under
+`apps/server/src/generated/prisma`.
 
 ## Product Boundaries
 
-MVP scope is fixed. Do not add features unless the owner explicitly changes scope.
-
-Filtering uses `keyword_gate` only unless explicitly changed. Do not build `ai_full`, `shadow_compare`, comparison statistics, or filtering-mode validation work.
-
-Filtering mode is developer/operator-side only. Do not expose filtering-mode controls or language in the hokim/staff dashboard.
-
-The bot is a passive listener only. Do not add bot replies, commands, or citizen-facing chat behavior.
-
-`hokim_related` is a boolean flag, not a category. A signal can be `category=gas` and `hokim_related=true`.
-
-The Hokim-related lane is only a priority entry point. Drawer context must still use the clicked signal's original service category.
+- MVP service categories are Water, Electricity, Gas, and Waste.
+- Topics use a non-empty equal `categories[]` set. There is no primary category.
+- One canonical topic may appear once in every applicable service lane.
+- `hokim_related` is a cross-cutting boolean, not a service category.
+- A topic enters the Hokim lane only after it qualifies as a supported-service
+  topic and retained evidence contains an active Hokim keyword.
+- AI must not infer Hokim relevance from severity.
+- Clear civic reports outside the four supported services are out of MVP scope.
+- No case status, assignment, severity, resolution, or citizen-response flow.
+- One mahalla has exactly one active monitored Telegram group in MVP.
 
 ## Stack and Architecture Defaults
 
-Use the existing TypeScript/pnpm workspace. Core stack summary: React/Vite/Ant Design frontend, Express/Prisma/PostgreSQL backend, grammY Telegram bot integration, strict TypeScript, Vitest, and ESLint.
+Use the existing TypeScript/pnpm workspace: React, Vite, Ant Design, Express,
+Prisma, PostgreSQL, grammY, strict TypeScript, Vitest, and ESLint.
 
-For detailed technical architecture, module boundaries, data flow, provider design, and exact stack/version decisions, use `_bmad-output/planning-artifacts/architecture.md` as the canonical source.
+Keep business logic provider-agnostic. Local Ollama with `gemma4:12b` is the
+initial evaluation and pilot model. There is no automatic external-provider
+fallback. External transmission of resident text requires explicit owner
+approval after a current privacy, residency, cost, latency, and quality review.
 
-Do not migrate package manager, framework, ORM, auth approach, database, UI framework, or classifier provider architecture without owner approval.
+Do not migrate the package manager, framework, ORM, auth model, database, UI
+framework, or provider abstraction without owner approval.
 
-## Backend Rules
+## Intake and Processing Rules
 
-Keep Telegram intake, structural pre-filtering, keyword matching, and routing centralized in the bot/filtering pipeline.
+Telegram webhook handling must:
 
-Telegram webhook intake must stay fast: it validates, structurally filters, applies `keyword_gate`, saves keyword-matched raw messages, triggers the classifier drain asynchronously, and returns without running AI classification inside the webhook request.
+1. validate the webhook secret and monitored-group scope;
+2. reject only structural noise such as bot-originated, empty, unsupported
+   non-text, pure-reaction, and bot-command updates;
+3. persist structurally valid text/captions, Telegram source identity, sender
+   snapshot, timestamp, and reply metadata before AI work;
+4. trigger asynchronous processing and return without invoking AI inline.
 
-The classifier uses a sequential drain worker: `triggerClassifierDrain()` reuses the existing in-process guard and PostgreSQL advisory lock, processes `raw_messages` oldest-first in `CLASSIFIER_BATCH_SIZE` batches, repeats until the queue is empty, and stops after a failed batch so retryable rows are not hot-looped. Webhook, startup, cron fallback, and manual Ops triggers all use this same drain/lock path.
+Keywords do not gate topic intake. Clear keywordless civic reports may create a
+topic, and keywordless contextual follow-ups may attach to one.
 
-Manual keywords belong in the centralized PostgreSQL-backed registry. Do not scatter keyword lists across prompts, frontend code, environment variables, or multiple modules.
+Process captured messages chronologically within each mahalla. An earlier
+failure blocks later same-mahalla messages until safe retry or dead-letter
+handling completes. Other mahallas may continue when isolation is preserved.
 
-Discard bot-originated messages with `from.is_bot === true`, and preserve operator/debug visibility where applicable.
+Normal retrieval is bounded to the rolling preceding 24 hours. Exact replies to
+retained compatible evidence may exceed that boundary. Each AI call receives
+only a bounded relevant micro-batch, reply chain, nearby context, and candidate
+topic evidence; never send an entire day's conversation by default.
 
-Do not discard short messages solely by length. Short text can be a valid civic signal.
+## Triage Contract
 
-Validate AI output with the classifier schema before writing signal data. Invalid AI output should be retried or logged, never silently accepted.
+Final dispositions are:
 
-Classifier business logic must remain provider-agnostic. Any AI provider integration must validate outputs with `ClassifierOutputSchema` before writing signal data. Local or rule-only classifier modes are for validation/testing and must follow the same output schema contract.
+- `new_topic`
+- `attached`
+- `irrelevant`
 
-Use Prisma relations and district-scoped constraints consistently. District isolation is a core security boundary; do not bypass it.
+There is no AI-selected `pending` disposition. Queue states such as `queued`,
+`processing`, `retry`, and `dead_letter` are operational state, not semantic
+outcomes.
 
-Use env-only secrets. Do not hardcode secrets, tokens, database URLs, webhook secrets, AI keys, or credentials.
+Context-dependent fragments never create a topic by themselves. They attach
+only when compatible earlier evidence exists; otherwise they are irrelevant.
+An ambiguous irrelevant message may be promoted atomically to attached evidence
+when a later explicit reply or follow-up clarifies it during its 24-hour
+full-text retention window.
 
-## Data Model Notes
+Validate AI output before persistence. Attachment IDs must come from the
+supplied same-district, same-mahalla candidate set. Invalid or unsupported
+output retries or fails visibly; it is never silently accepted.
 
-Main tables: `districts`, `mahallas`, `users`, `raw_messages`, `signal_messages`, `keywords`, `batch_health`, `pipeline_events`.
+## Evidence and Summary Rules
 
-`telegram_update_id` is unique in `raw_messages`. In `signal_messages` the uniqueness constraint is composite `(telegram_update_id, category)` — one row per service category per source Telegram message — supporting multi-category signals from a single update.
+- Original resident text remains unchanged.
+- Dashboard summaries use clear Uzbek Cyrillic.
+- Every claim remains attributed to residents or messages and preserves
+  uncertainty.
+- Never present ordinary resident statements as confirmed or verified facts.
+- Never infer a cause or service category from ambiguous wording.
+- Contradictions and restoration/improvement reports remain evidence and are
+  summarized neutrally; they do not create resolved/closed status.
+- Distinct-resident counts require distinct reliable sender identities.
+- Repeated messages from one sender do not imply multiple residents.
+- Summaries omit resident names and usernames.
+- The anchor is the latest self-contained retained evidence message, not merely
+  the latest context-dependent reply.
 
-`raw_messages` stores pending retained intake messages. `signal_messages` stores classified civic signals.
+## Data and Privacy Rules
 
-Ignored messages should not remain indefinitely after processing; follow existing retention/purge behavior.
+Target entities are canonical topics, equal topic categories, and captured
+messages with zero-or-one topic membership. Preserve district isolation and
+idempotent Telegram source identity.
 
-`PipelineEvent` is for operator/debug visibility and must remain district-scoped.
+Retention:
+
+- attached topic evidence: 90 days from Telegram timestamp;
+- irrelevant full text: 24 hours;
+- irrelevant content-free metadata: 14 days;
+- dead-lettered messages: 7 days after dead-lettering;
+- content-free pipeline events: 14 days;
+- triage health metrics: 60 days;
+- sessions: existing 7-day TTL.
+
+Evidence purge regenerates summary, categories, attribution counts, anchor, and
+Hokim flag. Purging the final evidence removes the topic. Logs and pipeline
+events never retain resident text, prompts, or provider responses. Backups must
+not silently extend the approved retention windows.
 
 ## Frontend and UX Rules
 
-The dashboard is for non-technical district leadership and staff. Prioritize fast scanning, clarity, and low cognitive load.
+The five independently scrolling desktop lanes and overlay drawer remain.
+`<TopicCard>` displays the Uzbek Cyrillic summary, a visually distinct excerpt
+from the latest self-contained anchor, mahalla, all category chips, latest
+activity, evidence count, Hokim indicator, and exact anchor Telegram link when
+available.
 
-Use Ant Design 6 and project theme conventions. Do not introduce Tailwind.
+Every rendered copy opens the same canonical topic. Service-lane copies use the
+rendering lane's accent; the Hokim-lane copy is neutral and shows all category
+chips. Category meaning must not rely on color alone.
 
-All production user-facing dashboard strings must be Uzbek Cyrillic unless explicitly exempted. Latin Uzbek UI strings are build errors, not style preferences.
+The drawer shows only retained messages assigned to the selected topic,
+oldest-to-newest, with original text, sender snapshot, timestamp, caption/reply
+provenance, and exact Telegram action when constructible. It must not show
+unrelated same-category messages or operational queue states.
 
-Keep strings centralized and testable.
+All product-authored UI copy is Uzbek Cyrillic. Original evidence remains
+unchanged. Topic cards support Enter/Space, nested Telegram links have separate
+focus targets, and Ant Design Drawer focus/Escape behavior remains.
 
-WCAG 2.1 AA is an internal MVP quality target. Build for contrast, keyboard navigation, focus visibility, semantic HTML, and core ARIA behavior, but do not expand scope into formal audit work unless requested.
+## Ops and Repair Rules
 
-Mahalla dropdown counts are not required for MVP.
+Protected Ops diagnostics show per-mahalla queue depth and age, blockage,
+retry/dead-letter growth, Ollama availability/latency, triage outcomes,
+promotion, replay, and retention health without resident content in logs.
 
-Drawer context uses the active dashboard time range, displays corroborating signals in ascending chronological order, centers around the anchor signal, and uses the clicked signal's original service category even from the Hokim-related lane.
+The existing keyword registry is narrowed to Hokim-lane keywords. There is no
+manual topic merge, split, reassignment, category edit, or summary edit UI.
+Grouping defects are developer-owned product defects: fix the root cause, add a
+labeled regression case, then use the developer-only scoped replay tool.
+
+Replay defaults to dry run, requires explicit apply mode, is idempotent, limits
+scope by district/time/message/topic, and records audit metadata.
+
+## Cutover and Approval Boundaries
+
+Epic 9 uses offline evaluation followed by direct cutover. Do not build live
+shadow comparison, dual processing, dual writes, a legacy dashboard rollback
+switch, or automatic external fallback.
+
+Before deleting test data, inspect the live database, propose the exact scoped
+deletion, and obtain action-time owner confirmation. Do not use a broad database
+reset as a shortcut. Implementation, deployment, external AI transmission, and
+mutating Git operations require their applicable approvals.
 
 ## Verification Rules
 
-Use focused tests for changed behavior.
+Implement and validate one Epic 9 story at a time. Add focused tests for changed
+behavior and run the repository checks appropriate to the affected surface.
+Frontend changes require non-interactive checks followed by concise user manual
+verification; browser automation is used only when explicitly requested.
 
-Preferred checks: `pnpm lint`, `pnpm test`, package-specific build/type checks where relevant, Prisma checks when schema changes, and browser/visual verification for meaningful frontend changes.
-
-Report unavailable checks and unrelated existing failures clearly.
-
-## Source of Truth Rules
-
-Use stakeholder decisions only for explicit owner/client decisions. Do not add inferred AI decisions there.
-
-Use PRD and architecture docs for product and technical decisions produced by planning workflows.
-
-Use implementation artifacts and `sprint-status.yaml` for current delivery state.
-
-If stakeholder decisions conflict with architecture or older docs, treat the active stakeholder decision as the stronger source unless the owner says otherwise.
-
+Do not claim completion when a required check is unavailable or failing.

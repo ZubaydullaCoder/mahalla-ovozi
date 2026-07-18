@@ -1,7 +1,8 @@
 ﻿---
-stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-epic-1', 'step-03-epic-2', 'step-03-epic-3', 'step-03-epic-4', 'step-03-epic-5', 'step-03-epic-6', 'step-04-final-validation']
+stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-epic-1', 'step-03-epic-2', 'step-03-epic-3', 'step-03-epic-4', 'step-03-epic-5', 'step-03-epic-6', 'step-03-epic-7', 'step-03-epic-8', 'step-03-epic-9', 'step-04-final-validation']
 workflowStatus: COMPLETE
 completedAt: '2026-06-03'
+lastUpdated: '2026-07-18'
 inputDocuments:
   - '_bmad-output/planning-artifacts/prd.md'
   - '_bmad-output/planning-artifacts/architecture.md'
@@ -13,6 +14,7 @@ inputDocuments:
   - '_bmad-output/planning-artifacts/ux-design-specification/user-journey-flows.md'
   - '_bmad-output/planning-artifacts/ux-design-specification/ux-consistency-patterns.md'
   - '_bmad-output/planning-artifacts/ux-design-specification/responsive-design-accessibility.md'
+  - '_bmad-output/planning-artifacts/sprint-change-proposal-2026-07-18.md'
 ---
 
 # mahalla-ovozi - Epic Breakdown
@@ -23,7 +25,28 @@ This document provides the complete epic and story breakdown for mahalla-ovozi, 
 
 ---
 
-## Requirements Inventory
+## Current Target Requirements
+
+The current product requirements are FR1–FR53 and NFR1–NFR20 in `prd.md`.
+Epic 9 provides their dependency-ordered target implementation:
+
+- Story 9.1: chronological replay and measured AI quality;
+- Story 9.2: canonical topic, equal categories, and captured-message storage;
+- Story 9.3: structural intake and chronological per-mahalla drain;
+- Story 9.4: bounded 24-hour retrieval, exact-reply exception, and validated
+  local Gemma triage;
+- Story 9.5: atomic membership, irrelevant promotion, concurrency, and replay;
+- Story 9.6: topic/evidence APIs, exact Telegram links, and retention;
+- Story 9.7: protected diagnostics and Hokim-keyword management;
+- Story 9.8: multi-lane topic cards;
+- Story 9.9: chronological evidence drawer and search;
+- Story 9.10: measured direct cutover and scoped test-data reset.
+
+The inventory below is retained as the historical requirements basis for
+completed Epics 1–8. It must not override the current PRD, architecture, UX
+specification, Sprint Change Proposal, or Epic 9 acceptance criteria.
+
+## Historical Requirements Inventory (Epics 1–8)
 
 ### Functional Requirements
 
@@ -144,7 +167,7 @@ UX-DR20: Implement keyboard navigation: all filter chips as native <button> elem
 
 ---
 
-### FR Coverage Map
+### Historical FR Coverage Map (Epics 1–8)
 
 FR1: Epic 3 — Five-lane dashboard display
 FR2: Epic 3 — Independent lane scrolling
@@ -186,7 +209,7 @@ FR34: Epic 3 (hokim-facing UI banner) + Epic 5 (health state propagation) — De
 
 ---
 
-## Epic List
+## Historical Epic List (Epics 1–8)
 
 ### Epic 1: Project Foundation & AI Signal Pipeline
 Operator/developer can run the full system locally: monorepo scaffold, DB schema, Telegram bot webhook, structural pre-filter pipeline, AI classifier batch — complete signal intake-to-storage chain works end-to-end.
@@ -796,3 +819,272 @@ So that Phase 1 can validate classification with supported local or remote provi
 **And** Telegram intake, dashboard UI, Ops Console UI, database schema, and unrelated modules are not changed
 **And** `pnpm lint`, `pnpm test`, and server TypeScript checks pass; web build/typecheck is only required if web files are touched
 
+---
+
+## Epic 8: AI Signal Enrichment (Completed Baseline)
+
+District leadership can scan AI-generated professional Uzbek Cyrillic summaries on individual signal cards while retaining access to the original Telegram evidence in the drawer. This epic is completed historical baseline work; Epic 9 reuses provider and summary-generation patterns while replacing the per-message dashboard model.
+
+### Story 8.1: AI-Generated Professional Summary on Dashboard Signal Cards
+
+As a **district hokim or staff member**,
+I want signal cards to show an AI-generated professional Uzbek Cyrillic summary,
+So that I can scan the completed per-message baseline more quickly while retaining original evidence in the drawer.
+
+**Acceptance Criteria:**
+
+**Given** a message is classified as a signal
+**When** summary generation succeeds
+**Then** a validated Uzbek Cyrillic summary is stored in `signal_messages.ai_summary` and displayed on the lane card
+**And** when summary generation fails, the signal still persists and the lane card falls back to raw text
+**And** the evidence drawer continues to display the original message text
+**And** provider selection continues through the Story 7.1 abstraction
+**And** the completed implementation artifact `_bmad-output/implementation-artifacts/8-1-ai-summary-on-signal-cards.md` remains the detailed historical source
+**And** Story 8.1 and Epic 8 are marked `done`
+
+---
+
+## Epic 9: Contextual Topic Triage and Evidence Dashboard
+
+District leadership can scan locally processed, evidence-grounded civic topics instead of isolated keyword-gated message cards, while inspecting original Telegram messages and opening exact source positions. Topic groupings remain AI-assisted resident-report summaries, not verified incidents or administrative cases.
+
+### Epic 9 Change Requirements
+
+- Structurally valid text and captions enter asynchronous contextual triage without keyword-gated exclusion.
+- Messages are processed chronologically within one district, mahalla, and active Telegram group.
+- Normal retrieval uses a bounded rolling 24-hour window; exact retained Telegram replies may exceed it.
+- Final triage outcomes are `new_topic`, `attached`, or `irrelevant`; there is no AI-selected `pending`.
+- Topics use a non-empty equal `categories[]` set across Water, Electricity, Gas, and Waste; there is no primary category.
+- One canonical topic may appear in multiple service lanes and the Hokim priority lane without duplicate topic or evidence records.
+- `hokim_related` is deterministic from retained active Hokim-keyword evidence after the message qualifies as a supported service signal.
+- Resident claims remain attributed and uncertain; summaries never present them as independently verified facts.
+- Local Ollama `gemma4:12b` is the initial provider and there is no automatic external fallback.
+- The target system uses offline evaluation followed by direct cutover, not live shadow comparison, dual writes, or a legacy dashboard rollback switch.
+
+### Story 9.1: Conversational Evaluation Harness
+
+As a **developer**,
+I want a labeled chronological conversation-replay harness,
+So that topic grouping, category, attribution, and uncertainty behavior can be measured before target implementation is activated.
+
+**Acceptance Criteria:**
+
+**Given** a JSONL replay fixture
+**When** the harness validates and loads it
+**Then** the fixture supports ordered messages, Telegram timestamps, mahalla/group identity, stable sender identity when available, reply relationships, and original text/caption source
+**And** expected output supports topic memberships, ignored or promoted evidence, equal category sets, Hokim-related state, and latest self-contained anchor identity
+**And** the scoring library reports supported-signal precision/recall, keywordless new-topic recall, keywordless follow-up attachment, over-merge, over-split, multi-category accuracy, unsupported-category rejection, and resident-attribution accuracy
+**And** summary assertions detect unsupported factual claims, missing attribution, and loss of uncertainty without requiring one exact generated sentence
+**And** the runner supports deterministic fixture-output mode before the target pipeline adapter exists
+**And** local provider runs use configured Ollama `gemma4:12b` without external fallback or logging fixture message text
+**And** no arbitrary cutover threshold is hard-coded; the harness reports measured results for later owner approval
+**And** documentation explains how every developer-fixed AI defect becomes a regression case
+**And** focused harness tests, `pnpm lint`, `pnpm typecheck`, and `pnpm test` pass
+
+---
+
+### Story 9.2: Topic and Captured-Message Schema
+
+As a **developer**,
+I want additive topic-oriented storage with enforceable source and membership integrity,
+So that later pipeline stories can group messages safely without rewriting unreliable legacy history.
+
+**Acceptance Criteria:**
+
+**Given** the new Prisma migration is applied
+**When** the generated client and database schema are inspected
+**Then** a topic stores district/mahalla scope, grounded summary, first/latest activity, nullable anchor evidence reference, summary/version metadata, and timestamps
+**And** topic categories are stored as a unique equal non-empty set supporting Water, Electricity, Gas, and Waste without a primary-category field
+**And** a captured message stores Telegram update/chat/message identity, optional reply target, district/mahalla, sender snapshot and stable identity when available, original text, text source, Telegram timestamp, processing state, nullable final disposition, nullable topic membership, retry/error metadata, and expiry timestamps
+**And** database guarantees enforce unique Telegram update identity, defensive unique chat/message identity, and zero-or-one topic membership per captured message
+**And** district/mahalla relations prevent cross-scope topic membership
+**And** the schema enforces or safely validates one active monitored Telegram group per mahalla
+**And** indexes support chronological queue reads, irrelevant expiry, topic activity/category queries, and retention purge
+**And** legacy `raw_messages` and `signal_messages` remain intact during this additive foundation story and are not converted into topics
+**And** migration, Prisma generation, rollback/rehearsal guidance, focused schema tests, `pnpm lint`, `pnpm typecheck`, and `pnpm test` pass
+
+---
+
+### Story 9.3: Contextual Intake and Chronological Drain
+
+As an **operator**,
+I want structurally valid Telegram text persisted and processed in chronological mahalla order,
+So that follow-up meaning is not lost and provider failures cannot silently reorder a conversation.
+
+**Acceptance Criteria:**
+
+**Given** a valid monitored-group text message or textual caption
+**When** the Telegram webhook receives it
+**Then** the centralized structural filter removes only bot-originated, empty, unsupported non-text, pure-reaction, and bot-command noise
+**And** short messages are not discarded solely by length and keyword matching does not exclude the message
+**And** the captured message, source identity, sender snapshot, Telegram timestamp, and reply metadata are persisted before asynchronous AI work
+**And** the webhook returns without running AI inside the request
+**And** the drain processes messages oldest-first within each mahalla and reuses idempotent source identity across webhook, startup, cron, manual, and retry triggers
+**And** an earlier failed message blocks later same-mahalla processing until retry or dead-letter handling completes
+**And** failure in one mahalla does not corrupt or duplicate another mahalla's queue
+**And** operational state remains separate from final triage disposition and no `pending` AI disposition is introduced
+**And** content-free events expose queue, retry, dead-letter, and blockage diagnostics without raw text, prompts, or provider responses
+**And** focused ordering/restart/idempotency tests, `pnpm lint`, `pnpm typecheck`, and `pnpm test` pass
+
+---
+
+### Story 9.4: Bounded Retrieval and Gemma Topic Triage
+
+As a **district user**,
+I want messages interpreted with only the relevant recent conversation and topic evidence,
+So that clear reports and keywordless follow-ups are grouped accurately without excessive privacy exposure or model noise.
+
+**Acceptance Criteria:**
+
+**Given** the next chronological message or micro-batch
+**When** contextual retrieval runs
+**Then** it may include the current batch, exact retained reply target and necessary reply chain, a bounded number of nearby prior messages, and a bounded shortlist of same-scope candidate topics with limited recent evidence
+**And** normal retrieval excludes content older than a rolling 24 hours while a retained compatible exact reply may exceed that boundary
+**And** configured message, candidate, evidence, and token caps are explicit, validated, and measurable by the replay harness
+**And** local Ollama `gemma4:12b` returns a schema-validated `new_topic`, `attached`, or `irrelevant` result
+**And** `attached` accepts only an ID from the supplied same-district/same-mahalla candidate set
+**And** topic output uses an equal supported `categories[]` set and never returns a primary category or AI-selected Hokim flag
+**And** summaries use clear Uzbek Cyrillic, preserve material names/phrases, attribute claims to residents or messages, distinguish unique senders from repeated messages, and retain uncertainty or contradiction
+**And** ambiguous content does not gain a category or causal claim from a keyword alone; unsupported service reports become irrelevant to MVP scope
+**And** Ollama unavailability or invalid output enters retry/delay behavior without automatic external transmission
+**And** prompts, raw provider output, and resident text remain absent from logs
+**And** focused retrieval/schema/privacy tests, replay integration, `pnpm lint`, `pnpm typecheck`, and `pnpm test` pass
+
+---
+
+### Story 9.5: Atomic Topic Persistence and Developer Replay
+
+As a **developer**,
+I want topic decisions persisted atomically and repairable through controlled replay,
+So that concurrency, retries, and model corrections cannot duplicate or silently corrupt evidence.
+
+**Acceptance Criteria:**
+
+**Given** a validated `new_topic` or `attached` result
+**When** persistence executes
+**Then** one safe transaction rechecks eligibility, validates scope/candidate membership, creates or version-updates the topic, attaches the message exactly once, records final disposition, updates activity/category/summary metadata, selects the latest self-contained anchor, and writes content-free diagnostics
+**And** retries with the same Telegram source identity do not create duplicate topics or memberships
+**And** concurrent workers use locking or optimistic version checks sufficient to prevent competing updates in the same topic/mahalla scope
+**And** a contextual fragment never creates a new topic and becomes irrelevant when no compatible earlier context exists
+**And** an irrelevant message retained within 24 hours may be atomically promoted to attached evidence only when a later explicit follow-up or reply clarifies it
+**And** `new_topic` and `attached` are terminal while irrelevant promotion expires when full text is purged
+**And** developer replay defaults to dry run, requires explicit apply mode, supports district/time/message/topic limits, is idempotent, records audit metadata, and reports before/after outcomes
+**And** replay never becomes a hokim or Ops manual merge/split/edit interface
+**And** documentation requires root-cause correction and a regression fixture before apply replay
+**And** focused transaction/concurrency/promotion/replay tests, `pnpm lint`, `pnpm typecheck`, and `pnpm test` pass
+
+---
+
+### Story 9.6: Topic APIs, Telegram Links, and Retention
+
+As an **authenticated district user**,
+I want secure topic and evidence APIs with exact Telegram links,
+So that the dashboard can present current topic activity and let me verify every retained source message.
+
+**Acceptance Criteria:**
+
+**Given** an authenticated session
+**When** `GET /api/topics` is called with supported time and mahalla filters
+**Then** district scope comes only from the session and the response includes topic ID, mahalla, summary, equal categories, Hokim flag, first/latest activity, retained evidence count, anchor excerpt, and exact anchor Telegram URL or `null`
+**And** topics are returned when they have relevant activity inside the selected range even when they began earlier
+**And** `GET /api/topics/:id/evidence` returns only that topic's retained evidence in ascending chronological order with sender snapshot, original text, text source, timestamp, reply relationship, range/earlier-context designation, and exact Telegram URL or `null`
+**And** Telegram URLs are constructed only from stored verified chat/message identifiers and never fall back to an approximate group link
+**And** cross-district or missing topics return the established protected not-found behavior
+**And** attached evidence is retained for 90 days, irrelevant full text for 24 hours, irrelevant metadata for 14 days, dead letters for 7 days, content-free events for 14 days, and triage health metrics for 60 days
+**And** evidence purge regenerates summary, categories, unique-resident attribution, anchor, and Hokim flag; purging final evidence deletes the topic
+**And** mahalla/user deletion cascades through topic and captured-message data and backup guidance does not silently extend retention
+**And** shared contracts are updated before frontend use without duplicate frontend-only topic types
+**And** focused API/isolation/link/purge tests, `pnpm lint`, `pnpm typecheck`, and `pnpm test` pass
+
+---
+
+### Story 9.7: Ops Diagnostics and Hokim Keyword Management
+
+As a **developer/operator**,
+I want protected visibility into topic triage and deterministic Hokim keywords,
+So that I can diagnose quality and reliability without exposing resident content in logs or manually masking model defects.
+
+**Acceptance Criteria:**
+
+**Given** the existing Ops guard permits access
+**When** the target Ops panels and endpoints load
+**Then** authorized operators can browse retained captured messages and topics through protected content endpoints
+**And** diagnostic views expose per-mahalla queue depth, oldest queued age, blocked scope, retry/dead-letter counts, Ollama availability/latency, `new_topic`, `attached`, `irrelevant`, promotion, candidate-validation, and replay outcomes
+**And** pipeline events remain district-scoped and contain no raw resident text, prompt content, or provider response bodies
+**And** the existing keyword registry is narrowed to explicitly typed Hokim-related keywords and legacy service-gate entries are not automatically treated as Hokim keywords
+**And** a topic receives `hokim_related=true` only after it qualifies for a supported service and retained evidence matches an active Hokim keyword
+**And** AI-estimated severity does not set the Hokim flag and keyword matches alone do not create topics
+**And** keyword changes affect new processing while historical recalculation requires developer replay
+**And** no manual topic merge, split, reassign, category edit, summary edit, or resolution control is introduced
+**And** legacy keyword-skip, shadow-compare, pending, and isolated-classifier health semantics are removed from target panels
+**And** focused guard/privacy/keyword/diagnostic tests, `pnpm lint`, `pnpm typecheck`, and `pnpm test` pass
+
+---
+
+### Story 9.8: Multi-Lane Topic Cards
+
+As a **district hokim or staff member**,
+I want evidence-backed topic cards displayed in every applicable service lane,
+So that I can scan multi-service situations quickly without mistaking duplicated views for separate topics.
+
+**Acceptance Criteria:**
+
+**Given** topic API data is loaded
+**When** the five-lane dashboard renders
+**Then** `<TopicCard>` shows the Uzbek Cyrillic summary, a visually distinct short excerpt from the latest self-contained anchor, mahalla, all category chips, latest activity, retained evidence count, Hokim indicator, and exact anchor Telegram action when available
+**And** the same canonical topic object appears once in every equal service-category lane and each applicable lane count includes it once
+**And** a service-lane copy uses that rendering lane's accent while the Hokim-lane copy uses neutral styling and displays all category chips
+**And** every rendered copy opens the same canonical topic and does not create duplicate topic state
+**And** Today default, time/mahalla filters, refresh behavior, delay banner, independent lane scroll, virtual scrolling, URL state, and open-drawer state are preserved where compatible
+**And** queued, retrying, dead-lettered, and irrelevant messages never render as topic cards
+**And** the topic card supports Enter/Space, has an accessible name containing summary/mahalla/categories/activity/evidence count, and does not communicate category by color alone
+**And** the nested Telegram link has its own focus target and does not trigger the parent card click
+**And** all product-authored strings remain centralized Uzbek Cyrillic while original evidence excerpts remain unchanged
+**And** focused grouping/card/accessibility/state tests, `pnpm lint`, `pnpm typecheck`, `pnpm test`, contracts/server builds, and web build pass
+
+---
+
+### Story 9.9: Topic Evidence Drawer and Search
+
+As a **district hokim or staff member**,
+I want a chronological evidence drawer and topic-level search,
+So that I can understand and verify each AI-assisted grouping without reading unrelated messages.
+
+**Acceptance Criteria:**
+
+**Given** a topic card is selected
+**When** the drawer evidence request succeeds
+**Then** the existing overlay drawer remains open without reflowing the lanes and renders only messages attached to that topic in oldest-to-newest order
+**And** the latest self-contained anchor is centered and highlighted without an added selected badge
+**And** each evidence row shows sender snapshot, original text, timestamp, caption provenance, relevant reply relationship, and an independently focusable exact Telegram action when available
+**And** necessary evidence before the active dashboard range appears in a clearly separated Earlier Context section
+**And** the summary, original evidence, resident attribution, and uncertainty are visually distinguishable
+**And** the drawer does not show nearby same-category non-members, case actions, assignment, severity, resolution, pending, retry, dead-letter, or irrelevant records
+**And** text search matches topic summaries, retained evidence text, sender references, and mahalla names while results remain topic cards
+**And** opening a search result highlights matching evidence without changing the canonical topic membership
+**And** card swapping, filters, lane scroll positions, drawer focus/Escape behavior, and selected-topic state remain stable
+**And** focused drawer/search/Telegram-link/accessibility tests, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and web build pass
+
+---
+
+### Story 9.10: Offline Validation and Clean Cutover
+
+As the **product owner and developer**,
+I want measured offline validation followed by a controlled direct cutover,
+So that the topic model replaces test-only legacy behavior without maintaining two production pipelines.
+
+**Acceptance Criteria:**
+
+**Given** Stories 9.1-9.9 are complete
+**When** the cutover readiness review runs
+**Then** schema/migration, district isolation, ordering, idempotency, concurrency, retention, cascade deletion, exact Telegram links, local-provider failure, queue restart, accessibility, and no-resident-text-in-logs gates pass
+**And** the labeled replay reports quality, latency, failures, token/context usage, and local CPU/memory/throughput results using `gemma4:12b`
+**And** the owner explicitly approves measured cutover thresholds before activation
+**And** immediately before deletion, the developer inspects the live database, identifies the exact test-only records, proposes a scoped reset preserving required district/mahalla/user/session/Hokim-keyword data, and obtains action-time confirmation
+**And** no generic `pnpm db:reset` or equivalent broad deletion is run without explicit full-reset approval
+**And** after the confirmed reset, the target topic pipeline and dashboard activate directly without live shadow comparison, dual processing, dual writes, or a legacy dashboard rollback switch
+**And** obsolete keyword-gate runtime paths and legacy compatibility code are removed only after target activation checks pass
+**And** serious grouping defects are fixed at root cause, added to the regression corpus, and repaired through scoped developer replay
+**And** there is no automatic external-provider fallback or external resident-text transmission
+**And** runbooks record the cutover timestamp, checks, approvals, reset scope, resulting state, and recovery procedure
+**And** full lint, typecheck, tests, builds, Prisma checks, replay benchmark, and user-performed manual UI verification pass

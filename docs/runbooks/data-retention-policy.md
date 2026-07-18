@@ -1,164 +1,136 @@
 # Data Retention Policy
 
-**System:** Mahalla Ovozi  
-**Scope:** All application-generated data: raw messages, classified signals, pipeline events, batch health records  
-**Audience:** Operator / system administrator  
-**Effective from:** Pilot Phase 1  
+**System:** Mahalla Ovozi
+**Target:** Epic 9 contextual topic pipeline
+**Effective date:** 18 July 2026
+**Audience:** Owner, developer, operator
 
----
+## 1. Principles
 
-## 1. Overview
+- Retain only what the approved topic and repair flows require.
+- Use Telegram timestamp for evidence-age rules.
+- Keep resident content out of logs and pipeline events.
+- Permit irrelevant-message promotion only during its 24-hour text window.
+- Regenerate topic-derived state when evidence expires.
+- Do not let backups silently extend approved retention.
+- Require action-time confirmation for destructive test-data reset.
 
-Mahalla Ovozi stores civic signal data collected from mahalla Telegram groups. This policy defines:
-- How long each category of data is retained.
-- When and how data is purged.
-- Exceptions and override conditions.
+## 2. Retention Schedule
 
-The policy is designed for the pilot phase. It should be reviewed against local data protection regulations and district authority requirements before production rollout.
+| Data | Retention |
+|---|---:|
+| Attached topic evidence | 90 days from Telegram timestamp |
+| Irrelevant message full text | 24 hours from final disposition |
+| Irrelevant content-free metadata | 14 days |
+| Dead-lettered captured message | 7 days after dead-lettering |
+| Content-free pipeline events | 14 days |
+| Triage/batch health metrics | 60 days |
+| Topic and summary | Until final retained evidence expires |
+| Sessions | Existing 7-day store TTL |
+| Hokim keyword registry | Until manually disabled or deleted |
+| District, mahalla, and user master data | Until authorized administrative deletion |
 
----
+Legacy `raw_messages` and `signal_messages` remain historical implementation
+data during additive Epic 9 foundation stories. Their test-only cleanup occurs
+only at the approved Story 9.10 cutover.
 
-## 2. Data Categories and Retention Schedule
+## 3. Irrelevant Promotion Window
 
-| Table | Description | Default Retention | Trigger |
-|---|---|---|---|
-| `raw_messages` | Unclassified Telegram messages | **30 days** after creation | Scheduled purge |
-| `raw_messages` (dead-lettered) | Messages that exhausted retries | **7 days** after `dead_lettered_at` | Scheduled purge |
-| `signal_messages` | Classified civic signals | **90 days** after `telegram_timestamp` | Scheduled purge |
-| `pipeline_events` | Pipeline audit trail per event | **14 days** after `created_at` | Scheduled purge |
-| `batch_health` | Batch run health/metrics | **60 days** after `started_at` | Scheduled purge |
-| `sessions` | Express session records | **7 days** (managed by session store TTL) | Session store |
-| `keywords` | Keyword registry entries | Indefinite (operational data) | Manual only |
-| `mahallas` / `districts` | Organizational structure | Indefinite (master data) | Manual only |
-| `users` | Admin user accounts | Indefinite (managed accounts) | Manual only |
+An irrelevant message may retain full text for 24 hours so a later explicit
+reply or follow-up can clarify it.
 
----
+Promotion must:
 
-## 3. Purge Schedule
+- occur before text expiry;
+- use same-district and same-mahalla context;
+- attach atomically;
+- preserve source identity;
+- record content-free audit metadata.
 
-Purges run as a background cron job on the server. The recommended schedule is:
+If no clarification arrives, purge the text after 24 hours. The remaining
+metadata must not permit reconstruction of resident content.
 
-- **Daily at 03:00 local time** — purge all expired rows across tables.
-- Run after the nightly database backup to ensure purged data is captured in at least one backup.
+## 4. Evidence Purge
 
-### 3.1 Purge SQL Statements
+Evidence purge is application-domain logic, not blind independent SQL.
 
-Run these as a transaction in a single maintenance job:
+For each expired attached message:
 
-```sql
-BEGIN;
+1. remove the evidence membership and resident content;
+2. regenerate the topic summary from remaining evidence;
+3. regenerate equal categories;
+4. regenerate distinct-resident attribution;
+5. choose the latest self-contained remaining anchor;
+6. recalculate the Hokim flag from active retained keyword evidence;
+7. update first/latest activity where needed;
+8. remove the topic when no retained evidence remains.
 
--- 1. Dead-lettered raw messages older than 7 days
-DELETE FROM raw_messages
-WHERE dead_lettered_at IS NOT NULL
-  AND dead_lettered_at < NOW() - INTERVAL '7 days';
+The operation must be transactional or safely resumable and idempotent.
 
--- 2. Processed raw messages older than 30 days
--- (classified or irrelevant; keyword_matched is true or false)
-DELETE FROM raw_messages
-WHERE dead_lettered_at IS NULL
-  AND created_at < NOW() - INTERVAL '30 days';
+## 5. Daily Maintenance
 
--- 3. Classified signals older than 90 days
-DELETE FROM signal_messages
-WHERE telegram_timestamp < NOW() - INTERVAL '90 days';
+Run retention after the nightly backup has completed and been verified.
+Recommended schedule: 03:00 deployment-local time.
 
--- 4. Pipeline events older than 14 days
-DELETE FROM pipeline_events
-WHERE created_at < NOW() - INTERVAL '14 days';
+The maintenance job reports content-free counts:
 
--- 5. Batch health records older than 60 days
-DELETE FROM batch_health
-WHERE started_at < NOW() - INTERVAL '60 days';
+- irrelevant texts purged;
+- irrelevant metadata purged;
+- dead letters purged;
+- evidence rows purged;
+- topics regenerated;
+- topics removed;
+- events and metrics purged;
+- failures and duration.
 
-COMMIT;
-```
+Do not emit source text, summaries, sender names, prompts, or provider output in
+maintenance logs.
 
-### 3.2 Automated Purge Script
+## 6. Backup Alignment
 
-Create `/usr/local/bin/mahalla-ovozi-purge.sh`:
+Backup retention must be no longer than the data windows above unless the owner
+explicitly approves a documented exception.
 
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
+Required controls:
 
-source /home/ubuntu/mahalla-ovozi/.env
+- encrypt backup storage;
+- restrict access;
+- expire daily backups within seven days;
+- avoid indefinite weekly archives containing resident evidence;
+- document whether a pre-migration snapshot contains resident data;
+- delete expired snapshots after the recovery need ends;
+- verify off-site copies follow the same lifecycle.
 
-echo "[$(date -Iseconds)] Starting data retention purge..."
+A restore may reintroduce expired data. Before reopening the application after
+restore, run migrations and the retention job against the restored state.
 
-psql "$DATABASE_URL" <<'SQL'
-BEGIN;
+## 7. Administrative Deletion
 
-DELETE FROM raw_messages
-WHERE dead_lettered_at IS NOT NULL
-  AND dead_lettered_at < NOW() - INTERVAL '7 days';
+Mahalla or user deletion must cascade through:
 
-DELETE FROM raw_messages
-WHERE dead_lettered_at IS NULL
-  AND created_at < NOW() - INTERVAL '30 days';
+- captured messages;
+- topic memberships;
+- topics that lose final evidence;
+- applicable pipeline and health metadata;
+- sessions and account data where authorized.
 
-DELETE FROM signal_messages
-WHERE telegram_timestamp < NOW() - INTERVAL '90 days';
+Before manual deletion:
 
-DELETE FROM pipeline_events
-WHERE created_at < NOW() - INTERVAL '14 days';
+1. identify the exact district/mahalla/user scope;
+2. preview affected counts;
+3. determine whether a backup is appropriate and permitted;
+4. obtain action-time confirmation;
+5. execute one scoped transaction;
+6. verify resulting counts and derived topic state.
 
-DELETE FROM batch_health
-WHERE started_at < NOW() - INTERVAL '60 days';
+Do not use a broad database reset.
 
-COMMIT;
-SQL
+## 8. Review
 
-echo "[$(date -Iseconds)] Data retention purge complete."
-```
+Review this policy:
 
-```bash
-chmod +x /usr/local/bin/mahalla-ovozi-purge.sh
-```
-
-Register in cron (`/etc/cron.d/mahalla-ovozi-purge`):
-
-```cron
-0 3 * * * ubuntu /usr/local/bin/mahalla-ovozi-purge.sh >> /var/log/mahalla-ovozi-purge.log 2>&1
-```
-
----
-
-## 4. Audit and Compliance Considerations
-
-- **No PII in raw messages beyond sender username/display name**: these fields are sourced from Telegram user profiles and are not enriched.
-- **Signal messages do not store full message text** beyond the `raw_text` field; once the retention window passes, the full text is deleted.
-- **Backup files** retain the same data. Ensure backup retention schedule aligns with or is shorter than the purge retention windows (see [backup-restore-runbook.md](./backup-restore-runbook.md)).
-- If local regulations require shorter retention, lower the intervals in Section 3.1 accordingly.
-- If an auditor or operator requests a data export before purge, run a targeted `pg_dump` of the relevant tables.
-
----
-
-## 5. Manual Early Deletion (Upon Request)
-
-If a specific mahalla or user requests deletion of their data:
-
-```sql
--- Delete all raw messages for a mahalla
-DELETE FROM raw_messages WHERE mahalla_id = <mahalla_id>;
-
--- Delete all signals for a mahalla
-DELETE FROM signal_messages WHERE mahalla_id = <mahalla_id>;
-
--- Delete all pipeline events for a district
-DELETE FROM pipeline_events WHERE district_id = <district_id>;
-```
-
-> [!CAUTION]
-> Manual deletions are irreversible. Always take a backup snapshot before executing.
-
----
-
-## 6. Retention Policy Review Cadence
-
-| Event | Action |
-|---|---|
-| Before production rollout | Review with district authority and legal counsel |
-| Every 6 months | Review retention windows against operational needs |
-| After a regulatory change | Immediately update this document and purge scripts |
-| After schema changes affecting data models | Verify purge SQL is still valid |
+- before pilot activation;
+- after schema changes affecting retained content;
+- after a legal or owner policy change;
+- after restore or retention failure;
+- at least every six months.

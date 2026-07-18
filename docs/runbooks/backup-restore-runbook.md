@@ -1,8 +1,8 @@
 # Backup & Restore Runbook
 
-**System:** Mahalla Ovozi  
-**Scope:** PostgreSQL database — pilot and production  
-**Audience:** Operator / system administrator  
+**System:** Mahalla Ovozi
+**Scope:** PostgreSQL database — pilot and production
+**Audience:** Operator / system administrator
 
 > [!IMPORTANT]
 > This runbook targets the single PostgreSQL database used by Mahalla Ovozi.
@@ -16,9 +16,13 @@
 | Tier | Frequency | Retention | Method |
 |---|---|---|---|
 | Daily full dump | Every day at 02:00 local | 7 days rolling | `pg_dump` gzip |
-| Weekly archive | Every Sunday | 4 weeks | Copy of daily dump |
-| Pre-migration snapshot | Before every schema change | Until next stable release | Manual `pg_dump` |
+| Weekly archive | Disabled by default for resident-content databases | Requires explicit owner-approved purpose and expiry | Manual only |
+| Pre-migration snapshot | Before every schema change | 7 days or until migration verification, whichever is sooner | Manual `pg_dump` |
 | Pre-seed snapshot | Before seeding or data load | 24 hours | Manual `pg_dump` |
+
+Full backups contain resident evidence and must not silently extend the
+application retention schedule. Encrypt storage, restrict access, and apply the
+same expiry to local and off-site copies.
 
 ---
 
@@ -94,9 +98,11 @@ createdb -U postgres mahalla_ovozi_verify
 # Restore into scratch database
 gunzip -c "$BACKUP_FILE" | psql -U postgres -d mahalla_ovozi_verify
 
-# Spot-check row counts
+# Spot-check master and topic-pipeline row counts
 psql -U postgres -d mahalla_ovozi_verify -c "SELECT COUNT(*) FROM districts;"
-psql -U postgres -d mahalla_ovozi_verify -c "SELECT COUNT(*) FROM signal_messages;"
+psql -U postgres -d mahalla_ovozi_verify -c "SELECT COUNT(*) FROM mahallas;"
+psql -U postgres -d mahalla_ovozi_verify -c "SELECT COUNT(*) FROM topics;"
+psql -U postgres -d mahalla_ovozi_verify -c "SELECT COUNT(*) FROM captured_messages;"
 
 # Drop scratch database
 dropdb -U postgres mahalla_ovozi_verify
@@ -145,7 +151,20 @@ pnpm db:generate
 pnpm db:migrate
 ```
 
-### 4.4 Restart the Application
+### 4.4 Apply Retention to Restored Data
+
+A backup may contain data that expired after the snapshot was taken. Before
+reopening application traffic, run the current idempotent retention job and
+verify:
+
+- irrelevant full text older than 24 hours is removed;
+- expired evidence is removed;
+- topic summary, categories, attribution, anchor, and Hokim flag are
+  regenerated;
+- topics without retained evidence are removed;
+- events, dead letters, and metrics meet policy.
+
+### 4.5 Restart the Application
 
 ```bash
 pm2 start mahalla-ovozi
@@ -153,11 +172,15 @@ pm2 start mahalla-ovozi
 systemctl start mahalla-ovozi
 ```
 
-### 4.5 Smoke Test After Restore
+### 4.6 Smoke Test After Restore
 
 ```bash
 curl -f https://<your-domain>/readyz
 ```
+
+Verify chronological queue order, district isolation, topic/evidence counts,
+exact Telegram links, local Ollama health, and retention-job success before
+serving users.
 
 ---
 
@@ -186,7 +209,7 @@ If the migration fails, restore using Section 4 above.
 
 ---
 
-## 6. Off-Site Backup (Recommended)
+## 6. Off-Site Backup
 
 For pilot environments at minimum, copy daily backups to a separate location:
 
@@ -198,7 +221,9 @@ rsync -avz /var/backups/mahalla-ovozi/ user@backup-server:/backups/mahalla-ovozi
 aws s3 sync /var/backups/mahalla-ovozi/ s3://your-bucket/mahalla-ovozi-backups/
 ```
 
-Add to the cron script after the `pg_dump` step.
+Add to the cron script only when the off-site lifecycle deletes the same backup
+objects within the approved seven-day window. A mirror that never deletes
+objects is prohibited.
 
 ---
 
@@ -207,6 +232,6 @@ Add to the cron script after the `pg_dump` step.
 | Backup type | Retention | Location |
 |---|---|---|
 | Daily full dump | 7 days | `/var/backups/mahalla-ovozi/` |
-| Weekly archive (Sunday) | 4 weeks | Same directory (not auto-purged) |
-| Pre-migration snapshot | Until next stable release | Same directory (labelled `pre_migration_`) |
-| Off-site copy | Mirror of local | Secondary server or object storage |
+| Weekly archive | Disabled by default | N/A |
+| Pre-migration snapshot | 7 days or until verification, whichever is sooner | Same directory (labelled `pre_migration_`) |
+| Off-site copy | Same expiry as source | Secondary server or object storage |

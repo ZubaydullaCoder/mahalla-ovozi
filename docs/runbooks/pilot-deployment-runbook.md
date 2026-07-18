@@ -1,8 +1,8 @@
 # Pilot Deployment Runbook
 
-**System:** Mahalla Ovozi  
-**Scope:** Phase 1 pilot — single district, local-to-server deployment  
-**Audience:** Operator / system administrator  
+**System:** Mahalla Ovozi
+**Scope:** Phase 1 pilot — single district, local-to-server deployment
+**Audience:** Operator / system administrator
 
 > [!IMPORTANT]
 > This runbook covers a single-district pilot hosted on a server or VM reachable over the internet.
@@ -17,7 +17,7 @@
 - [ ] pnpm 10.34.1 installed (`npm install -g pnpm@10.34.1`)
 - [ ] PostgreSQL ≥ 15 running, reachable from application host
 - [ ] Telegram bot token obtained from @BotFather
-- [ ] AI provider key available (Gemini API key, or local Ollama endpoint confirmed)
+- [ ] Local Ollama endpoint reachable and `gemma4:12b` installed
 - [ ] Domain name or stable IP for the server (required for Telegram webhook HTTPS callback)
 - [ ] TLS certificate in place (reverse proxy: nginx or Caddy recommended)
 - [ ] Firewall: only expose port 443 (and 80 for redirect); keep 3001 internal
@@ -51,8 +51,10 @@ Critical `.env` values for pilot:
 | `SESSION_SECRET` | Random, ≥ 32 characters. Use `openssl rand -hex 32` |
 | `BOT_TOKEN` | From @BotFather |
 | `TELEGRAM_WEBHOOK_SECRET` | Random string. Same value as registered with Telegram |
-| `AI_PROVIDER` | `gemini` or `rule-only` for pilot |
-| `AI_API_KEY` | Required if `AI_PROVIDER=gemini` |
+| `AI_PROVIDER` | `ollama` for the initial Epic 9 pilot |
+| `AI_MODEL` | `gemma4:12b` |
+| `AI_BASE_URL` | Local Ollama endpoint |
+| `AI_API_KEY` | Not required for local Ollama; external use requires separate owner approval |
 | `OPS_ENABLED` | `true` only during local HITL validation; `false` otherwise |
 | `OPS_SECRET` | Required if `OPS_ENABLED=true` and accessed via tunnel/network |
 | `NODE_ENV` | `production` |
@@ -223,7 +225,11 @@ curl -f https://<your-domain>/readyz
 - Open `https://<your-domain>/` in a browser — the login page should render.
 - Login with seeded admin credentials.
 - Confirm the dashboard loads with district/mahalla data.
-- Send a test message to the bot's Telegram group; confirm it appears in the Ops Console raw queue within a minute.
+- Send a synthetic test conversation to the approved Telegram group.
+- Confirm captured messages appear in chronological mahalla order.
+- Confirm a supported report creates a topic and a contextual follow-up attaches.
+- Confirm the topic card and evidence drawer expose exact Telegram links when constructible.
+- Confirm no resident text, prompts, or provider responses appear in logs.
 
 ---
 
@@ -238,12 +244,42 @@ curl -f https://<your-domain>/readyz
 
 ---
 
-## 10. Rollback Procedure
+## 10. Epic 9 Direct Cutover
+
+The topic pipeline is activated only after Stories 9.1–9.9 and the offline
+readiness checks pass.
+
+1. Run the labeled chronological replay with local `gemma4:12b`.
+2. Record quality, latency, failure, context, CPU, memory, and throughput.
+3. Obtain owner approval for measured cutover gates.
+4. Take and verify a permitted pre-cutover backup.
+5. Inspect the live database and identify the exact test-only records.
+6. Present the scoped deletion statement and affected counts.
+7. Obtain action-time confirmation immediately before deletion.
+8. Delete only the confirmed test data; do not run a broad database reset.
+9. Activate the topic pipeline and dashboard directly.
+10. Verify queue ordering, model health, topic/evidence APIs, Telegram links,
+    district isolation, retention, Ops diagnostics, and UI behavior.
+11. Remove obsolete legacy runtime paths only after target checks pass.
+
+Do not run live shadow comparison, dual processing, dual writes, a legacy
+dashboard switch, or automatic external-provider fallback.
+
+## 11. Deployment Recovery Procedure
 
 If a deployment causes a critical failure:
 
 1. Stop the server: `pm2 stop mahalla-ovozi` or `systemctl stop mahalla-ovozi`
-2. Revert code to the last working commit: `git checkout <last-good-commit>`
-3. Rebuild: `pnpm install --frozen-lockfile && pnpm db:generate && pnpm --filter mahalla-ovozi-web build`
-4. If a migration caused data issues, restore from backup (see [backup-restore-runbook.md](./backup-restore-runbook.md)).
-5. Restart the server.
+2. Preserve queue/database state and capture content-free failure diagnostics.
+3. Redeploy the last known compatible release artifact when schema compatibility
+   is proven.
+4. If a migration caused data issues, follow the verified restore procedure in
+   [backup-restore-runbook.md](./backup-restore-runbook.md).
+5. Apply migrations and retention to the restored state before reopening
+   traffic.
+6. Restart and verify readiness, queue ordering, district isolation, and
+   retained evidence.
+
+This infrastructure recovery is not a legacy keyword-pipeline or dashboard
+rollback path. Topic grouping defects are fixed at root cause and repaired with
+scoped developer replay.

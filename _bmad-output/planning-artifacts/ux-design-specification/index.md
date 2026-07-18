@@ -1,90 +1,40 @@
-﻿# UX Design Specification mahalla-ovozi
+---
+title: UX Design Specification - Mahalla Ovozi
+status: Approved target UX
+last_updated: 2026-07-18
+governing_change: ../sprint-change-proposal-2026-07-18.md
+---
 
-## Table of Contents
+# UX Design Specification — Mahalla Ovozi
 
-- [UX Design Specification mahalla-ovozi](#table-of-contents)
-  - [Executive Summary](./executive-summary.md)
-    - [Project Vision](./executive-summary.md#project-vision)
-    - [Target Users](./executive-summary.md#target-users)
-    - [Key Design Challenges](./executive-summary.md#key-design-challenges)
-    - [Design Opportunities](./executive-summary.md#design-opportunities)
-  - [Core User Experience](./core-user-experience.md)
-    - [Defining Experience](./core-user-experience.md#defining-experience)
-    - [Platform Strategy](./core-user-experience.md#platform-strategy)
-    - [Drawer Behavior](./core-user-experience.md#drawer-behavior)
-    - [Effortless Interactions](./core-user-experience.md#effortless-interactions)
-    - [Critical Success Moments](./core-user-experience.md#critical-success-moments)
-    - [Empty Lane States](./core-user-experience.md#empty-lane-states)
-    - [Experience Principles](./core-user-experience.md#experience-principles)
-  - [Desired Emotional Response](./desired-emotional-response.md)
-    - [Primary Emotional Goals](./desired-emotional-response.md#primary-emotional-goals)
-    - [Emotional Journey Mapping](./desired-emotional-response.md#emotional-journey-mapping)
-    - [Micro-Emotions](./desired-emotional-response.md#micro-emotions)
-    - [Design Implications](./desired-emotional-response.md#design-implications)
-    - [Emotional Design Principles](./desired-emotional-response.md#emotional-design-principles)
-  - [UX Pattern Analysis & Inspiration](./ux-pattern-analysis-inspiration.md)
-    - [Inspiring Products Analysis](./ux-pattern-analysis-inspiration.md#inspiring-products-analysis)
-    - [Transferable UX Patterns](./ux-pattern-analysis-inspiration.md#transferable-ux-patterns)
-    - [Anti-Patterns to Avoid](./ux-pattern-analysis-inspiration.md#anti-patterns-to-avoid)
-    - [Design Inspiration Strategy](./ux-pattern-analysis-inspiration.md#design-inspiration-strategy)
-  - [Design System Foundation](./design-system-foundation.md)
-    - [Design System Choice](./design-system-foundation.md#design-system-choice)
-    - [Rationale for Selection](./design-system-foundation.md#rationale-for-selection)
-    - [Implementation Approach](./design-system-foundation.md#implementation-approach)
-    - [Customization Strategy](./design-system-foundation.md#customization-strategy)
-  - [Defining Core Experience](./defining-core-experience.md)
-    - [Defining Experience Statement](./defining-core-experience.md#defining-experience-statement)
-    - [User Mental Model](./defining-core-experience.md#user-mental-model)
-    - [Success Criteria](./defining-core-experience.md#success-criteria)
-    - [Pattern Analysis: Novel vs. Established](./defining-core-experience.md#pattern-analysis-novel-vs-established)
-    - [Experience Mechanics](./defining-core-experience.md#experience-mechanics)
-  - [Visual Design Foundation](./visual-design-foundation.md)
-    - [Color System](./visual-design-foundation.md#color-system)
-      - [Base Palette (AntD ConfigProvider tokens)](./visual-design-foundation.md#base-palette-antd-configprovider-tokens)
-      - [Category Color Tokens (Accent border + icon chip + count badge)](./visual-design-foundation.md#category-color-tokens-accent-border--icon-chip--count-badge)
-      - [Severity Ladder (Status indicators only)](./visual-design-foundation.md#severity-ladder-status-indicators-only)
-    - [Typography System](./visual-design-foundation.md#typography-system)
-      - [Type Scale](./visual-design-foundation.md#type-scale)
-    - [Spacing & Layout Foundation](./visual-design-foundation.md#spacing-layout-foundation)
-      - [Key Spacing Values](./visual-design-foundation.md#key-spacing-values)
-      - [Layout Grid](./visual-design-foundation.md#layout-grid)
-      - [Signal Card Anatomy](./visual-design-foundation.md#signal-card-anatomy)
-    - [Accessibility Considerations](./visual-design-foundation.md#accessibility-considerations)
-  - [Design Direction Decision](./design-direction-decision.md)
-    - [Design Directions Explored](./design-direction-decision.md#design-directions-explored)
-    - [Chosen Direction](./design-direction-decision.md#chosen-direction)
-    - [Design Rationale](./design-direction-decision.md#design-rationale)
-    - [Implementation Approach](./design-direction-decision.md#implementation-approach)
-    - [Elements Noted from Other Directions](./design-direction-decision.md#elements-noted-from-other-directions)
-  - [User Journey Flows](./user-journey-flows.md)
-    - [Journey 1: On-Demand Signal Scan (Primary — Hokim)](./user-journey-flows.md#journey-1-on-demand-signal-scan-primary-hokim)
-    - [Journey 2: Mahalla Deep-Dive (Focused Investigation — Hokim or Staff)](./user-journey-flows.md#journey-2-mahalla-deep-dive-focused-investigation-hokim-or-staff)
-    - [Journey 3: Time-Range Shift Investigation (Pattern Discovery — Staff)](./user-journey-flows.md#journey-3-time-range-shift-investigation-pattern-discovery-staff)
-    - [Journey Patterns](./user-journey-flows.md#journey-patterns)
-    - [Flow Optimization Principles](./user-journey-flows.md#flow-optimization-principles)
-  - [Component Strategy](./component-strategy.md)
-    - [Design System Components (AntD v6 — Used As-Is)](./component-strategy.md#design-system-components-antd-v6-used-as-is)
-    - [Custom Components](./component-strategy.md#custom-components)
-      - [](./component-strategy.md#)
-      - [](./component-strategy.md#)
-    - [Component Implementation Strategy](./component-strategy.md#component-implementation-strategy)
-    - [Implementation Roadmap](./component-strategy.md#implementation-roadmap)
-  - [UX Consistency Patterns](./ux-consistency-patterns.md)
-    - [Interaction & Cursor Contract](./ux-consistency-patterns.md#interaction-cursor-contract)
-    - [Loading & Skeleton States](./ux-consistency-patterns.md#loading-skeleton-states)
-    - [Empty State Patterns](./ux-consistency-patterns.md#empty-state-patterns)
-    - [Feedback & Status Patterns](./ux-consistency-patterns.md#feedback-status-patterns)
-    - [Overlay & Drawer Patterns](./ux-consistency-patterns.md#overlay-drawer-patterns)
-    - [Filter & Search Patterns](./ux-consistency-patterns.md#filter-search-patterns)
-    - [Typography & Copy Patterns](./ux-consistency-patterns.md#typography-copy-patterns)
-  - [Responsive Design & Accessibility](./responsive-design-accessibility.md)
-    - [Responsive Strategy](./responsive-design-accessibility.md#responsive-strategy)
-    - [Breakpoint Strategy](./responsive-design-accessibility.md#breakpoint-strategy)
-    - [Accessibility Strategy](./responsive-design-accessibility.md#accessibility-strategy)
-      - [Contrast Pairs (all pre-validated in Step 8)](./responsive-design-accessibility.md#contrast-pairs-all-pre-validated-in-step-8)
-      - [Keyboard Navigation](./responsive-design-accessibility.md#keyboard-navigation)
-      - [Screen Reader ARIA Spec](./responsive-design-accessibility.md#screen-reader-aria-spec)
-      - [Touch Target Sizes](./responsive-design-accessibility.md#touch-target-sizes)
-    - [Testing Strategy](./responsive-design-accessibility.md#testing-strategy)
-    - [Implementation Guidelines](./responsive-design-accessibility.md#implementation-guidelines)
+This sharded specification defines the Epic 9 topic dashboard and evidence
+experience. It supersedes the legacy signal-card UX as the implementation
+target while preserving completed Stories 1–8 as historical baseline work.
 
+## Contents
+
+- [Executive Summary](./executive-summary.md)
+- [Core User Experience](./core-user-experience.md)
+- [Desired Emotional Response](./desired-emotional-response.md)
+- [UX Pattern Analysis and Inspiration](./ux-pattern-analysis-inspiration.md)
+- [Design System Foundation](./design-system-foundation.md)
+- [Defining Core Experience](./defining-core-experience.md)
+- [Visual Design Foundation](./visual-design-foundation.md)
+- [Design Direction Decision](./design-direction-decision.md)
+- [User Journey Flows](./user-journey-flows.md)
+- [Component Strategy](./component-strategy.md)
+- [UX Consistency Patterns](./ux-consistency-patterns.md)
+- [Responsive Design and Accessibility](./responsive-design-accessibility.md)
+
+## Governing UX Invariants
+
+- Topic cards, not individual signal messages, are the dashboard unit.
+- Summary and original anchor evidence are visually distinct.
+- Topics use equal category sets and may appear in several service lanes.
+- The Hokim lane is deterministic and visually neutral.
+- Every lane copy opens the same canonical topic.
+- The drawer shows chronological topic membership evidence only.
+- Exact Telegram verification is available when a valid URL exists.
+- Resident reports remain attributed, uncertain, and unverified.
+- There are no case, severity, assignment, or resolution controls.
+- Product-authored UI copy is Uzbek Cyrillic.

@@ -1,137 +1,102 @@
-﻿# Core User Experience
+# Core User Experience
 
 ## Defining Experience
-The core loop of Mahalla Ovozi is a three-second scan followed by a single-click investigation:
-1. **Scan:** The governor glances at the five category lanes, assessing signal counts and activity.
-2. **Select:** The governor clicks an active signal card in any lane.
-3. **Inspect:** The right-side context drawer opens instantly, presenting the localized evidence stream for that signal.
 
-The product succeeds when this loop requires no training and produces no confusion.
+The core loop is:
+
+1. **Scan:** Review topic counts and latest activity across five lanes.
+2. **Select:** Open a topic card.
+3. **Inspect:** Read only the original messages assigned to that topic.
+4. **Verify:** Open an exact Telegram message when a valid URL exists.
+
+The loop should be understandable without training and complete within roughly
+60 seconds for a normal scan.
 
 ## Platform Strategy
-- **Target Device:** Desktop and large office monitors (1920×1080 primary; 1366×768 minimum functional fallback). Mobile is explicitly out of scope for MVP.
-- **Input Method:** Mouse and keyboard. No touch interactions required.
-- **Network Pattern:** Single-Page Application (SPA) communicating via a REST API. The UI performs a background 10-second signals refresh and a 60-second health refresh to keep data current without disrupting the user's scroll position, active filters, or open drawer state.
 
-## Drawer Behavior
-The context drawer is a **fixed-width overlay panel** (~380px at 1920×1080; ~340px at 1366×768) that slides in from the right edge. The five lane columns do **not** compress or reflow when the drawer opens — the drawer overlays the rightmost lane(s) as a separate surface layer.
+- Desktop-first SPA; 1920×1080 primary, 1366×768 functional fallback.
+- Mouse and keyboard input.
+- Five independently scrolling lanes.
+- Ten-second topic refresh and 60-second health refresh.
+- Background refresh preserves filters, lane scroll, selected topic, drawer
+  position, and open state where practical.
+- Mobile is outside MVP scope.
 
-- **Backdrop:** A very light semi-transparent backdrop (`rgba(0,0,0,0.08)`) softens the partially covered lanes without hiding them.
-- **Close triggers:** Explicit ✕ button in the drawer header, clicking the backdrop, or pressing Escape.
-- **Hokim-related lane context rule:** The *Ҳокимга тегишли* lane is only a priority entry point. When a user clicks a signal from this lane, the drawer behaves exactly like other lanes: it uses the clicked signal's original service category, mahalla/group scope, and active time range. The drawer must not filter context to only `hokim_related = true` signals.
+## Topic Card
 
-| Lane Clicked From | Clicked Signal | Drawer Query |
-|---|---|---|
-| *Газ* | `category = gas` | `category = gas AND mahalla_id = X AND time_range` |
-| *Ҳокимга тегишли* | `category = gas AND hokim_related = true` | `category = gas AND mahalla_id = X AND time_range` |
-| *Ҳокимга тегишли* | `category = suv AND hokim_related = true` | `category = suv AND mahalla_id = X AND time_range` |
+Each card shows:
 
-**Forbidden drawer query:** clicking from the *Ҳокимга тегишли* lane must not use `hokim_related = true AND mahalla_id = X AND time_range` as the drawer context. The hokim lane changes how the signal is discovered, not how its local evidence context is built.
+- attributed Uzbek Cyrillic AI summary;
+- visually distinct excerpt from the latest self-contained anchor evidence;
+- mahalla;
+- all equal service-category chips;
+- latest activity;
+- retained evidence count;
+- Hokim indicator;
+- exact anchor Telegram action when constructible.
 
-**`time_range` in drawer query:** The drawer uses the user's **currently active time-range filter** (e.g. Бугун, 6 соат, custom range) — not a fixed window. This keeps drawer context consistent with what the user already sees in the lanes.
+The summary is not a verified fact. Original resident text remains unchanged.
+The Telegram action is a separate focus target and must not activate the card.
 
-**Mahalla/group scope note for Architecture:** MVP copy and UI use mahalla terminology. Architecture must confirm whether the exact drawer query scope is `mahalla_id` or `telegram_chat_id` if one mahalla can have multiple monitored Telegram groups. Until then, UX language remains `mahalla_id` to stay aligned with the PRD.
+## Equal Category and Hokim Rendering
 
-**Drawer breadcrumb in the Ҳокимга тегишли lane:**
-When the clicked card originated from the *Ҳокимга тегишли* lane, the breadcrumb shows the signal's **actual service category**, not the lane name:
-- Example: `Газ · Навбаҳор маҳалласи · 10:42` *(not `Ҳокимга тегишли · ...`)*
+- A topic appears once in every applicable service lane.
+- Every copy opens the same canonical topic.
+- Each service-lane copy uses the rendering lane accent.
+- The Hokim-lane copy uses neutral styling and displays every category chip.
+- The Hokim lane includes only supported-service topics whose retained evidence
+  contains an active Hokim keyword.
+- AI-estimated seriousness never controls Hokim-lane membership.
 
-Rationale: The hokim opened the drawer from the priority lane but needs to know *which service* is affected. The lane name adds no evidence value once the drawer is open — the category does.
+## Evidence Drawer
 
-For all other lanes the breadcrumb shows the lane name as normal:
-- Example: `Сув · Олмазор маҳалласи · 09:15`
+The Ant Design Drawer remains a fixed-width overlay. It does not reflow lanes.
+It closes through the close control, Escape, or backdrop.
 
-This ensures the user always knows which signal is active and which service it concerns, even after scrolling its card out of view.
+The drawer shows:
 
-### Drawer Temporal Anchor Rule
+- topic summary and category chips;
+- only retained messages assigned to the topic;
+- oldest-to-newest ordering;
+- latest self-contained anchor centered and highlighted;
+- sender snapshot, timestamp, unchanged text, text/caption provenance, and
+  relevant reply relationship;
+- a separate exact Telegram action for every constructible URL;
+- required pre-range evidence under an **Earlier Context** heading.
 
-The drawer renders corroborating signals in **ascending chronological order** (oldest → newest). The clicked signal is included in this list and functions as a **temporal anchor**: signals with earlier timestamps appear above it, signals with later timestamps appear below it.
+The drawer never shows unrelated same-category messages, queue states,
+irrelevant messages, assignment, severity, resolution, or case actions.
 
-**On drawer open:**
-1. The drawer body shows a skeleton shimmer (3–4 ghost rows) while the context API call resolves.
-2. When content loads, the list scrolls so the **anchor signal is vertically centered** in the drawer body — not pinned to the top.
-3. The anchor signal receives the active highlight state (category border/ring + category tint background). No separate label or badge is added.
+When swapping cards, the drawer shell remains open, its header updates
+immediately, and only the evidence body shows skeleton loading.
 
-**Fetch strategy:** The API returns up to N signals within the active time range, ordered ascending by timestamp. The frontend identifies the anchor by `signal.id` and uses its index in the sorted list to center the scroll position on render.
+## Search and Filters
 
-**Rationale:** Temporal context is the primary evidence value of the drawer. Seeing what residents said *before* and *after* the clicked signal helps the hokim distinguish an isolated incident from an escalating pattern — without opening Telegram.
+- Today is the default.
+- Time filters include topics with activity inside the range even when the
+  topic began earlier.
+- Mahalla filtering applies across all lanes.
+- Search covers summaries, retained evidence text, sender references, and
+  mahalla names.
+- Search results remain topic cards.
+- Matching evidence is highlighted after opening the drawer.
+- Dashboard search is unrelated to the protected Hokim keyword registry.
 
-**Empty drawer state:** If the context query returns only the anchor signal itself (no other signals), the drawer shows:
-> *Бу маҳаллада бошқа сигналлар топилмади*
+## Trust Rules
 
-The anchor signal is still shown in its highlighted state above this message.
+- Attribute claims to residents or messages.
+- Preserve uncertainty and contradiction.
+- Do not present resident statements as confirmed or verified.
+- Do not infer a cause or category from ambiguous text.
+- Distinct-resident wording requires distinct reliable identities.
+- Repeated messages do not increase factual certainty.
+- Improvement reports remain evidence but create no resolved state.
 
-## Effortless Interactions
+## Empty and Delay States
 
-**Instant Context Drawer Swapping:**
-When the drawer is already open and the user clicks a different signal card in any lane:
-1. The drawer **header breadcrumb updates immediately** to the new card's lane + mahalla.
-2. The drawer **content area** shows a skeleton shimmer (3–4 ghost card rows) while the context API call resolves.
-3. When content loads (target: within 500ms), the skeleton is replaced by real signal cards.
-4. The new card receives the active highlight; the previous card returns to its default state.
+Lane empty states retain the lane header and a zero count. Copy adapts to Today,
+mahalla filter, or search scope. Empty states are muted and non-actionable.
 
-**Persistent Visual Anchoring:**
-The active signal card receives:
-- A category-colored active border/ring
-- A very subtle category-tinted background fill (~5% opacity)
-
-This state persists until the drawer is closed, giving the user a clear visual anchor even while interacting with other lanes.
-
-**Client-Side Fluidity:**
-Filtering by mahalla, switching time range presets, and searching by keyword operate on already-fetched client data, returning updated lane results within 300ms.
-
-## Critical Success Moments
-
-**The "60-Second Signal Scan" (Primary Success):**
-The governor opens the app whenever situational awareness is needed, spots a cluster of signals in the *Электр* lane from Олмазор маҳалласи, clicks one card, and reads three corroborating citizen statements in the drawer — all within 60 seconds and without reading a single raw Telegram chat.
-
-**Delay Grace Mode (Make-or-Break Trust Moment):**
-When the AI classifier batch is running slow, the UI never shows an error modal or a blank dashboard. Instead, a non-intrusive amber status banner appears below the filter bar:
-
-> *"⚠️ Сигналлар янгиланмаяпти — охирги янгиланиш 11:20"*
-> ("Signals not updating — last update at 11:20")
-
-| State | Trigger | Behavior |
-|---|---|---|
-| Normal | `last_batch_at < 25 min ago` | No banner shown |
-| Delayed | `last_batch_at ≥ 25 min ago` (detected on 60s health poll) | Amber banner below filter bar |
-| Recovered | Next poll returns fresh `last_batch_at` | Banner auto-clears, no user action needed |
-
-The last cached batch remains fully visible and scrollable during the delay.
-
-## Empty Lane States
-Each lane independently handles the absence of signals. When a lane has zero results for the current filter state:
-- The lane's sticky header remains visible with a count of **0**
-- The lane body displays a centered muted empty-state block (soft icon + short message)
-- Messages adapt to context:
-
-| Cause | Message (Uzbek Cyrillic) |
-|---|---|
-| No signals today | *Бугун сигналлар йўқ* |
-| Mahalla filter returns zero | *Танланган маҳаллада сигналлар йўқ* |
-| Search returns no matches | *Қидирув натижалари топилмади* |
-
-- Empty states use **muted gray** visuals — no error colors.
-- **Loading state** (initial data fetch) is distinct: a skeleton shimmer fills card positions. Empty state only appears after a fetch completes with zero results.
-
-## Experience Principles
-
-**1. Glanceability Above All**
-Content is structured for rapid visual triage. Lane signal counts, category icon chips, active card accents, and timestamp + sender lines must allow a busy user to assess district health in under 60 seconds.
-
-**2. Context Without Disruption**
-Detail inspection must never disorient the user. The drawer slides in as an overlay, keeping all five lanes visible and independently scrollable behind it.
-
-**3. Telegram-Informed, Dashboard-First**
-We borrow from Telegram: trust in message authenticity, chronological ordering, and sender+timestamp anchoring. We do not copy: chat bubbles, alternating left/right layout, or dark-mode neon aesthetics. Signal cards are clean horizontal rows with category-colored active accents — optimized for top-to-bottom scanning within a fixed-width column.
-
-**4. Zero Ambiguous States**
-Every element must communicate its interactivity clearly through visual design. No element that looks interactive may be inert; no element that is inert may look clickable.
-
-| Element Type | Cursor | Hover | Example |
-|---|---|---|---|
-| Interactive (filters, search, card, drawer close) | `pointer` | Visible active/lift state | Time range selector, signal card |
-| Decorative label (hokim flag icon) | `default` | None | ★ hokim indicator |
-
----
-
+When processing is delayed, cached topics remain usable and a non-technical
+amber banner reports the last successful update. Queue, retry, dead-letter, and
+irrelevant records never render as topics.

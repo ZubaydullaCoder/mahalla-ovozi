@@ -4,12 +4,12 @@ Operational runbooks for Mahalla Ovozi pilot deployment and ongoing operations.
 
 ## Files
 
-- **[pilot-deployment-runbook.md](./pilot-deployment-runbook.md)** — Step-by-step guide for first-time pilot deployment including server setup, database initialization, Telegram webhook registration, reverse proxy configuration, and smoke testing.
+- **[pilot-deployment-runbook.md](./pilot-deployment-runbook.md)** — Pilot deployment plus measured Epic 9 direct-cutover and scoped test-data reset gates.
 
-- **[backup-restore-runbook.md](./backup-restore-runbook.md)** — PostgreSQL backup strategy, automated daily backup cron setup, integrity verification procedure, and full restore procedure.
+- **[backup-restore-runbook.md](./backup-restore-runbook.md)** — PostgreSQL backup/restore with resident-evidence retention alignment and post-restore purge verification.
 
-- **[data-retention-policy.md](./data-retention-policy.md)** — Retention schedule for all application-generated data (raw messages, signals, pipeline events, batch health records), automated purge SQL, and compliance considerations.
+- **[data-retention-policy.md](./data-retention-policy.md)** — Retention schedule for captured messages, topic evidence, diagnostics, health metrics, sessions, and Hokim keywords.
 
 - **[secret-rotation.md](./secret-rotation.md)** — Secret inventory, rotation frequencies, step-by-step procedures for rotating `SESSION_SECRET`, `BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `AI_API_KEY`, database password, and `OPS_SECRET`.
 
-- **[monitoring-alerting.md](./monitoring-alerting.md)** — Monitoring surfaces, health endpoint checks, bot connectivity queries, classifier pipeline health, database and disk monitoring, and lightweight alerting setup for pilot phase.
+- **[monitoring-alerting.md](./monitoring-alerting.md)** — Platform, Telegram, per-mahalla queue, local Ollama, triage, replay, retention, and privacy monitoring.

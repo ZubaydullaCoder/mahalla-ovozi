@@ -1,5 +1,5 @@
 # generated: 2026-06-03
-# last_updated: 2026-07-15
+# last_updated: 2026-07-18
 # project: mahalla-ovozi
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context recommended)
 
 generated: 2026-06-03
-last_updated: 2026-07-15
+last_updated: 2026-07-18
 project: mahalla-ovozi
 project_key: NOKEY
 tracking_system: file-system
@@ -125,5 +125,24 @@ development_status:
   # Goal: Improve dashboard readability with AI-generated professional
   # Uzbek Cyrillic summaries replacing raw informal Telegram messages.
   # ─────────────────────────────────────────────────────────────────────────
-  epic-8: in-progress
+  epic-8: done
   8-1-ai-summary-on-signal-cards: done
+  epic-8-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # EPIC 9: Contextual Topic Triage and Evidence Dashboard
+  # Goal: Replace isolated keyword-gated signal cards with locally processed,
+  # evidence-grounded contextual topics and exact Telegram verification.
+  # ─────────────────────────────────────────────────────────────────────────
+  epic-9: in-progress
+  9-1-conversational-evaluation-harness: ready-for-dev
+  9-2-topic-and-captured-message-schema: backlog
+  9-3-contextual-intake-and-chronological-drain: backlog
+  9-4-bounded-retrieval-and-gemma-topic-triage: backlog
+  9-5-atomic-topic-persistence-and-developer-replay: backlog
+  9-6-topic-apis-telegram-links-and-retention: backlog
+  9-7-ops-diagnostics-and-hokim-keyword-management: backlog
+  9-8-multi-lane-topic-cards: backlog
+  9-9-topic-evidence-drawer-and-search: backlog
+  9-10-offline-validation-and-clean-cutover: backlog
+  epic-9-retrospective: optional

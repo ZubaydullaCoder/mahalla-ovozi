@@ -1,5 +1,14 @@
 ﻿# Mahalla Ovozi — Phase 13 Final Validation Report & Patch-Agent Backlog
 
+> **Historical report — superseded for target behavior.** This report describes
+> the completed keyword-gated signal baseline. The approved 18 July 2026
+> Sprint Change Proposal, current PRD, architecture, UX specification, and Epic
+> 9 now govern target behavior. Do not use this report to reintroduce
+> `keyword_gate`, `shadow_compare`, isolated signal classification, or the
+> legacy dashboard as current requirements. Findings may still be useful when
+> understanding historical code, but each must be revalidated against the live
+> Epic 9 story before action.
+
 ## Operating Model
 
 This document is for a local AI patch agent with real workspace access.

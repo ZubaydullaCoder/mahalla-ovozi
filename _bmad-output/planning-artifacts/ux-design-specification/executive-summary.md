@@ -1,25 +1,45 @@
-﻿# Executive Summary
+# Executive Summary
 
 ## Project Vision
-Mahalla Ovozi (Voice of the Mahalla) is a private GovTech situational awareness dashboard that extracts civic signals from noisy Telegram group chats and structures them so a busy, non-technical district governor (*tuman hokimi*) can review what residents are reporting in a matter of seconds. It acts as a passive monitoring dashboard and does not manage issue tracking or resident-facing interactions.
+
+Mahalla Ovozi is a private situational-awareness dashboard that groups
+supported civic reports from Telegram into evidence-backed topics. A busy
+district leader can scan what residents are reporting without reading every
+chat and can inspect the original messages behind every AI-assisted summary.
+
+The product does not verify incidents, create cases, assign work, track
+resolution, or communicate with residents.
 
 ## Target Users
-*   **Primary User (Tuman Hokimi):** A non-technical, high-level decision-maker who values quick scanning and evidence validation. Uses a large office monitor (1920x1080) in light mode. Requires immediate clarity on who reported what, where, and when.
-    *   *Sender Visibility Policy:* Display the Telegram display name snapshot (e.g., *Али Валиев*) by default so the hokim has enough evidence to identify who wrote the message. If unavailable, fall back to the Telegram username (e.g., `@ali_valiyev`), and default to *Резидент* (Resident) if both are missing.
-*   **Secondary User (Authorized Staff):** Monitors the dashboard on behalf of the hokim, prepares summaries, and filters by specific terms or mahallas.
-*   **Technical Admin (Operator):** Monitors system health, checks bot connectivity, and reviews pre-filter discard logs.
 
-## Key Design Challenges
-*   **Information Density & Layout Complexity:** Presenting 5 independently scrolling lanes and a right-side drawer overlay simultaneously on a single desktop view without creating visual clutter or high cognitive load.
-*   **Cross-Cutting Prioritization:** Helping the user understand that the *Ҳокимга тегишли* (Hokim-related) lane is a priority view flag rather than a service category (a message can exist in *Газ* and *Ҳокимга тегишли* simultaneously).
-*   **System Status Transparency:** Representing empty states (no reports) and pipeline delays (e.g., "Signals may be delayed" when AI batches lag) in a clear, non-technical manner.
-*   **Localization Consistency:** Enforcing clean Uzbek Cyrillic terminology for all primary lanes.
-    *   *Lanes:* *Ҳокимга тегишли* (Hokim-related), *Сув* (Water), *Електр* (Electricity), *Газ* (Gas), *Чиқинди* (Waste).
-    *   All dashboard copy remains centralized and testable to prevent Latin Uzbek slip-throughs.
+- **Tuman hokimi:** scans current topics and verifies original evidence.
+- **Authorized staff:** filters, searches, and prepares evidence-based context.
+- **Developer/operator:** diagnoses queue, model, retention, and grouping
+  behavior through protected tools.
 
-## Design Opportunities
-*   **Contextual Evidence Mapping:** Providing instant neighborhood context through a right-side drawer that loads related signals (same mahalla + same category + time window) automatically when a card is selected. Clicking a different card instantly refreshes the drawer.
-*   **Premium Civic Aesthetics:** Building a modern, light-mode, Telegram-familiar design using clean typography (e.g., Inter or Outfit) and subtle micro-interactions to create a state-of-the-art administrative tool.
+## Core UX Model
 
----
+1. Scan topic counts and latest activity across five lanes.
+2. Select an evidence-backed topic card.
+3. Inspect its chronological original Telegram evidence.
+4. Open an exact evidence position in Telegram when access permits.
 
+One canonical topic may appear in several equal service lanes. The Hokim lane
+is a deterministic priority view, not a service category.
+
+## Design Challenges
+
+- Preserve high-density five-lane scanning without implying duplicated topics
+  are different incidents.
+- Distinguish AI summary from unchanged resident evidence.
+- Preserve uncertainty, contradiction, and attribution.
+- Keep exact Telegram verification independently keyboard-accessible.
+- Show processing delay calmly without hiding cached topics.
+- Keep every product-authored string in Uzbek Cyrillic.
+
+## Design Direction
+
+The approved direction remains **Compact Scan** with **Calm Authority**:
+cool-slate surfaces, restrained category accents, stable desktop geometry,
+independent lane scroll, an overlay evidence drawer, skeleton loading, and no
+case-management visual language.

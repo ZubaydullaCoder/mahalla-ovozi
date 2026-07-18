@@ -1,4 +1,4 @@
-﻿---
+---
 stepsCompleted: ['step-01-init', 'step-02-discovery', 'step-02b-vision', 'step-02c-executive-summary', 'step-03-success', 'step-04-journeys', 'step-05-domain', 'step-06-innovation-skipped', 'step-07-project-type', 'step-08-scoping', 'step-09-functional', 'step-10-nonfunctional', 'step-11-polish', 'step-12-complete']
 workflowStatus: 'complete'
 releaseMode: 'single-release'
@@ -7,454 +7,376 @@ classification:
   domain: 'govtech'
   complexity: 'high'
   projectContext: 'greenfield'
-  notes: 'Private internal tool operated by government — standard govtech compliance rules (FedRAMP, Section 508, open data) do not apply. Uzbekistan personal data law (ZRU-547) flagged; policy owned by client (hokim).'
 inputDocuments:
   - 'docs/archive/project-raw-idea.md'
   - '_bmad-output/planning-artifacts/research/technical-telegram-ai-pipeline-research-2026-05-13.md'
   - '_bmad-output/planning-artifacts/research/domain-mahalla-governance-research-2026-05-13.md'
-  - 'session-handoff.md'
   - 'docs/stakeholder-decisions-log.md'
+  - '_bmad-output/planning-artifacts/sprint-change-proposal-2026-07-18.md'
 workflowType: 'prd'
-briefCount: 0
-researchCount: 2
-brainstormingCount: 0
-projectDocsCount: 0
-lastConsistencyPatch: '2026-05-18 PRD cleanup before UX design'
+lastUpdated: '2026-07-18'
 ---
 
-# Product Requirements Document - mahalla-ovozi
+# Product Requirements Document — Mahalla Ovozi
 
-**Author:** Zubaydulla  
-**Date:** 2026-05-16  
-**Consistency Patch:** 2026-05-18 — clarified UX/architecture handoff ambiguities without expanding MVP scope
-
----
+**Author:** Zubaydulla
+**Original date:** 2026-05-16
+**Current course correction:** 2026-07-18 — contextual topic triage and
+evidence dashboard
 
 ## Executive Summary
 
-Mahalla Ovozi is a private internal civic signal monitoring system for district (tuman) leadership in Uzbekistan. It captures resident-reported text messages from selected mahalla Telegram supergroups via an official Telegram bot, filters them using AI classification, and surfaces relevant civic signals in a structured web dashboard — organized by service category, mahalla, and time.
+Mahalla Ovozi is a private internal monitoring dashboard for district
+leadership in Uzbekistan. It passively listens to one approved Telegram
+supergroup per mahalla, groups supported civic reports into evidence-backed
+topics, and displays those topics across five scannable lanes.
 
-The primary user is the tuman hokimi. The product solves a specific operational problem: district leadership cannot reliably monitor what residents are reporting in real Telegram group chats at scale. Important civic signals — about water, electricity, gas, waste, and hokim-related matters — are buried in high-volume, noisy group conversations. Existing channels (formal complaints, staff briefings) are delayed, filtered, and incomplete. Mahalla Ovozi gives the hokim direct, structured visibility into these signals without reading raw group chats.
+The product helps the hokim and authorized staff understand what residents are
+reporting without reading every chat. It does not verify reported conditions,
+replace Telegram, create administrative cases, assign work, track resolution,
+or respond to citizens.
 
-The product is explicitly scoped. It is not a complaint portal, a resolution tracker, a citizen-facing chatbot, or a full Telegram archive. It captures, filters, and displays. Decision and action remain with the hokim and existing institutional processes.
+The dashboard unit is a canonical topic. A topic contains original Telegram
+evidence that available context indicates describes the same underlying
+situation. AI-generated Uzbek Cyrillic summaries remain explicitly attributed
+to residents and preserve uncertainty and contradiction.
 
-### What Makes This Special
+## Product Scope
 
-The core insight is that Telegram groups are where civic signals surface earliest and most authentically — before formal channels, before escalation. The gap is not signal availability; it is signal legibility for leadership.
+### MVP
 
-Mahalla Ovozi's differentiation is its discipline: it solves exactly one problem and refuses all scope creep. No issue cards. No resolution workflow. No confidence scores. No automated truth claims. The product's value is a clean, evidence-backed signal stream that lets a busy non-technical leader scan what residents are saying in 60 seconds, not 60 minutes.
+- One district with 3–5 monitored mahallas.
+- Exactly one active monitored Telegram group per mahalla.
+- Text and textual-caption intake through an official Telegram bot.
+- Four supported service categories: Water, Electricity, Gas, and Waste.
+- Five dashboard lanes: Hokim-related plus the four service lanes.
+- Equal multi-category topics; no primary category.
+- Rolling 24-hour bounded contextual triage with an exact-reply exception.
+- Original-message evidence drawer and exact Telegram navigation.
+- Time, mahalla, and text search filters.
+- Session authentication and district-scoped access.
+- Protected Ops diagnostics and Hokim-keyword management.
+- Local Ollama `gemma4:12b` as the initial evaluation and pilot model.
+- Offline validation followed by direct cutover.
 
-The near-real-time AI drain pipeline keeps the system fast enough for live monitoring while controlling unnecessary AI cost. Phase 1 uses keyword-gated AI classification as the only active development and demo/pilot filtering method: structural pre-filters remove obvious non-signal updates, manually managed keywords determine which messages enter the AI queue, and AI classifies only keyword-matched messages. When a keyword-matched raw message is saved, a background classifier drain is triggered asynchronously; AI never runs inside the Telegram webhook request. A lightweight cron fallback still protects against missed triggers and restarts. Based on owner analysis of real mahalla Telegram groups showing low signal density, this keeps cost and dashboard noise under control. Full AI classification may be reconsidered later only by explicit owner decision if keyword gating underperforms.
+### Explicitly Out of Scope
 
----
-
-## Project Classification
-
-| Field | Value |
-|---|---|
-| **Project Type** | Web App — internal dashboard + REST API backend + Telegram bot intake |
-| **Domain** | GovTech (private internal tool; standard govtech compliance rules do not apply) |
-| **Complexity** | High — government data, Uzbek NLP pipeline, personal data law exposure, async AI pipeline |
-| **Project Context** | Greenfield |
-
----
+- Complaint submission, citizen chatbot, bot replies, or commands.
+- Case status, assignment, severity, resolution, or service-level workflow.
+- Manual topic merge, split, reassignment, category edit, or summary edit UI.
+- Civic domains outside Water, Electricity, Gas, and Waste.
+- More than one active Telegram group per mahalla.
+- Cross-district or cross-mahalla topic matching.
+- Live legacy shadow comparison, dual processing, dual writes, or a legacy
+  dashboard rollback switch.
+- Automatic external AI fallback.
+- Mobile-first layout, public registration, or public dashboard access.
 
 ## Success Criteria
 
 ### User Success
 
-The product is successful when the hokim and authorized district staff can reliably scan current civic signals from monitored mahalla Telegram groups without reading the raw group chats themselves.
+- A district user can scan current topics across all five lanes without reading
+  raw chats.
+- A topic card communicates its AI-assisted nature, applicable categories,
+  latest activity, evidence volume, and latest meaningful evidence excerpt.
+- The user can open the topic and inspect only its chronological original
+  evidence.
+- Every constructible evidence link opens the exact Telegram message position.
+- Multi-category rendering does not make one canonical topic look like several
+  different incidents.
+- Delayed processing is visible through a non-technical status indicator.
 
-Specifically:
-- Signal messages appear in the correct category lane with visible sender, mahalla, time, and raw text
-- The context drawer surfaces related signals from the same mahalla and category without confusion
-- Time range, mahalla, and search filters work predictably and narrow results as expected
-- The dashboard is usable without any technical training or onboarding
-- The hokim or staff can use it as a faster alternative to manually monitoring Telegram groups
+### Product Success
 
-### Business Success
-
-The pilot is considered a success if the hokim finds the dashboard useful enough to continue using it after the initial 2–4 week validation period and is willing to expand it to more mahallas or staff.
-
-Secondary business success indicators:
-- No critical data loss or integrity issues during the pilot
-- Bot connectivity maintained reliably across all monitored groups
-- Operational cost stays within the low-cost pilot budget target after current AI pricing and filtering mode are revalidated
+- Clear supported reports can start topics without keywords.
+- Keywordless contextual follow-ups attach when evidence supports continuity.
+- Shared category alone never causes messages to merge.
+- Unsupported or ambiguous content does not enter the dashboard merely because
+  a keyword appears.
+- Summaries do not convert resident statements into verified facts.
+- The pilot gives the owner enough measured replay and operational evidence to
+  decide whether to continue, refine, or stop.
 
 ### Technical Success
 
-- Telegram bot captures all in-scope text messages from monitored groups reliably
-- Near-real-time background classification runs without blocking Telegram webhook intake in normal operating conditions
-- Ignored messages are deleted after classification; signal messages are retained correctly
-- System recovers from temporary AI API failures without data loss
-- Admin/operator can verify system health without reading application logs
-
-### AI Classification Success
-
-AI accuracy targets are directional for the pilot — hard thresholds will be set after real-group testing with labeled data. The pilot aims to validate:
-- Signal/ignore classification is accurate enough that the hokim trusts the lanes (low false negatives on obvious civic signals)
-- Category assignment is mostly correct (water/electricity/gas/waste)
-- Hokim-related flag is useful as a cross-cutting filter
-
-If classification quality is insufficient, the pilot will extend prompt engineering, few-shot examples, and/or model selection before declaring go/no-go.
-
-Keyword coverage is validated manually during Phase 1 with real/test group data. Keyword-gated filtering is the active demo/pilot method because real mahalla group analysis indicates signal messages are rare. If missed non-keyword signal risk becomes unacceptable, `ai_full` may be reconsidered later by explicit owner decision rather than developed in parallel now.
-
-### Measurable Outcomes
-
-| Outcome | Threshold |
-|---|---|
-| Bot uptime during pilot | No unplanned downtime >24h (updates lost) |
-| Background classification | Keyword-matched messages trigger background drain without manual intervention; 1-minute cron fallback remains available |
-| Signal retention | No signal messages lost after classification |
-| Dashboard availability | No outages during working hours |
-| Pilot duration | 2–4 weeks of real-group operation before review |
-
-### Pilot Review Questions
-
-At the end of the pilot, evaluate success with lightweight human-in-the-loop review rather than vanity analytics:
-
-- Did the hokim or staff find useful civic signals faster than reading raw Telegram chats?
-- Were false positives tolerable enough for the dashboard to remain trusted and useful?
-- Were any obvious civic signals missed in a way that reduced trust?
-- Did the five-lane dashboard and context drawer make patterns easier to understand?
-- Should the pilot continue, expand to more mahallas/staff, or pause for classifier/UX refinement?
-
----
-
-## Product Scope
-
-### MVP — Minimum Viable Product
-
-Exactly what is defined in `docs/archive/project-raw-idea.md` §6: one district, 3–5 mahalla groups, text/caption-only intake, AI signal filtering, five-lane dashboard, context drawer, filters (time/mahalla/search), session-based auth, and operational health monitoring for operators.
-
-For MVP intake, “text/caption-only” means Telegram `message.text` and textual `caption` content are in scope when Telegram provides them. Media binaries themselves — photos, videos, voice, stickers, polls, files, and similar non-text payloads — remain out of scope and are not stored or analyzed.
-
-No additions. Prove the concept first.
-
-### Delivery Phase Interpretation
-
-The MVP product scope above is fixed, but implementation is delivered in two phases:
-
-- **Phase 1 - validation build:** Implements the MVP behavior locally with production-quality schema, API contracts, module boundaries, authentication, bot intake, keyword-gated AI pipeline, dashboard, health state, Developer Ops Console, and centralized manual keyword management for validation. Infrastructure is intentionally simplified for fast human-in-the-loop validation.
-- **Phase 2 - pilot deployment hardening:** Adds the production deployment layer required for the real district pilot: Docker Compose, Nginx, HTTPS, secure cookies, external backups, production monitoring posture, and any queue/worker split approved after Phase 1 validation.
-
-Therefore, deployment-hardening items are part of the pilot-ready MVP, but they are not blockers for Phase 1 local validation stories.
-
-Filtering mode selection is not a hokim/staff dashboard feature. Current development uses `keyword_gate` only; any future switch to full AI classification requires an explicit owner decision.
-
-### Growth Features (Post-MVP)
-
-To be determined after pilot review based on real usage feedback from the hokim and district staff. No commitments made at this stage.
-
-### Vision (Future)
-
-Expand to multiple districts; potential integration with formal complaint tracking systems; mobile-optimized view for on-the-go monitoring. Scope and priority driven by pilot outcomes.
-
----
-
-## User Journeys
-
-### Journey 1: Hokimi — Signal Scan (Primary Success Path)
-
-Jamshid is the tuman hokimi. When he needs situational awareness across his district's mahallas, he opens the Mahalla Ovozi dashboard. Previously this meant manually flipping through multiple Telegram group chats — wading through congratulation messages, food photos, and announcements — hoping not to miss anything important. Most of the time, important signals were buried or arrived through filtered summaries from staff.
-
-Now he opens the dashboard. The default view shows today's signals across all monitored mahallas. He glances at the Gas lane — three complaints from Navbahor mahallasi in the last two hours. He clicks one. The context drawer opens on the right, showing all gas-related signals from Navbahor today. Four messages, all complaints, all from different residents. He has the evidence he needs.
-
-He didn't read a single raw group chat.
-
-**Capabilities revealed:** five-lane dashboard, default Today view, lane signal counts, context drawer, mahalla filter, time range filter, sender + mahalla + timestamp visibility.
-
----
-
-### Journey 2: Hokimi — Investigating a Specific Mahalla (Edge Case)
-
-Jamshid hears from a staff member that residents in Olmazor mahallasi are complaining about water. He wants to verify before acting. He opens the dashboard, selects Olmazor from the mahalla filter. The Water lane now shows only Olmazor signals. He sets a custom time range for the last 3 days. Four signals appear — two complaints, one question, one announcement. He clicks the announcement — it's from the mahalla rais about a scheduled water shutoff. The complaints are from before the announcement. The pattern makes sense. No urgent action needed.
-
-**Capabilities revealed:** mahalla filter scoping all lanes, time range filter (custom range up to 7 days), context drawer, search as secondary fallback.
-
----
-
-### Journey 3: District Staff — Ongoing Monitoring (Secondary User)
-
-Dilnoza is an authorized district staff member. She monitors the dashboard on behalf of the hokim. She notices the Electricity lane showing an unusual spike — 7 signals from two different mahallas in the last hour. She uses the search filter to check if a specific term appears in the messages. Two signals match. She flags this pattern to the operator and prepares a summary for the hokim's review.
-
-She never joins or reads the actual Telegram groups. She sees the filtered signal stream, uses search to narrow, and identifies a pattern the hokim needs to know about.
-
-**Capabilities revealed:** search filter (keyword across raw text + mahalla + sender), lane independent scrolling, real-time-ish signal availability (20-min lag understood), cross-mahalla visibility when mahalla filter = All.
-
----
-
-### Journey 4: Operator — Bot Setup and Health Check (Admin/Operations)
-
-Rustam is the developer/operator who set up Mahalla Ovozi. Before the pilot launch, he adds the bot to each of the 3 selected mahalla Telegram groups, confirms the required Telegram group/bot setup in a real test group, and verifies the bot is receiving messages by checking the admin health endpoint. On day 3 of the pilot, the dashboard shows a "⚠️ Signals may be delayed" indicator. Rustam checks the health endpoint — the last batch ran 45 minutes ago. He inspects the logs, finds the AI provider returned a temporary error, and sees the `node-cron` scheduled batch retried successfully on the next run. The indicator clears on the next batch run. The hokim never saw a technical error.
-
-**Capabilities revealed:** admin health endpoint (last batch time, error count, pre-filter discard counts), bot connectivity monitoring (my_chat_member events), "signals may be delayed" UI indicator for hokim (no raw errors shown), AI retry handling in the batch processor, operator-only health view vs. hokim-facing dashboard.
-
----
-
-### Journey Requirements Summary
-
-| Capability | Revealed By |
-|---|---|
-| Five-lane dashboard with sticky headers + independent scroll | Journey 1, 2 |
-| Default view: Today, All mahallas, newest-first | Journey 1 |
-| Signal count per lane | Journey 1 |
-| Context drawer (same mahalla + category + time range) | Journey 1, 2 |
-| Selected message highlighted in drawer | Journey 1 |
-| Mahalla filter (scopes all lanes) | Journey 2 |
-| Time range filter (presets: Today, 1h, 3h, 6h, custom up to 7 days) | Journey 2 |
-| Search filter (raw text, sender, mahalla) | Journey 3 |
-| Cross-mahalla signal view when filter = All | Journey 3 |
-| "Signals may be delayed" UI indicator (non-technical) | Journey 4 |
-| Admin health endpoint (operator-only) | Journey 4 |
-| Bot connectivity monitoring + operator-visible health alert state | Journey 4 |
-| Session-based auth (scoped access) | All journeys |
-
----
-
-## Domain-Specific Requirements
-
-### Compliance & Regulatory
-
-Mahalla Ovozi is a private internal tool commissioned and operated by an authorized district hokimiyat. The hokim, as the commissioned authority, owns all policy decisions related to this deployment — including data handling, sender display, resident notification, and data residency. These are not implementation blockers and do not gate development or the pilot launch.
-
-The developer's responsibility is to implement specified technical requirements correctly. No regulatory approval, external audit, or compliance certification is required for this product.
-
-This client-owned policy stance does not reduce developer-owned security and data-handling responsibilities. The implementation must still enforce the PRD's technical safeguards at the appropriate delivery phase: pilot HTTPS, secure session cookies, webhook secret validation, environment-only secrets, district-scoped access, retention behavior, backup protection, and operator-visible health/debug information.
-
-### Technical Constraints
-
-**Data security (developer-owned):**
-- Bot token and API keys in environment variables only — never in code or logs
-- Webhook requests validated via `X-Telegram-Bot-Api-Secret-Token` header
-- Phase 1 local validation may use HTTP with `httpOnly` session cookies; pilot deployment must use HTTPS with `httpOnly` and `secure` session cookies
-- Phase 2 pilot deployment uses PostgreSQL on a single VPS with disk encryption; sufficient for pilot scale
-
-**Data retention (developer-owned):**
-- Raw messages: deleted after successful classification in the same batch run
-- Signal messages: retained for 90 days (pilot period); revisit post-pilot based on DB growth
-- No normalized text stored long-term — used during processing only
-
-**Access control (developer-owned):**
-- Session-based authentication; no public registration
-- District-scoped visibility — authorized users only
-- Sender display rendered as confirmed by the hokim; developer implements display, not the policy itself
-
-### Risk Mitigations
-
-| Risk | Mitigation |
-|---|---|
-| Bot token exposed | Env var only; rotate immediately if leaked |
-| Webhook spoofed | Validate secret token header on every request |
-| Data loss on VPS failure | Phase 2 pilot deployment: daily `pg_dump` backups to external object storage; RTO <4h, RPO <24h |
-| Bot removed from group | `my_chat_member` event detection; expose operator-visible health alert state |
-| AI API downtime | Retry logic in batch processor (up to 3 attempts); show "Signals may be delayed" to hokim on next batch; expose technical details only in operator health/logs |
-| AI model/pricing assumptions stale | Revalidate current provider/model/pricing before implementation; keep model configurable |
-| Pre-filter false negatives | Use conservative centralized filters; validate thresholds with real mahalla data before hardening |
-
-### MVP Operator Alerting
-
-For MVP, “operator alert” means an operator-visible system health state, not an additional external notification product. The minimum alert surfaces are:
-
-- Hokim/staff-facing non-technical delayed-signal indicator on the dashboard.
-- Operator-only health endpoint/status view showing bot connectivity, last successful batch time, queue depth, recent processing errors, and discard counts.
-- Structured server logs for technical diagnosis.
-
-Telegram/email/push alerts are not part of the MVP unless Architecture intentionally adds a minimal implementation for operational necessity without expanding the user-facing product scope.
-
----
-
-## Web App Specific Requirements
-
-### Project-Type Overview
-
-Mahalla Ovozi's frontend is a **single-page application (SPA)** — a React (or Next.js) dashboard with real-time-feeling filtering, five independently scrolling category lanes, and a right-side context drawer. The primary display target is a large office monitor used by district leadership.
-
-### Technical Architecture Considerations
-
-**Rendering:** Client-side SPA. No SSR required for MVP — all data fetched from the Express REST API after session authentication.
-
-**State management:** Local component state + React Query (or SWR) for server-state caching. No global state manager needed at MVP scale.
-
-**API communication:** REST. Phase 1 local validation may use HTTP; Phase 2 pilot deployment must use HTTPS. Dashboard signal auto-refresh polling interval: 10 seconds; health polling remains 60 seconds. No WebSocket for MVP.
-
-**Auth flow:** Session cookie issued on login. `httpOnly` is always required; `secure` is required for Phase 2 pilot deployment. Protected routes redirect to login if no valid session.
-
-### Browser & Display Requirements
-
-| Requirement | Target |
-|---|---|
-| Browser support | Chrome, Firefox, Edge — latest stable versions only |
-| Mobile browser | ❌ Not required for MVP |
-| Primary display | Large desktop monitor (1920×1080+) |
-| Minimum display | Laptop screen (1366×768) — layout must remain functional |
-| Dark/light mode | Light mode only |
-
-### Accessibility Level
-
-WCAG 2.1 AA is the internal MVP quality target for semantic HTML, keyboard navigation, focus visibility, contrast, and core ARIA behavior. Formal external accessibility audit is not required for the MVP pilot.
-
-### Implementation Considerations
-
-- Five lanes must scroll independently without layout interference
-- Virtualized lane rendering recommended if signal count per lane exceeds ~200 items (`react-window` or equivalent)
-- Context drawer is a right-side overlay, not a modal — main lane content remains visible behind it
-- Hokim-related flag rendered as a subtle indicator on signal items (e.g. small icon or badge)
-- The Hokim-related lane is a cross-cutting view. A signal with `hokim_related = true` can also appear in its service lane (Water, Electricity, Gas, or Waste), so intentional duplication between the Hokim-related lane and one service lane is allowed.
-
----
-
-## Project Scoping
-
-### Strategy & Philosophy
-
-**Approach:** Single-release MVP — problem-solving focus. The goal is to validate one hypothesis: *can district leadership reliably see civic signals from Telegram groups without reading raw chats?* All features in scope are in direct service of this validation.
-
-**Resource requirements:** One developer (full-stack TypeScript). No external team required for pilot.
-
-### Complete Feature Set
-
-**Core user journeys supported:** All 4 journeys (hokimi signal scan, mahalla investigation, staff monitoring, operator health check).
-
-**Must-have capabilities:**
-
-- Five-lane dashboard (Hokim-related / Water / Electricity / Gas / Waste) with sticky lane headers and independent scroll
-- Default view: Today, All mahallas, newest-first
-- Signal item display: timestamp, sender reference, mahalla name, raw text snippet, hokim-related indicator
-- Context drawer: same mahalla + same category + selected time range; clicked message auto-highlighted
-- Telegram context action: stored signals can expose a Telegram message link when the viewer has group access
-- Filters: time range (1h / 3h / 6h / Today / Yesterday / custom up to 7 days), mahalla, keyword search
-- Telegram bot: text and text-caption capture from monitored supergroups via webhook; media binaries are ignored for MVP
-- Near-real-time AI drain pipeline: structural pre-filter + keyword gate + asynchronous background classifier drain + configurable AI classification model selected after implementation-time validation
-- Signal-only storage: raw messages deleted post-classification, signals retained 90 days
-- "Signals may be delayed" dashboard indicator (non-technical, hokim-visible)
-- Admin health endpoint and Ops Console: last batch time, queue status, bot connectivity, recent processing errors, discard counts, active keyword-gate state, and keyword registry (operator-only)
-- Session-based auth: login, protected routes, no public registration
-- Phase 2 pilot deployment: Docker Compose + Nginx + Let's Encrypt + daily pg_dump backups
-
-**Nice-to-have (defer post-pilot):** None specified — scope is already at minimum.
-
-### Risk Mitigation Strategy
-
-**Technical risks:** AI classification quality and keyword-gated missed-signal risk are the highest-risk assumptions. Mitigation: Phase 1 validation with real/test group data, manual owner/operator review, prompt engineering, keyword iteration, and model selection before go/no-go decision. The exact model/provider remains configurable; filtering stays `keyword_gate` unless the owner explicitly approves a later switch to full AI classification.
-
-**Operational risks:** Bot setup requires confirmed Telegram group/bot configuration. Mitigation: documented setup checklist, real test group validation, and operator walkthrough with client before pilot launch.
-
-**Resource risks:** Single developer. Mitigation: modular monolith architecture limits blast radius of any component; no microservices complexity.
-
----
+- Webhook intake persists structurally valid messages before asynchronous work
+  and returns without invoking AI inline.
+- Messages are processed chronologically within each mahalla.
+- Earlier failures block later same-mahalla processing until retry or
+  dead-letter handling completes.
+- Provider output is schema-validated before atomic persistence.
+- District isolation, Telegram source idempotency, and zero-or-one topic
+  membership are enforced.
+- Local model unavailability queues work safely without external transmission.
+- Logs and pipeline events contain no resident text, prompts, or provider
+  response bodies.
+
+### Measured AI Quality
+
+The conversational replay harness must report, at minimum:
+
+- supported-signal precision and recall;
+- keywordless new-topic recall;
+- keywordless follow-up attachment;
+- over-merge and over-split rates;
+- multi-category accuracy;
+- unsupported-category rejection;
+- speculative-fact violations;
+- resident-count attribution accuracy;
+- latency, failures, and local resource use.
+
+Cutover thresholds are not invented in advance. The owner approves measured
+gates after the initial `gemma4:12b` baseline exists.
+
+## Primary User Journeys
+
+### Journey 1 — Daily Topic Scan
+
+The hokim opens the authenticated dashboard. It defaults to Today, all
+mahallas, newest activity first. Lane counts represent topics. A Water and
+Electricity topic appears once in each applicable service lane but opens the
+same canonical topic. The Hokim lane includes it only when retained accepted
+evidence contains an active Hokim keyword.
+
+The hokim reads the attributed Uzbek Cyrillic summary and a visually distinct
+excerpt from the latest self-contained evidence. Selecting the card opens the
+evidence drawer without reflowing the lanes.
+
+### Journey 2 — Evidence Inspection
+
+The drawer shows only retained original messages assigned to the topic,
+oldest-to-newest. The latest self-contained anchor is centered and highlighted.
+Each evidence row shows sender snapshot, timestamp, original text, text/caption
+provenance, relevant reply relationship, and an exact Telegram action when
+constructible. Evidence outside the selected dashboard range is separated as
+Earlier Context.
+
+The UI does not claim that a situation is confirmed or resolved.
+
+### Journey 3 — Focused Search
+
+Staff filter by mahalla or time and search summaries, retained evidence text,
+sender references, and mahalla names. Results remain topic cards. Opening a
+result highlights matching evidence while preserving canonical membership.
+Background refresh preserves filters, lane scroll, selected topic, and drawer
+position where practical.
+
+### Journey 4 — Operator Diagnosis
+
+An authorized operator sees per-mahalla queue depth and oldest age, blockage,
+retry and dead-letter growth, local model availability and latency, triage
+outcomes, promotion, replay, and retention health. Protected content browsers
+may show retained messages and topics, but logs remain content-free. Operators
+manage only Hokim-lane keywords and cannot manually rewrite topic membership.
+
+## Domain and Policy Requirements
+
+The tool is private and commissioned by an authorized district hokimiyat. The
+owner/client retains policy responsibility for sender visibility, resident
+notification, data residency, and legal retention decisions. This does not
+reduce developer responsibility for secure implementation.
+
+Required safeguards include:
+
+- environment-only secrets;
+- Telegram webhook secret validation;
+- HTTPS and secure session cookies for pilot deployment;
+- district-scoped authorization;
+- data minimization and bounded context;
+- approved retention and cascade deletion;
+- protected backups that do not silently extend retention;
+- no resident content in logs;
+- no external AI transmission without explicit owner approval.
 
 ## Functional Requirements
 
-### Signal Display
+### Topic Dashboard
 
-- **FR1:** Authorized users can view civic signal messages organized into five category lanes (Hokim-related, Water, Electricity, Gas, Waste) on a single dashboard
-- **FR2:** Authorized users can scroll each lane independently without affecting other lanes
-- **FR3:** Authorized users can see a signal count per lane
-- **FR4:** Authorized users can see each signal item displaying: timestamp, sender reference, mahalla/group name, raw message snippet, and hokim-related indicator
-- **FR5:** Authorized users can see the dashboard default to Today's signals across all mahallas, sorted newest-first
-- **FR6:** Authorized users can see a non-technical status indicator when signal data is delayed due to processing issues
-- **FR6a:** Authorized users can open a stored signal's original Telegram message link when Telegram permits access, so they can inspect nearby real chat context outside the dashboard
+- **FR1:** Authorized users can view canonical topics across Hokim-related,
+  Water, Electricity, Gas, and Waste lanes.
+- **FR2:** Each lane scrolls independently and displays a topic count.
+- **FR3:** The default view is Today, all mahallas, newest activity first.
+- **FR4:** A topic card shows Uzbek Cyrillic summary, latest self-contained
+  evidence excerpt, mahalla, equal category chips, latest activity, retained
+  evidence count, Hokim indicator, and exact anchor Telegram action when
+  available.
+- **FR5:** One canonical topic appears once in every applicable service lane;
+  each copy opens the same topic.
+- **FR6:** Service-lane copies use the rendering lane accent; the Hokim-lane copy
+  uses neutral styling and shows all categories.
+- **FR7:** Queued, retrying, dead-lettered, and irrelevant messages never appear
+  as topic cards.
+- **FR8:** Users see a non-technical delayed-processing indicator.
 
-### Context Drawer
+### Evidence Drawer
 
-- **FR7:** Authorized users can select any signal item to open a context drawer
-- **FR8:** The context drawer displays signals from the same mahalla, same category, and selected time range as the clicked signal
-- **FR9:** The selected signal message is automatically highlighted and visually distinguished within the drawer
-- **FR10:** The context drawer remains open while the main dashboard lanes remain visible and scrollable
+- **FR9:** Selecting a topic opens a right-side overlay drawer without reflowing
+  dashboard lanes.
+- **FR10:** The drawer returns only retained messages assigned to that topic,
+  ordered oldest-to-newest.
+- **FR11:** The anchor evidence is centered and highlighted.
+- **FR12:** Each evidence row exposes original text, sender snapshot, Telegram
+  timestamp, text/caption provenance, reply relationship, and exact Telegram
+  URL or no action when an exact URL cannot be constructed.
+- **FR13:** Necessary evidence before the selected range appears under Earlier
+  Context.
+- **FR14:** The drawer contains no assignment, severity, resolution, or
+  case-management actions.
 
-### Filtering & Search
+### Filtering and Search
 
-- **FR11:** Authorized users can filter all lanes by time range using presets (Last 1h, 3h, 6h, Today, Yesterday) and a custom range up to 7 days
-- **FR12:** Authorized users can filter all lanes by mahalla (All or a specific monitored mahalla)
-- **FR13:** Authorized users can search across visible signal items by raw message text, sender reference, and mahalla name
-- **FR14:** When mahalla filter is set to All, lanes display signals from all monitored mahallas
-- **FR15:** When a specific mahalla is selected, all lanes display only signals from that mahalla
+- **FR15:** Users can filter topics by Today, Yesterday, last 1/3/6 hours, or a
+  custom range up to 7 days.
+- **FR16:** A topic is included when it has relevant activity inside the
+  selected range, even if it started earlier.
+- **FR17:** Users can filter by all or one monitored mahalla.
+- **FR18:** Search covers summaries, retained evidence, sender references, and
+  mahalla names; results remain topic cards.
+- **FR19:** Matching evidence is highlighted after the drawer opens.
 
-### Message Intake
+### Telegram Intake
 
-- **FR16:** The system captures in-scope text messages and textual captions sent to monitored Telegram supergroups via an official Telegram bot
-- **FR17:** The system captures message metadata: Telegram message ID, chat/group ID, sender reference, sender display name snapshot, timestamp, and whether the captured text came from `message.text` or `caption`
-- **FR18:** The system detects when the bot is removed from or loses access to a monitored group and exposes an operator-visible health alert state
-- **FR19:** The system ignores non-text Telegram updates (photos, videos, voice, stickers, polls, files, and similar media binaries) for MVP except for textual `caption` content, which is processed as text when present
+- **FR20:** The system captures in-scope `message.text` and textual captions
+  from monitored groups.
+- **FR21:** It stores Telegram update, chat, message, optional reply-target,
+  sender snapshot/stable identity when available, timestamp, text source,
+  district, and mahalla metadata before AI work.
+- **FR22:** It rejects bot-originated, empty, unsupported non-text,
+  pure-reaction, and bot-command noise; short messages are not rejected solely
+  by length.
+- **FR23:** Keywords do not gate intake.
+- **FR24:** The system detects bot removal or loss of group access and exposes
+  operator-visible health.
+- **FR25:** Configuration permits one active monitored group per mahalla.
 
-### AI Classification Pipeline
+### Contextual Triage
 
-- **FR20:** The system processes keyword-matched captured messages through an asynchronous background classifier drain triggered after raw message persistence, with a configurable lightweight cron fallback (default: every 1 minute)
-- **FR21:** The system applies a centralized conservative pre-filter before AI classification to remove structural noise such as bot-originated messages, unsupported non-text updates, empty text, pure emoji/reactions, and bot commands; exact thresholds must be validated with real mahalla data
-- **FR21a:** The system uses developer/operator-managed `keyword_gate` filtering as the only current active filtering method; filtering mode controls are not visible or controllable in the hokim/staff dashboard
-- **FR21b:** The system stores manually managed keyword phrases in one centralized Ops Console database registry; AI does not auto-generate or modify keywords
-- **FR22:** The system classifies eligible keyword-matched messages as signal or ignore using AI. Structurally retained messages without keyword matches are skipped before `raw_messages` and are not sent to AI.
-- **FR23:** For signal messages, the system assigns: category (water/electricity/gas/waste), hokim-related flag, and optional short label
-- **FR24:** The system deletes raw captured messages after successful classification in the same batch run
-- **FR25:** The system retries failed AI classification batches automatically and surfaces a delay indicator to the dashboard
+- **FR26:** Processing runs asynchronously and chronologically per mahalla.
+- **FR27:** Normal context retrieval is bounded to the rolling preceding 24
+  hours; an exact retained compatible reply may exceed that boundary.
+- **FR28:** Each AI request receives only bounded relevant context and a bounded
+  same-scope candidate-topic set.
+- **FR29:** Final dispositions are `new_topic`, `attached`, or `irrelevant`;
+  queue/retry states remain operational only.
+- **FR30:** A context-dependent fragment never creates a topic without
+  qualifying earlier context.
+- **FR31:** A later explicit follow-up or reply may atomically promote an
+  irrelevant message during its 24-hour full-text window.
+- **FR32:** Topics use a non-empty equal subset of Water, Electricity, Gas, and
+  Waste; there is no primary category.
+- **FR33:** Attachment targets must come from supplied candidates and match the
+  authenticated district/mahalla scope.
+- **FR34:** Local Ollama `gemma4:12b` is the initial model; unavailability causes
+  safe retry/delay, never automatic external fallback.
 
-### Signal Storage
+### Evidence, Summary, and Hokim Rules
 
-- **FR26:** The system stores classified signal messages with: signal ID, Telegram IDs, district ID, mahalla ID, sender reference, sender display name snapshot, timestamp, raw text, text source (`message.text` or `caption`), category, hokim-related flag, optional short label, and processing timestamps
-- **FR27:** The system retains signal messages for 90 days from capture date
-- **FR28:** The system does not store ignored messages after successful classification
+- **FR35:** Summaries use clear Uzbek Cyrillic while original evidence remains
+  unchanged.
+- **FR36:** Summaries attribute claims to residents/messages, preserve
+  uncertainty and contradictions, and never present ordinary resident claims as
+  independently verified facts.
+- **FR37:** Distinct-resident wording requires distinct reliable sender
+  identities; repeated messages do not inflate resident counts.
+- **FR38:** The anchor is the latest self-contained retained evidence message.
+- **FR39:** Improvement/restoration messages may update the neutral summary but
+  create no resolved/closed status.
+- **FR40:** A topic becomes Hokim-related only after qualifying as a supported
+  service topic and matching an active Hokim keyword in retained evidence.
+- **FR41:** AI does not infer Hokim relevance from perceived severity.
 
-### Access & Authentication
+### Storage, Retention, and Repair
 
-- **FR29:** Users can log in with credentials to access the dashboard
-- **FR30:** Unauthenticated users are redirected to the login page and cannot access any dashboard content
-- **FR31:** Authenticated users can log out and have their session invalidated
-- **FR32:** The system enforces district-scoped data access — authenticated users only see data from their authorized district
+- **FR42:** Captured messages have unique Telegram source identity and
+  zero-or-one topic membership.
+- **FR43:** Topic creation/attachment, disposition, activity, categories,
+  summary metadata, and anchor selection persist atomically and idempotently.
+- **FR44:** Attached evidence is retained for 90 days from Telegram timestamp.
+- **FR45:** Irrelevant full text is retained for 24 hours; content-free metadata
+  for 14 days; dead letters for 7 days; content-free pipeline events for 14
+  days; triage health metrics for 60 days.
+- **FR46:** Purge regenerates summary, categories, resident attribution, anchor,
+  and Hokim flag; purging final evidence removes the topic.
+- **FR47:** A developer-only replay supports dry run, explicit apply,
+  district/time/message/topic limits, idempotency, audit metadata, and
+  before/after reporting.
+- **FR48:** Operators have no manual topic correction UI.
 
-### Operational Health
+### Authentication and Operations
 
-- **FR33:** Operators can access an admin health endpoint and Ops Console showing: last successful batch time, current queue depth, bot connectivity status per monitored group, recent processing errors, active keyword-gate state, basic pre-filter discard counts, and keyword-gate skip counts useful for debugging
-- **FR34:** The system exposes a health status to the dashboard that indicates whether signal data is current or delayed, without exposing technical details to non-operator users
-
----
+- **FR49:** Users authenticate by server session; no public registration.
+- **FR50:** Authenticated users see only their district's data.
+- **FR51:** Operators can inspect protected topic/captured-message content and
+  content-free reliability diagnostics.
+- **FR52:** The centralized keyword registry manages Hokim-lane keywords only.
+- **FR53:** The system exposes readiness, bot connectivity, queue, blockage,
+  retry/dead-letter, local model, retention, and delayed-data health.
 
 ## Non-Functional Requirements
 
 ### Performance
 
-- **NFR1:** Dashboard initial page load completes in under 3 seconds on a standard office network connection
-- **NFR2:** Lane filter and search operations produce visible results within 300ms (client-side, on already-fetched data)
-- **NFR3:** Context drawer opens within 500ms of a signal item being selected
-- **NFR4:** Dashboard signal auto-refresh polling occurs every 10 seconds without perceptible page disruption or full reload; dashboard health polling occurs every 60 seconds
+- **NFR1:** Initial dashboard load completes within 3 seconds on a standard
+  office connection under pilot load.
+- **NFR2:** Client-side filtering/search on fetched data responds within 300ms.
+- **NFR3:** Drawer shell opens promptly and evidence is visible within 500ms
+  under normal pilot conditions.
+- **NFR4:** Topic polling occurs every 10 seconds and health polling every 60
+  seconds without full-page reload or scroll loss.
 
-### Security
+### Security and Privacy
 
-- **NFR5:** Phase 2 pilot deployment serves all dashboard traffic over HTTPS; HTTP requests are redirected. Phase 1 local validation may use HTTP.
-- **NFR6:** Session cookies are issued with `httpOnly`; Phase 2 pilot deployment also requires the `secure` flag. Session data is never exposed to client-side JavaScript.
-- **NFR7:** Bot token, AI provider API key, and database credentials are stored in environment variables only — never in source code, logs, or version control
-- **NFR8:** Incoming webhook requests are validated against a secret token header before processing; invalid requests are rejected without processing
-- **NFR9:** Phase 2 pilot deployment stores database data with disk encryption at rest on the VPS
-- **NFR10:** Session tokens are invalidated immediately on logout
+- **NFR5:** Pilot traffic uses HTTPS and secure, `httpOnly` session cookies.
+- **NFR6:** Webhooks validate the Telegram secret header before processing.
+- **NFR7:** Tokens, credentials, database URLs, and AI secrets remain in
+  environment configuration only.
+- **NFR8:** Prompts, resident text, and provider responses never appear in logs
+  or pipeline events.
+- **NFR9:** Context retrieval cannot cross district or mahalla boundaries.
+- **NFR10:** External resident-text transmission requires explicit approval.
 
 ### Reliability
 
-- **NFR11:** During Phase 2 pilot operation, the Telegram webhook endpoint maintains 99% availability during pilot operating hours; outages exceeding 15 minutes create an operator-visible health alert state
-- **NFR12:** The batch processing pipeline recovers automatically from transient AI API failures (up to 3 retry attempts) without operator intervention
-- **NFR13:** During Phase 2 pilot operation, daily automated database backups complete successfully; backup failure creates an operator-visible health alert state
-- **NFR14:** No signal messages are lost due to system restarts or transient failures — the pipeline is idempotent per batch run
+- **NFR11:** Telegram source identity and topic persistence are idempotent across
+  retries and restarts.
+- **NFR12:** An earlier failed same-mahalla message blocks later processing until
+  safe retry/dead-letter handling; other mahallas remain isolated.
+- **NFR13:** Local model failure leaves messages queued and exposes delay without
+  data loss.
+- **NFR14:** Daily pilot backups are monitored and governed by the same retention
+  policy as primary data.
 
 ### Scalability
 
-- **NFR15:** The system supports pilot load of up to 5 monitored groups and 1,000 messages/day with no architectural changes required; growth beyond this is a post-pilot concern
+- **NFR15:** The MVP supports five monitored mahallas and approximately 1,000
+  Telegram messages per day without architectural change.
+- **NFR16:** Concrete prompt, candidate, evidence, and token limits are selected
+  from replay and local resource measurements.
 
 ### Accessibility
 
-- **NFR16:** The dashboard UI meets WCAG 2.1 Level AA compliance for contrast ratios (minimum 4.5:1 for normal text, 3:1 for large text), keyboard navigation (all interactive elements reachable and operable via keyboard), focus visibility (2px colorPrimary outline), and semantic HTML/ARIA roles for screen readers. Target screen reader: NVDA on Windows + Chrome (most common in CIS government environments). Formal external accessibility audit is not required for the MVP pilot.
+- **NFR17:** The desktop dashboard targets WCAG 2.1 AA for contrast, keyboard
+  operation, focus visibility, semantic structure, and core ARIA behavior.
+- **NFR18:** Topic cards support Enter/Space; nested Telegram links have separate
+  focus targets and do not activate the parent card.
+- **NFR19:** Categories are communicated with text/chips, not color alone.
+- **NFR20:** Ant Design Drawer focus and Escape behavior remain.
 
----
+## Delivery and Cutover
 
-## Implementation Validation Notes Added After Technical Research Review
+Epic 9 is implemented in dependency order, one approved story at a time:
+evaluation, schema, intake/order, bounded triage, atomic persistence/replay,
+APIs/retention, Ops, topic cards, drawer/search, then validation/cutover.
 
-Before Architecture is finalized, explicitly validate:
+Before activation:
 
-1. Current AI model/provider choice, pricing, latency, SDK syntax, and structured output support.
-2. A small classifier benchmark using real or realistic Uzbek/Russian mixed mahalla messages, including very short civic texts.
-3. Telegram test group behavior: privacy mode/admin requirements, captions, forwarded messages, edited messages, anonymous admins, and bot removal events.
-4. Centralized pre-filter module design and unit tests.
-5. Hokim lane query behavior: `hokim_related = true` is a boolean cross-cutting view, not a category enum.
-6. Intentional duplicate display behavior for Hokim-related signals that also belong to a service lane.
+1. Run deterministic, privacy, reliability, accessibility, and replay checks.
+2. Measure quality, latency, failure behavior, and local resource use.
+3. Obtain owner approval for measured cutover gates.
+4. Inspect the live database and obtain action-time confirmation for the exact
+   test-only deletion scope.
+5. Activate the topic pipeline and dashboard directly.
+6. Remove obsolete legacy runtime paths only after activation checks pass.
 
-These validation notes do not expand MVP scope; they prevent architecture and stories from inheriting stale or overconfident technical assumptions.
-
+No implementation step is authorized by this PRD alone.

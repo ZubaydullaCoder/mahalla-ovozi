@@ -1,299 +1,189 @@
-# Monitoring & Alerting Guide
+# Monitoring and Alerting Guide
 
-**System:** Mahalla Ovozi  
-**Scope:** Server health, bot connectivity, classifier pipeline, database, and security signals  
-**Audience:** Operator / system administrator  
+**System:** Mahalla Ovozi
+**Target:** Epic 9 contextual topic pipeline
+**Audience:** Developer and operator
 
----
+## 1. Monitoring Surfaces
 
-## 1. Key Monitoring Surfaces
+| Surface | Watch | Suggested cadence |
+|---|---|---:|
+| `/healthz` and `/readyz` | process and database readiness | 1 minute |
+| Telegram | webhook errors and bot membership | 5 minutes |
+| Mahalla queues | depth, oldest age, blocked scope | 1 minute |
+| Local Ollama | availability, model, latency | 1 minute |
+| Retries/dead letters | count and growth | 5 minutes |
+| Triage outcomes | new, attached, irrelevant, promotion | 5 minutes |
+| Retention | last success, duration, failures | daily |
+| Replay | dry-run/apply results and failures | per run |
+| Database/server | connections, disk, CPU, memory, restarts | 1–5 minutes |
+| Security | failed login and unexpected access | continuous/hourly |
 
-| Surface | What to watch | Cadence |
-|---|---|---|
-| Application liveness/readiness endpoints | `/healthz` HTTP 200 and `/readyz` HTTP 200 with status `ok` | Every 1 minute |
-| Telegram bot connectivity | `bot_status` per mahalla in DB | Every 5 minutes |
-| Classifier pipeline | `batch_health` rows, error rate, signal throughput | Every 5 minutes |
-| Dead-letter queue | `raw_messages` with `dead_lettered_at IS NOT NULL` | Every 15 minutes |
-| Database connectivity | Query latency, connection count | Every 1 minute |
-| Server process | CPU, memory, restarts | Every 1 minute |
-| Disk space | Used vs available on DB and app volumes | Every 5 minutes |
-| Unhandled errors | Application error logs | Real-time log tailing |
+## 2. Platform Health
 
----
+`GET /healthz` reports process liveness. `GET /readyz` reports whether the
+application can serve requests, including database readiness.
 
-## 2. Application Health Endpoint
+The authenticated `/api/health` endpoint returns a non-technical dashboard
+freshness state. It must not expose resident content or Ops-only errors.
 
-The server exposes unauthenticated platform health endpoints:
+Alert after two consecutive readiness failures. Check application logs,
+database connectivity, migrations, and disk pressure.
 
-```
-GET /healthz
-GET /readyz
-```
+## 3. Telegram Health
 
-Expected liveness response (HTTP 200):
+Watch:
 
-```json
-{
-  "status": "ok"
-}
-```
+- one configured active group per mahalla;
+- bot `active | removed | unknown` state;
+- last-seen timestamp;
+- Telegram webhook pending updates and last error.
 
-Expected readiness response (HTTP 200):
+A growing Telegram pending-update count or removed bot means evidence intake is
+incomplete. Restore webhook/group access before diagnosing AI quality.
 
-```json
-{
-  "status": "ok",
-  "database": "ok"
-}
-```
+## 4. Chronological Queue Health
 
-If `/readyz` returns non-200, investigate database connectivity immediately. The authenticated dashboard health API remains at `/api/health` and reports classifier freshness, not platform liveness.
+For every mahalla monitor:
 
-### 2.1 Simple Uptime Check with curl
+- queued count;
+- oldest queued-message age;
+- current processing item;
+- blocked state and blocking message ID;
+- retry attempt and next retry;
+- dead-letter count;
+- last completed Telegram timestamp.
 
-```bash
-while true; do
-  STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://<your-domain>/readyz)
-  if [ "$STATUS" != "200" ]; then
-    echo "[$(date -Iseconds)] ALERT: /readyz returned $STATUS"
-  fi
-  sleep 60
-done
-```
+Alert conditions:
 
-### 2.2 With an External Uptime Service
+- oldest queued age exceeds the approved processing SLA;
+- one mahalla remains blocked through repeated retries;
+- dead-letter count grows;
+- queue grows while Ollama is healthy;
+- later same-mahalla items appear complete ahead of an unresolved earlier item.
 
-Use any uptime monitoring tool (Uptime Robot, Better Uptime, Freshping) to poll:
-- **URL**: `https://<your-domain>/readyz`
-- **Method**: GET
-- **Expected status**: 200
-- **Check interval**: 1 minute
-- **Alert threshold**: 2 consecutive failures before alerting
+Do not manually skip or reassign a message merely to clear the alert. Fix the
+cause or make the explicit dead-letter transition defined by the pipeline.
 
----
+## 5. Local Model Health
 
-## 3. Bot Connectivity Monitoring
+Monitor:
 
-Mahalla Ovozi tracks bot connectivity per mahalla via `bot_last_seen_at` in the `mahallas` table.
+- Ollama endpoint reachable;
+- configured model is `gemma4:12b`;
+- recent request latency and timeout rate;
+- schema-validation failure rate;
+- local CPU, memory, and throughput.
 
-### 3.1 Alert Query
+When Ollama is unavailable:
 
-Run this query to detect mahallas that have gone silent for over 24 hours:
+- messages remain queued/retried;
+- dashboard freshness becomes delayed;
+- no external provider is called;
+- resident content is not copied into error logs.
 
-```sql
-SELECT m.id, m.name, m.bot_last_seen_at, m.bot_status
-FROM mahallas m
-WHERE m.bot_last_seen_at < NOW() - INTERVAL '24 hours'
-   OR m.bot_last_seen_at IS NULL;
-```
+## 6. Triage and Grouping Diagnostics
 
-If any rows appear, investigate whether:
-- The bot was removed from the group.
-- The Telegram webhook is still registered and healthy.
-- The server is reachable from Telegram's IP ranges.
+Track content-free counts:
 
-### 3.2 Webhook Health Check
+- `new_topic`;
+- `attached`;
+- `irrelevant`;
+- irrelevant-to-attached promotion;
+- candidate-ID rejection;
+- invalid provider output;
+- idempotent duplicate handling;
+- transaction/concurrency conflict;
+- replay changed/unchanged/failed.
 
-```bash
-curl "https://api.telegram.org/bot<BOT_TOKEN>/getWebhookInfo"
-```
+These operational counters do not establish AI quality. Use the chronological
+replay harness for over-merge, over-split, category, attribution, and
+speculative-fact measurements.
 
-Expected: `"pending_update_count": 0` and no `last_error_message` field.
+## 7. Dead Letters and Repair
 
-If `pending_update_count` is growing, the webhook may be failing to deliver. Check server logs.
+When dead letters grow:
 
----
+1. inspect provider, timeout, schema, database, and source-integrity metadata;
+2. identify the root cause without exposing resident text in logs;
+3. add a privacy-safe regression case when behavior is semantic;
+4. fix the root cause;
+5. use the developer replay tool in dry-run mode;
+6. review the bounded before/after report;
+7. apply only with explicit scope.
 
-## 4. Classifier Pipeline Monitoring
+Do not use ad-hoc SQL to clear retries or rewrite topic membership.
 
-### 4.1 Batch Health Dashboard
+## 8. Retention Health
 
-The `batch_health` table records every classifier batch run. Query recent runs:
+Daily retention monitoring reports:
 
-```sql
-SELECT id, district_id, status, started_at, completed_at,
-       messages_fetched, signals_written, error_message
-FROM batch_health
-ORDER BY started_at DESC
-LIMIT 10;
-```
+- irrelevant text and metadata purged;
+- dead letters purged;
+- evidence purged;
+- topics regenerated and removed;
+- events/metrics purged;
+- duration and errors.
 
-Key signals to watch:
-- `status = 'error'` for multiple consecutive runs → classifier is failing.
-- `messages_fetched = 0` for many runs → no new messages or bot is disconnected.
-- `signals_written` dropping to 0 while `messages_fetched` is positive → AI classification may be failing silently.
+Alert on:
 
-### 4.2 Dead-Letter Queue Alert
+- missed run;
+- partial failure;
+- evidence older than policy;
+- topic with no retained evidence;
+- missing anchor where retained self-contained evidence exists;
+- backup copies exceeding approved retention.
 
-```sql
-SELECT COUNT(*) AS dead_letter_count
-FROM raw_messages
-WHERE dead_lettered_at IS NOT NULL;
-```
+## 9. Database and Process
 
-If `dead_letter_count` is growing:
-1. Check `last_error` field for patterns: `SELECT id, last_error, attempt_count FROM raw_messages WHERE dead_lettered_at IS NOT NULL ORDER BY dead_lettered_at DESC LIMIT 20;`
-2. Common causes: AI provider quota exhausted, network timeout, malformed message.
-3. After fixing the root cause, you can re-queue messages by clearing `dead_lettered_at`:
-   ```sql
-   -- Re-queue specific dead-lettered messages (adjust WHERE clause as needed)
-   UPDATE raw_messages
-   SET dead_lettered_at = NULL,
-       attempt_count = 0,
-       next_retry_at = NULL,
-       last_error = NULL
-   WHERE dead_lettered_at IS NOT NULL
-     AND dead_lettered_at > NOW() - INTERVAL '1 day';
-   ```
+Monitor connection pool, slow queries, table/index growth, disk, CPU, memory,
+and restart count. Initial thresholds should be based on measured pilot load.
 
-### 4.3 Throughput Alert
+Particularly watch indexes supporting:
 
-If signal throughput drops to zero for more than 2 classifier run cycles (default 2+ minutes), alert.
+- oldest-first queue reads per mahalla;
+- topic activity and category queries;
+- irrelevant text expiry;
+- evidence retention;
+- pipeline-event and metric expiry.
 
----
+## 10. Security and Privacy
 
-## 5. Database Monitoring
+Alert on:
 
-### 5.1 Connection Count
+- repeated failed logins;
+- unexpected Ops access;
+- webhook-secret validation failures;
+- external AI configuration or network destination changes;
+- resident text, prompts, sender names, or provider responses found in logs.
 
-```sql
-SELECT COUNT(*) FROM pg_stat_activity WHERE datname = 'mahalla_ovozi';
-```
+Any resident-content logging is a privacy defect and requires immediate
+containment and root-cause correction.
 
-Alert if connections exceed 80% of `max_connections` (default 100 in most setups).
+## 11. Cutover Monitoring
 
-### 5.2 Table Bloat / Row Count
+After direct cutover, watch continuously:
 
-Monitor key table sizes to catch runaway growth:
+- intake count and oldest queue age;
+- Ollama availability and latency;
+- retry/dead-letter growth;
+- topic creation/attachment balance;
+- exact Telegram links;
+- district isolation;
+- retention job;
+- dashboard delay and evidence drawer behavior.
 
-```sql
-SELECT relname AS table, n_live_tup AS live_rows, n_dead_tup AS dead_rows
-FROM pg_stat_user_tables
-WHERE schemaname = 'public'
-ORDER BY n_live_tup DESC;
-```
+There is no live shadow comparison or legacy dashboard switch. Recovery uses
+root-cause fixes and scoped replay.
 
-Alert if `raw_messages` grows beyond 500k rows or `pipeline_events` beyond 1M rows without purge running.
+## 12. Summary
 
-### 5.3 Slow Queries
-
-Enable `pg_stat_statements` and periodically check for slow queries:
-
-```sql
-SELECT query, calls, mean_exec_time, total_exec_time
-FROM pg_stat_statements
-ORDER BY mean_exec_time DESC
-LIMIT 10;
-```
-
----
-
-## 6. Server Process Monitoring
-
-### 6.1 Using pm2
-
-```bash
-# Real-time process monitor
-pm2 monit
-
-# Check restart count (excessive restarts = crash loop)
-pm2 list
-
-# Tail live application logs
-pm2 logs mahalla-ovozi --lines 100
-```
-
-Alert if the restart count for `mahalla-ovozi` increases unexpectedly.
-
-### 6.2 Using systemd
-
-```bash
-# Check service status
-systemctl status mahalla-ovozi
-
-# Tail logs
-journalctl -u mahalla-ovozi -f
-
-# Check recent errors
-journalctl -u mahalla-ovozi --since "10 minutes ago" -p err
-```
-
----
-
-## 7. Disk Space Monitoring
-
-```bash
-# Check overall disk usage
-df -h
-
-# Check PostgreSQL data directory size
-du -sh /var/lib/postgresql/
-
-# Check backup directory size
-du -sh /var/backups/mahalla-ovozi/
-```
-
-Alert if disk usage exceeds 80% on any volume that holds the database or backups.
-
----
-
-## 8. Security Monitoring
-
-Watch for:
-- Repeated failed login attempts: check application logs for `401` responses on `/api/auth/login`.
-- Unusual incoming webhook traffic from non-Telegram IP ranges.
-- Unexpected changes to the `users` table.
-
-### 8.1 Failed Login Alert Query
-
-```bash
-grep "401" /var/log/nginx/access.log | grep "/api/auth/login" | awk '{print $1}' | sort | uniq -c | sort -rn | head
-```
-
-If any IP generates more than 10 failed login attempts within an hour, consider blocking it at the firewall level.
-
----
-
-## 9. Alerting Channels
-
-For the pilot phase, use lightweight alerting:
-
-| Method | When to use |
+| Alert | First response |
 |---|---|
-| Email from cron scripts | Daily backup/purge success/failure |
-| Uptime Robot / Freshping | `/healthz` or `/readyz` downtime |
-| Telegram message to operator group | Critical failures (bot silence, dead-letter spike) |
-
-Example: Send a Telegram alert from a cron script:
-
-```bash
-TELEGRAM_ALERT_BOT_TOKEN="<alert-bot-token>"
-TELEGRAM_ALERT_CHAT_ID="<operator-chat-id>"
-
-send_alert() {
-  local MSG="$1"
-  curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_ALERT_BOT_TOKEN}/sendMessage" \
-    -d chat_id="${TELEGRAM_ALERT_CHAT_ID}" \
-    -d text="${MSG}" > /dev/null
-}
-
-# Example usage in a monitoring script
-DEAD_COUNT=$(psql "$DATABASE_URL" -t -c "SELECT COUNT(*) FROM raw_messages WHERE dead_lettered_at IS NOT NULL;")
-if [ "$DEAD_COUNT" -gt 10 ]; then
-  send_alert "⚠️ Mahalla Ovozi: $DEAD_COUNT dead-lettered messages detected. Investigate classifier pipeline."
-fi
-```
-
----
-
-## 10. Monitoring Runbook Summary
-
-| Check | Frequency | Alert Condition | Response |
-|---|---|---|---|
-| `/healthz` and `/readyz` | 1 min | Non-200 or readiness database not `ok` | Check logs and DB |
-| Bot silence | 5 min | `bot_last_seen_at` > 24h | Check webhook, bot group membership |
-| Batch health errors | 5 min | `status = error` in last 2 runs | Check AI provider, classifier logs |
-| Dead-letter queue | 15 min | Count > 0 and growing | Check `last_error`, re-queue if root cause fixed |
-| Disk space | 5 min | > 80% on any relevant volume | Run purge, expand volume, check backups |
-| Failed logins | 1 hour | > 10 failures from one IP | Block at firewall, review access logs |
-| DB connection count | 1 min | > 80 connections | Investigate connection leaks, scale pool |
+| Readiness failure | Check app, DB, migrations, disk |
+| Bot removed/webhook backlog | Restore Telegram connectivity |
+| Mahalla queue blocked | Inspect earliest failed item metadata |
+| Ollama unavailable | Restore local model; keep queue intact |
+| Dead letters growing | Fix cause, add regression case, dry-run replay |
+| Retention failure | Stop expiry drift and rerun idempotently |
+| Resident content in logs | Contain logs and fix immediately |

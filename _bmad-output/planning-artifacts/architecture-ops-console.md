@@ -1,689 +1,329 @@
-﻿# Architecture — Developer Ops Console
-
-**Project:** mahalla-ovozi
-**Phase:** 1 — Validation-First Development
-**Status:** Part of Phase 1 architecture
-
+---
+title: Architecture - Developer Ops Console
+project: mahalla-ovozi
+phase: Epic 9
+status: Approved target specification
+last_updated: 2026-07-18
 ---
 
-## Purpose
+# Architecture — Developer Ops Console
 
-The Developer Ops Console is a developer-facing web UI accessible at `/ops` during Phase 1.
-It provides complete, transparent visibility into the pipeline — from message intake through
-pre-filtering, manual keyword matching, AI classification, and signal storage — enabling human-in-the-loop (HITL)
-validation without relying on terminal logs or abstract AI claims.
+## 1. Purpose
 
-**Audience:** Developer / operator only.
-**Goal:** Make every pipeline decision a visible, verifiable fact.
-**Filtering mode:** Displayed and validated here only; hokim/staff dashboard users never see or control it.
-**Production:** Disabled. The server returns `404` for all `/api/ops/*` routes when `NODE_ENV === 'production'` or `OPS_ENABLED !== true`.
+The Developer Ops Console is a protected diagnostic surface for the contextual
+topic pipeline. It helps a developer or authorized operator inspect retained
+content, queue reliability, local-model health, topic decisions, retention, and
+controlled replay.
 
----
+It is not:
 
-## Route & Access
+- a hokim-facing administration surface;
+- a manual topic merge, split, reassignment, category, or summary editor;
+- a case-management or resolution tool;
+- a place to expose resident text in logs;
+- a runtime filtering-mode switch.
 
-| Route | Component | Auth |
-|---|---|---|
-| `/ops` | `OpsPage` (React) | Developer-only UI; useful only when Ops API is enabled |
-| `/api/ops/*` | Ops router (Express) | `NODE_ENV` + `OPS_ENABLED` + localhost/`OPS_SECRET` guard |
+AI grouping errors are product defects. The developer fixes the root cause,
+adds a regression fixture, and then uses controlled replay.
 
-Access rules:
+## 2. Access Boundary
 
-1. `NODE_ENV === 'production'` always disables `/api/ops/*` with `404`.
-2. `OPS_ENABLED !== true` disables `/api/ops/*` with `404`.
-3. If `OPS_SECRET` is set, every Ops API request must include `X-Ops-Secret`.
-4. If `OPS_SECRET` is not set, Ops API requests are allowed only from localhost.
-5. When using a tunnel for Telegram webhook testing, set `OPS_SECRET`; do not rely on localhost-only behavior.
+Routes remain:
 
----
-
-## Ops Console Layout
-
-The `/ops` page is a single-page developer dashboard divided into panels. No strict visual
-spec — functional clarity over aesthetics. Use a simple dark-themed layout with clear section
-boundaries. Each panel is independently scrollable.
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  Mahalla Ovozi — DEVELOPER OPS CONSOLE  [Phase 1]       │
-├───────────────┬─────────────────────────────────────────┤
-│               │                                         │
-│  System       │  Filtering Mode + Keyword Registry      │
-│  Health       │                                         │
-│               ├─────────────────────────────────────────┤
-│               │                                         │
-│               │  Message Simulator                      │
-│               │                                         │
-├───────────────┼─────────────────────────────────────────┤
-│               │                                         │
-│  Raw Messages │  Batch Processor Status                 │
-│  Queue        │                                         │
-│               │                                         │
-├───────────────┼─────────────────────────────────────────┤
-│                                                         │
-│  Pipeline Event Log (latest intake + batch trace)       │
-├─────────────────────────────────────────────────────────┤
-│  Signal Browser (stored signal_messages)                │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
+```text
+/ops
+/api/ops/*
 ```
 
----
+Requirements:
 
-## 1. Message Simulator
+1. The existing Ops guard remains mandatory.
+2. `OPS_ENABLED` must be explicit.
+3. Localhost or a valid `OPS_SECRET` is required for protected access.
+4. Production exposure must be an explicit deployment decision; it must not
+   happen accidentally through a tunnel.
+5. District scope comes from the authenticated operator/session context, never
+   from request bodies.
+6. Protected content endpoints and content-free diagnostic endpoints remain
+   distinct.
 
-### Purpose
+## 3. Target Panels
 
-Inject test messages into the pipeline without a real Telegram group. Two explicit modes serve
-different validation goals. Choose the mode based on what you are testing:
+### 3.1 System health
 
-| Mode | What it tests | How it works |
-|---|---|---|
-| **Mode A — Webhook Simulation** | Full intake path including F1/F2/F3 structural pre-filters, keyword match, and active `FILTER_MODE` routing | Wraps input as a fake `Update` object and runs it through the actual `pipeline.ts` handler |
-| **Mode B — Raw Queue Seeding** | AI classification only (pre-filter deliberately bypassed) | Writes directly to `raw_messages`; use when you want to test what the classifier does with a specific text |
+Show:
 
-**Important:** Mode A is the correct choice when validating pre-filter and keyword-gate behaviour
-(e.g. verifying emoji-only messages are rejected or non-keyword messages are skipped in `keyword_gate`).
-Mode B is for testing AI classification in isolation.
+- database connectivity and latency;
+- scheduler/drain state;
+- Telegram bot status for the one active group per mahalla;
+- local Ollama reachability, configured model, and recent latency;
+- current pipeline version/cutover state;
+- retention-job and last-backup health where available.
 
-### UI
+The local AI test must use non-resident synthetic text. It must not transmit
+stored resident content merely to test connectivity.
 
-A form with a mode selector at the top, then the following fields:
+### 3.2 Mahalla queue health
 
-| Field | Input type | Notes |
-|---|---|---|
-| **Mode** | Toggle: `Webhook Simulation` / `Raw Queue Seeding` | Required |
-| Mahalla | Select (from DB `mahallas`) | Required |
-| Sender display name | Text input | Default: "Test User" |
-| Sender username | Text input | Optional |
-| Message text | Textarea | Required |
-| Text source | Radio: `text` / `caption` | Default: `text` |
-| Simulated timestamp | DateTime input | Default: now |
+For each mahalla show:
 
-**Actions:**
-- **Inject Message** — single message injection (either mode)
-- **Inject Bulk (N)** — injects N messages with randomized content for load testing (Mode B only)
+- queued count;
+- oldest queued-message age;
+- current processing item;
+- blocked state and blocking message ID;
+- retry count and next retry time;
+- dead-letter count;
+- last successful completion time.
 
-Mode A result: the Pipeline Event Log immediately shows the pre-filter decision for this message.
-Mode B result: message appears in the Raw Messages Queue, ready for the next batch run.
+Messages are ordered by Telegram timestamp and deterministic source tie-breaker.
+Later same-mahalla items must not appear as successfully processed while an
+earlier item remains unresolved.
 
-### API Endpoints
+### 3.3 Captured-message browser
 
-```
-POST /api/ops/simulate-webhook    ← Mode A: runs through pipeline.ts
-Body: { mahallaId, senderDisplayName?, text, textSource, simulatedTimestamp? }
-Response: {
-  decision: 'queued' | 'structural_discard' | 'keyword_skip'
-  reason?: string
-  filterMode: 'keyword_gate'
-  keywordMatched: boolean
-  matchedPhrase: string | null
-}
+Protected content view includes:
 
-POST /api/ops/simulate-message    ← Mode B: seeds raw_messages directly
-Body: { mahallaId, senderDisplayName?, senderUsername?, text, textSource, simulatedTimestamp? }
-Response: { rawMessageId: number }
-```
+- captured-message ID;
+- mahalla and Telegram source identity;
+- sender snapshot;
+- original text;
+- text/caption provenance;
+- reply target;
+- processing state;
+- final disposition;
+- topic membership;
+- retry/dead-letter state;
+- text-expiration time;
+- promotion/replay audit markers.
 
-### Server Implementation
+This browser is read-only except for separately authorized developer tooling.
+Do not add manual reassignment or semantic correction actions.
 
-**Shared: bounded in-process ID counter (no overflow)**
+### 3.4 Topic browser
 
-```typescript
-// apps/server/src/ops/simulator.ts
+Show:
 
-// In-process counter for simulated telegram_update_id values.
-// Real Telegram update IDs are always positive. Simulated ones use a
-// descending negative sequence starting from -1, staying well within
-// Int32 range (-2,147,483,648). For Phase 1 testing volumes, this
-// counter will never approach the boundary.
-let simulatedUpdateIdCounter = -1
-function nextSimulatedId(): number {
-  return simulatedUpdateIdCounter--
-}
-```
+- topic ID and mahalla;
+- grounded summary;
+- equal category set;
+- derived Hokim flag;
+- first/latest activity;
+- anchor evidence ID;
+- retained evidence count;
+- summary/version metadata;
+- evidence membership.
 
-**Mode A — Webhook Simulation (runs full pre-filter pipeline):**
+The evidence drill-down uses the same chronological membership semantics as the
+topic evidence API. It must not show unrelated same-category messages.
 
-```typescript
-import { runPipeline } from '../bot/filters/pipeline.ts'
+### 3.5 Pipeline diagnostics
 
-export async function simulateWebhook(params: SimulateWebhookInput) {
-  const mahalla = await prisma.mahalla.findUniqueOrThrow({
-    where: { id: params.mahallaId },
-    select: { district_id: true, telegram_chat_id: true }
-  })
+Show content-free events for:
 
-  // Construct a minimal fake Telegram Update object that matches grammY's Update shape
-  const fakeUpdate = {
-    update_id: nextSimulatedId(),
-    message: {
-      message_id: nextSimulatedId(),
-      chat:       { id: Number(mahalla.telegram_chat_id), type: 'supergroup' },
-      from:       { id: 999999, is_bot: false, first_name: params.senderDisplayName ?? 'Test User' },
-      date:       params.simulatedTimestamp
-                    ? Math.floor(new Date(params.simulatedTimestamp).getTime() / 1000)
-                    : Math.floor(Date.now() / 1000),
-      [params.textSource ?? 'text']: params.text,
-    }
-  }
+- intake accepted or structurally discarded;
+- queued, processing, retry, dead-letter, and complete state changes;
+- bounded retrieval counts and candidate IDs;
+- provider name/model, latency, timeout, and availability;
+- output schema success/failure;
+- `new_topic`, `attached`, and `irrelevant` decisions;
+- irrelevant-to-attached promotion;
+- transaction conflict or idempotent duplicate handling;
+- replay dry-run/apply result;
+- retention/purge result.
 
-  // Run through the actual pipeline — F1/F2/F3 filters execute
-  const result = await runPipeline(fakeUpdate as any)
-  // result includes decision, filterMode, keywordMatched, and matchedPhrase
+Never include:
 
-  logger.info({ mode: 'webhook', decision: result.decision }, 'Simulated webhook processed')
-  return result
-}
-```
+- resident text or snippets;
+- prompts;
+- raw provider responses;
+- sender names or usernames;
+- secrets.
 
-**Mode B — Raw Queue Seeding (bypasses pre-filter, writes directly):**
+### 3.6 Outcome and quality counters
 
-```typescript
-export async function injectSimulatedMessage(params: SimulateMessageInput): Promise<number> {
-  const mahalla = await prisma.mahalla.findUniqueOrThrow({
-    where: { id: params.mahallaId },
-    select: { district_id: true, telegram_chat_id: true }
-  })
+Aggregate by district, mahalla, and time:
 
-  const simId = nextSimulatedId()
+- `new_topic`;
+- `attached`;
+- `irrelevant`;
+- irrelevant promotion;
+- retry and dead-letter growth;
+- schema-validation failures;
+- candidate rejection;
+- replay changes;
+- evidence purges and removed topics.
 
-  const raw = await prisma.rawMessage.create({
-    data: {
-      telegram_update_id:  simId,
-      telegram_message_id: simId,
-      chat_id:             mahalla.telegram_chat_id,
-      district_id:         mahalla.district_id,
-      mahalla_id:          params.mahallaId,
-      sender_is_bot:       false,
-      sender_display_name: params.senderDisplayName ?? 'Test User',
-      sender_username:     params.senderUsername ?? null,
-      text:                params.text,
-      text_source:         params.textSource,
-      telegram_timestamp:  params.simulatedTimestamp
-                             ? new Date(params.simulatedTimestamp)
-                             : new Date(),
-    }
-  })
+These counters are diagnostics, not proof of AI quality. Quality decisions use
+the chronological replay harness.
 
-  logger.info({ rawMessageId: raw.id, mahallaId: params.mahallaId }, 'Simulated message seeded (Mode B)')
-  return raw.id
-}
-```
+## 4. Hokim Keyword Registry
 
-**Note:** Simulated messages use negative `telegram_update_id` values from the shared in-process
-counter. These are visually identifiable in the Raw Messages Queue table (`Simulated?` column
-checks `telegram_update_id < 0`). The pipeline treats them identically to real messages once
-they are in `raw_messages`.
+The existing centralized keyword capability is narrowed to deterministic
+Hokim-lane membership.
 
----
+Rules:
 
+- keywords do not gate intake;
+- keywords do not assign service categories;
+- a keyword match alone does not create a topic;
+- the topic must first qualify for a supported service;
+- AI does not infer Hokim relevance from severity;
+- active matching evidence derives `hokim_related=true`;
+- historical recalculation requires developer replay;
+- legacy service-gate keywords are not silently retyped as Hokim keywords.
 
-## 2. Pipeline Event Log
+The registry supports district-scoped create, edit, activate/deactivate, and
+delete operations with actor and timestamp audit metadata. Deactivation is
+preferred when history matters.
 
-### Purpose
+Conceptual API:
 
-A live, human-readable trace of recent intake and batch processing.
-For filtering-mode validation, the displayed journey must show keyword match/skip events between
-the structural pre-filter and AI input.
-Authoritative journey: received -> structural pre-filter -> keyword match/skip -> AI input -> AI output -> stored/discarded.
-
-### UI
-
-A chronological list of events, newest at top. Each event entry shows:
-
-```
-[10:42:03]  RAW       id=1234  mahalla=Navbahor  text="Gaz yo'q, uy sovuq."
-[10:42:03]  PREFILTER id=1234  result=PASS  (all F1/F2/F3 passed)
-[10:42:03]  KEYWORD   id=1234  result=MATCH  phrase="gaz"
-[10:42:04]  AI_CALL   id=1234  model=gemini-2.5-flash
-[10:42:05]  AI_RESULT id=1234  decision=signal  category=gas  hokim_related=false  label="Gaz yo'q"
-[10:42:05]  STORED    id=1234  signal_id=89
-
-[10:42:03]  RAW       id=1235  mahalla=Olmazor  text="😊👍"
-[10:42:03]  PREFILTER id=1235  result=DISCARDED  reason=pure_emoji
+```text
+GET    /api/ops/hokim-keywords
+POST   /api/ops/hokim-keywords
+PATCH  /api/ops/hokim-keywords/:id
+DELETE /api/ops/hokim-keywords/:id
 ```
 
-Keyword events use `KEYWORD MATCH` when a manual phrase matched and `KEYWORD SKIP` when
-`FILTER_MODE=keyword_gate` skips a structurally valid non-keyword message before AI.
+The final route naming may preserve compatible existing routes if the payload
+and UI clearly identify the new Hokim-only semantics.
 
-Keyword-skipped messages may not have `raw_message_id` because they never enter `raw_messages`; display
-their Telegram update/message identifiers from `detail` instead:
+## 5. Message Simulation
 
-```
-[10:42:03]  RAW       update=-7  mahalla=Olmazor  text="Hamma keldimi?"
-[10:42:03]  PREFILTER update=-7  result=PASS
-[10:42:03]  KEYWORD   update=-7  result=SKIP  mode=keyword_gate
-```
+The simulator creates synthetic chronological conversations, not isolated
+keyword-gate examples.
 
-**Color coding:**
-- `RAW` — neutral grey
-- `PREFILTER PASS` — green
-- `PREFILTER DISCARDED` — orange
-- `AI_RESULT signal` — blue
-- `AI_RESULT ignore` — yellow
-- `STORED` — green
-- `ERROR` — red
+It supports:
 
-**Controls:**
-- Auto-refresh toggle (polls `GET /api/ops/pipeline-events` every 5 seconds)
-- Clear log button (truncates `pipeline_events`; require explicit confirmation)
+- one or more ordered messages;
+- mahalla;
+- sender identity;
+- text/caption source;
+- timestamps;
+- reply relationships;
+- structurally invalid examples when testing intake.
 
-### API Endpoint
+Two explicit modes may remain:
 
-```
-GET /api/ops/pipeline-events?limit=100
-Response: PipelineEvent[]
+1. webhook-path simulation for structural intake;
+2. captured-queue seeding for downstream pipeline testing.
 
-interface PipelineEvent {
-  id:                number
-  eventType:         'raw' | 'prefilter_pass' | 'prefilter_discard' | 'keyword_match' | 'keyword_skip' | 'ai_call' | 'ai_result' | 'stored' | 'error'
-  districtId:        number
-  mahallaId:         number | null
-  telegramUpdateId:  number | null
-  rawMessageId:      number | null
-  signalId:          number | null
-  detail:            Record<string, unknown>  // varies by eventType
-  createdAt:         string  // ISO 8601 UTC
-}
+Both modes write synthetic negative source identifiers and clearly mark
+simulated data. The simulator must not bypass district/mahalla validation or
+create a second active group.
 
-DELETE /api/ops/pipeline-events
-Response: { deleted: number }
-```
+Simulation responses describe structural acceptance or queue persistence. They
+do not return keyword-gate decisions.
 
-For `keyword_skip` and any other event without `raw_message_id`, `detail` must include:
-`telegramUpdateId`, `telegramMessageId`, `mahallaId`, `mahallaName`, `textSnippet`, `filterMode`,
-`keywordMatched`, `matchedPhrase`, and `reason`. `textSnippet` is capped at 160 characters.
+## 6. Manual Drain and Replay
 
-### Storage
+### Manual drain
 
-Pipeline events are stored in a `pipeline_events` table (Phase 1 only — dropped in Phase 2):
+`POST /api/ops/trigger-batch` may trigger the shared drain asynchronously. It
+must not create a route-local lock or a second ordering implementation.
 
-```prisma
-model PipelineEvent {
-  id                  Int      @id @default(autoincrement())
-  // VarChar(30): current max value 'prefilter_discard' = 17 chars; 30 gives safe headroom.
-  event_type          String   @db.VarChar(30)
-  // 'raw' | 'prefilter_pass' | 'prefilter_discard' | 'keyword_match' | 'keyword_skip' | 'ai_call' | 'ai_result' | 'stored' | 'error'
-  district_id         Int      // required: enables district-scoped GET /api/ops/pipeline-events
-  mahalla_id          Int?     // null for non-message-level events (e.g. batch-level errors)
-  telegram_update_id  Int?     // null if event precedes intake; stored for keyword_skip where raw_message_id is null
-  raw_message_id      Int?
-  signal_id           Int?
-  // @default({}) ensures the column is always valid JSON even if detail is omitted at insert.
-  detail              Json     @default("{}")
-  created_at          DateTime @default(now())
+### Developer replay
 
-  @@index([district_id, created_at])
-  @@map("pipeline_events")
-}
-```
+Replay is exposed through a developer CLI by default. If an Ops surface is
+added, it may only submit the same constrained developer job and must require:
 
-Events are written by `pipeline.ts` during intake/filtering and by `batch-processor.ts` during AI
-classification/storage. The table is truncated (not dropped) when
-the developer manually resets via the Ops Console. It is excluded from the 90-day signal retention
-purge logic, but it still has a Phase 1 debug retention cap: keep the newest 50,000 events or 14 days,
-whichever is smaller. This is enough for Phase 1 keyword-gate debugging while preventing
-raw text and AI-output debug traces from growing without bound.
+- dry run by default;
+- explicit apply confirmation;
+- district and time limits;
+- optional message/topic limits;
+- configured local provider only;
+- idempotency;
+- regression-case reference;
+- content-free audit metadata;
+- before/after identifier and decision report.
 
----
+Replay does not authorize database deletion or external AI transmission.
 
-## 3. Keyword-Gate State & Keyword Registry
+## 7. Conceptual APIs
 
-### Purpose
-
-Shows the active keyword-gate state and provides the single source of truth for manual keyword phrases.
-
-`FILTER_MODE=keyword_gate` is read from `.env` at server startup and is display-only in Ops Console.
-Runtime mode switching is out of scope for Phase 1.
-
-### UI
-
-- Filtering state panel: displays `keyword_gate` with a short developer note.
-- Display both current server mode and last batch mode; if they differ, show "restart or rerun batch required" guidance.
-- Show "Mode changes require editing `.env` and restarting the server"; do not imply runtime switching.
-- Keyword registry table: phrase, active status, created time, updated time.
-- Actions: add phrase, edit phrase, activate/deactivate phrase, delete phrase.
-
-Keyword phrases are manually entered by the developer/operator after reviewing real mahalla group context.
-AI must not generate, modify, or auto-approve keywords.
-
-For Phase 1's one-district pilot, the server resolves keyword `district_id` from the single active district.
-Ops keyword requests must not accept `districtId` from the client.
-
-### Keyword Validation Rules
-
-- Trim leading/trailing whitespace before validation and storage.
-- Reject empty phrases and phrases longer than 120 characters.
-- Collapse internal whitespace for duplicate checks.
-- Prevent case-insensitive duplicates per district, including inactive rows.
-- Store the original display phrase after trimming; matching uses normalized lowercase text.
-- Deactivate/reactivate is preferred over delete during validation so keyword history is not lost.
-- Deleting a keyword is allowed only as dev cleanup and requires confirmation in the UI.
-
-### API Endpoints
-
-```
-GET    /api/ops/filtering-mode
-Response: { filterMode: 'keyword_gate' }
-
-GET    /api/ops/keywords
-Response: Keyword[]
-
-POST   /api/ops/keywords
-Body: { phrase: string }
-Response: Keyword
-
-PATCH  /api/ops/keywords/:id
-Body: { phrase?: string, isActive?: boolean }
-Response: Keyword
-
-DELETE /api/ops/keywords/:id
-Response: { deleted: number }
-
-interface Keyword {
-  id:        number
-  phrase:    string
-  isActive:  boolean
-  createdAt: string
-  updatedAt: string
-}
-```
-
----
-
-## 4. Batch Processor Status
-
-### Purpose
-
-Shows the state of the classifier drain worker and allows the developer to trigger
-a manual drain for diagnostics, fallback recovery, or Ops simulator/raw queue validation.
-
-### UI
-
-```
-┌─────────────────────────────────────────────────────┐
-│  Batch Processor Status                             │
-│                                                     │
-│  Status:        ● IDLE (last run 8 min ago)         │
-│  Last run:      2026-06-01 10:42:00 UTC             │
-│  Duration:      4.2 seconds                         │
-│  Messages:      12 fetched  →  5 signals  7 ignored │
-│  Pre-filter:    3 discarded (F1:1 F2:2 F3:0)        │
-│  Errors:        None                                │
-│                                                     │
-│  [▶ Trigger Batch Now]  [View Full History]         │
-└─────────────────────────────────────────────────────┘
-```
-
-### API Endpoints
-
-```
-GET  /api/ops/batch-status
-Response: {
-  schedulerStatus:  'idle' | 'running'
-  lastBatchAt:      string | null
-  lastBatchDuration: number | null  // milliseconds
-  lastBatchResult: {
-    filterMode:               'keyword_gate'
-    messagesFetched:          number
-    signalsWritten:           number
-    ignoredCount:             number
-    preFilterDiscards:        number
-    keywordMatchedCount:      number
-    keywordSkippedCount:      number
-    keywordAiSignalCount:     number
-    keywordAiIgnoreCount:     number
-    noKeywordAiSignalCount:   number
-    noKeywordAiIgnoreCount:   number
-    errors:                   string | null
-  } | null
-  recentErrors: Array<{ message: string; occurredAt: string }>  // last N pipeline errors, newest-first
-}
-
+```text
+GET  /api/ops/system-health
+GET  /api/ops/queue-health
+GET  /api/ops/captured-messages
+GET  /api/ops/topics
+GET  /api/ops/topics/:id/evidence
+GET  /api/ops/pipeline-events
+GET  /api/ops/triage-metrics
+POST /api/ops/simulate-webhook
+POST /api/ops/simulate-conversation
 POST /api/ops/trigger-batch
-Response: { triggered: true }
-// Server starts triggerClassifierDrain('manual') asynchronously; does not wait for completion
 ```
 
-### Manual Trigger Implementation
+All responses use camelCase and district scoping. Pagination and bounded limits
+are mandatory for content browsers and event lists.
 
-```typescript
-// apps/server/src/ops/routes.ts
-router.post('/trigger-batch', (_req, res) => {
-  if (isBatchRunning()) {
-    return res.json({ status: 'locked' })
-  }
-  // Fire and forget — SPA polls /batch-status for completion
-  void triggerClassifierDrain('manual').catch(err => logger.error({ err }, 'Manual batch trigger failed'))
-  res.json({ triggered: true })
-})
+Delete-all endpoints from the legacy signal/raw console are not carried into
+the target design. Test-data reset belongs to Story 9.10 and requires exact
+live inspection plus action-time owner confirmation.
+
+## 8. Frontend Structure
+
+Each panel owns an independent TanStack Query key under `['ops', ...]`.
+Recommended target components:
+
+```text
+components/ops/
+  system-health.tsx
+  mahalla-queue-health.tsx
+  captured-messages-browser.tsx
+  topics-browser.tsx
+  pipeline-event-log.tsx
+  triage-metrics.tsx
+  hokim-keyword-registry.tsx
+  conversation-simulator.tsx
+  replay-status.tsx
 ```
 
-Webhook auto-trigger, startup drain, fallback cron, and manual triggers must use the same drain/lock helper. Do not keep a route-local
-`batchRunning` flag; it can drift from the scheduler state.
+Content views and diagnostic views must be visually distinguished so operators
+do not mistake protected resident evidence for log data.
 
----
+## 9. Retention and Privacy
 
-## 5. Raw Messages Queue Viewer
+- Attached evidence follows the 90-day Telegram-timestamp window.
+- Irrelevant full text follows the 24-hour promotion window.
+- Irrelevant metadata and pipeline events expire after 14 days.
+- Dead letters expire 7 days after dead-lettering.
+- Triage health metrics expire after 60 days.
+- Hokim keywords remain until manually disabled or deleted.
 
-### Purpose
+The Ops UI must not cache resident content beyond normal authenticated browser
+state. Export, bulk copy, and arbitrary download features are out of MVP scope.
 
-Shows all messages currently in `raw_messages` (i.e., captured but not yet classified).
-Lets the developer verify that intake is working and see what the classifier will process next.
+## 10. Cutover
 
-### UI
+During Stories 9.2–9.9, legacy Ops panels may remain available only as
+implementation-history diagnostics. They are not a product rollback path.
 
-A paginated table:
+Story 9.10:
 
-| Column | Notes |
-|---|---|
-| ID | `raw_messages.id` |
-| Mahalla | `mahalla.name` |
-| Sender | `sender_display_name` |
-| Text (truncated) | First 100 chars |
-| Source | `text` / `caption` |
-| Captured at | `telegram_timestamp` |
-| Simulated? | True if `telegram_update_id < 0` |
+1. validates the target Ops surfaces;
+2. obtains approval for measured cutover gates;
+3. obtains action-time confirmation for exact test-data deletion;
+4. activates the topic pipeline directly;
+5. removes obsolete keyword-gate, raw/signal browser, filtering-mode, and
+   isolated-classifier target semantics;
+6. verifies no resident content is emitted in logs or events.
 
-**Actions:**
-- Refresh
-- Delete simulated only (default cleanup; deletes rows where `telegram_update_id < 0`)
-- Delete all pending raw messages (dangerous; require explicit typed confirmation `DELETE_ALL_RAW`)
+## 11. Verification
 
-### API Endpoint
+Focused tests cover:
 
-```
-GET /api/ops/raw-messages?page=1&limit=50
-Response: {
-  items: RawMessageRow[]
-  total: number
-}
+- Ops guard and district isolation;
+- pagination and content authorization;
+- absence of resident text in diagnostics;
+- queue ordering and blocked-mahalla display;
+- Ollama health without resident content;
+- Hokim keyword semantics;
+- no manual topic correction controls;
+- simulator reply ordering;
+- replay dry-run/apply boundaries;
+- retention visibility;
+- removal of legacy filtering-mode language.
 
-DELETE /api/ops/raw-messages/simulated
-Response: { deleted: number }
-
-DELETE /api/ops/raw-messages?confirm=DELETE_ALL_RAW
-Response: { deleted: number }
-```
-
----
-
-## 6. Signal Browser
-
-### Purpose
-
-Browse stored `signal_messages` to verify classification output. The developer's primary way
-to inspect what the AI decided and whether the results are trustworthy enough to show the client.
-
-### UI
-
-A paginated table with filters:
-
-| Column | Notes |
-|---|---|
-| ID | `signal_messages.id` |
-| Mahalla | joined `mahalla.name` |
-| Text (truncated) | First 100 chars |
-| Category | `water` / `electricity` / `gas` / `waste` |
-| Hokim | ★ if `hokim_related = true` |
-| Keyword matched | yes/no from pipeline comparison data |
-| Matched keyword | manual keyword phrase when available (`matchedKeyword`)|
-| Short label | `short_label` (debug label from AI) |
-| Source | `text` / `caption` |
-| Classified at | `classified_at` |
-
-**Filters:**
-- Category (all / water / electricity / gas / waste)
-- Mahalla (all / specific)
-- Hokim related (all / yes / no)
-- Time range
-
-**Actions:**
-- Delete simulated signals only (default cleanup; deletes signals whose `telegram_update_id < 0`)
-- Delete individual signal (dev cleanup only; require confirmation)
-- Delete all signals (dangerous; require explicit typed confirmation `DELETE_ALL_SIGNALS`)
-
-### API Endpoint
-
-```
-GET /api/ops/signals?category=&mahalla_id=&hokim_related=&from=&to=&page=1&limit=50
-Response: {
-  items: OpsSignal[] // Signal plus keywordMatched/matchedPhrase audit fields
-  total: number
-}
-
-// NOTE: Signal (from architecture.md) already includes keywordMatched and matchedKeyword.
-// OpsSignal extends it with no additional fields — the Ops signals endpoint returns
-// the same shape as the main Signal type, so the browser can reuse the same types.
-type OpsSignal = Signal
-
-DELETE /api/ops/signals/simulated
-Response: { deleted: number }
-
-DELETE /api/ops/signals?confirm=DELETE_ALL_SIGNALS
-Response: { deleted: number }
-```
-
----
-
-## 7. System Health Dashboard
-
-### Purpose
-
-One-glance status of all system components. Lets the developer verify the system is operational
-before running a client demo or starting a test session.
-
-### UI
-
-```
-┌───────────────────────────────────────────────────────┐
-│  System Health                                        │
-│                                                       │
-│  Database (PostgreSQL)   ● Connected                  │
-│  Scheduler (node-cron)   ● Running (next: 8 min)      │
-│  AI Provider             ● Reachable (last: OK)       │
-│  Telegram Bot            ● Active                     │
-│                                                       │
-│  Bot Connectivity per Group:                          │
-│  ├── Navbahor mahallasi    ● active (last: 2 min ago) │
-│  ├── Olmazor mahallasi     ● active (last: 5 min ago) │
-│  └── Yunusobod mahallasi   ⚠ removed (1 day ago)      │
-│                                                       │
-│  [Test AI Connection]  [Test DB Connection]           │
-└───────────────────────────────────────────────────────┘
-```
-
-### API Endpoint
-
-```
-GET /api/ops/system-health
-Response: {
-  database:  { status: 'ok' | 'error', latencyMs: number | null }
-  scheduler: { status: 'running' | 'stopped', nextRunInSeconds: number | null }
-  aiApi:     { status: 'ok' | 'error' | 'unknown', lastCheckedAt: string | null }
-  bot:       { status: 'ok' | 'error' }
-  botConnectivity: BotConnectivity[]  // from mahallas table
-}
-```
-
-**DB health check:** `prisma.$queryRaw\`SELECT 1\`` — if it throws, status = 'error'.
-**AI API health check:** Lightweight test call (e.g., single short text classification) run on demand
-via the "Test AI Connection" button. Not run automatically to avoid burning API quota.
-
----
-
-## 8. Ops Console Frontend Implementation Notes
-
-### Component File Map
-
-```
-apps/web/src/
-├── pages/
-│   └── ops-page.tsx              ← root layout; assembles all Ops panels
-└── components/ops/
-    ├── message-simulator.tsx     ← form + inject/bulk inject buttons
-    ├── pipeline-event-log.tsx    ← event list with auto-refresh
-    ├── batch-status.tsx          ← status card + manual trigger
-    ├── raw-messages-table.tsx    ← paginated raw queue viewer
-    ├── signals-browser.tsx       ← paginated signal viewer with filters
-    └── system-health.tsx         ← health status cards
-```
-
-### State Management
-
-Each Ops panel manages its own data fetching independently via `useQuery` hooks:
-- `usePipelineEvents()` — polls every 5s when auto-refresh is on
-- `useBatchStatus()` — polls every 5s
-- `useFilteringMode()` — reads active `FILTER_MODE`
-- `useKeywords()` — reads and mutates the manual keyword registry
-- `useRawMessages(page, limit)` — manual refresh
-- `useOpsSignals(filters, page)` — manual refresh with filter state
-- `useSystemHealth()` — manual refresh on button click
-
-No shared state between Ops panels. Each is independently mounted and refreshed.
-
-### Ops API Hooks
-
-```typescript
-// apps/web/src/api/ops.ts
-export function usePipelineEvents(autoRefresh: boolean) {
-  return useQuery({
-    queryKey: ['ops', 'pipeline-events'],
-    queryFn:  () => fetchPipelineEvents(),
-    refetchInterval: autoRefresh ? 5000 : false,
-  })
-}
-
-export function useBatchStatus() {
-  return useQuery({
-    queryKey: ['ops', 'batch-status'],
-    queryFn:  () => fetchBatchStatus(),
-    refetchInterval: 5000,
-  })
-}
-
-export function useTriggerBatch() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: () => triggerBatch(),
-    onSuccess:  () => qc.invalidateQueries({ queryKey: ['ops'] }),
-  })
-}
-```
-
----
-
-## 9. Phase 1 → Phase 2 Ops Console Transition
-
-In Phase 2, the Ops Console is:
-- **Disabled in production** (already gated by `NODE_ENV`)
-- `pipeline_events` table is dropped (not migrated to Phase 2 schema)
-- Batch status moves to the existing `/api/health` operator endpoint
-- System health moves to the existing `/api/health` operator endpoint
-- Because `keyword_gate` is the preferred demo/pilot default, `FILTER_MODE` and the `keywords` table remain part of the production pipeline even though the Phase 1 Ops Console UI is disabled.
-- Add a minimal production-safe operator keyword management route or CLI before disabling the Phase 1 Ops Console. Do not launch `keyword_gate` with no way to update stale keywords.
-
-The Ops Console served its purpose in Phase 1: validating pipeline correctness during development.
-In Phase 2, production observability is handled by structured pino logs + operator health endpoint.
-
+This specification does not authorize Epic 9 implementation, database reset,
+deployment, external-provider use, or mutating Git operations.
