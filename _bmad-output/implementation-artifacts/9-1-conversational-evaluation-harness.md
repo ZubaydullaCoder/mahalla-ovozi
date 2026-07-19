@@ -1,6 +1,6 @@
 # Story 9.1: Conversational Evaluation Harness
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -174,124 +174,152 @@ measured before target implementation is activated.
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: Establish the replay domain contract** (AC: 1, 2)
-  - [ ] Create cohesive replay types and Zod schemas under
+- [x] **Task 1: Establish the replay domain contract** (AC: 1, 2)
+  - [x] Create cohesive replay types and Zod schemas under
         `eval/topic-replay/`.
-  - [ ] Define case tags explicitly, including keywordless-new-topic,
+  - [x] Define case tags explicitly, including keywordless-new-topic,
         keywordless-follow-up, unsupported-category, promotion, anchor, and
         Hokim cases.
-  - [ ] Attach eligibility tags to the exact message/event, define fixture-local
+  - [x] Attach eligibility tags to the exact message/event, define fixture-local
         active Hokim keywords, and model expected promotion as an ordered
         disposition-event transition.
-  - [ ] Keep `expected` ground truth separate from deterministic
+  - [x] Keep `expected` ground truth separate from deterministic
         `adapterScript` outputs, including optional actual `summaryText`.
-  - [ ] Validate chronological ordering, uniqueness, supported equal category
+  - [x] Validate chronological ordering, uniqueness, supported equal category
         sets, reply references, topic membership, disposition, promotion, and
         anchor references.
-  - [ ] Add a JSONL loader whose diagnostics expose only line/case identifiers
+  - [x] Add a JSONL loader whose diagnostics expose only line/case identifiers
         and safe error codes.
 
-- [ ] **Task 2: Implement deterministic adapter execution** (AC: 2)
-  - [ ] Define the replay adapter input, output, failure, and telemetry
+- [x] **Task 2: Implement deterministic adapter execution** (AC: 2)
+  - [x] Define the replay adapter input, output, failure, and telemetry
         contract without importing the production server `env`.
-  - [ ] Require per-step disposition/topic state and explicit attempt, retry,
+  - [x] Require per-step disposition/topic state and explicit attempt, retry,
         terminal-failure, and promotion-event telemetry.
-  - [ ] Implement `fixture_output` mode and a sequential runner.
-  - [ ] Enforce promotion invariants: the origin was previously `irrelevant`,
+  - [x] Implement `fixture_output` mode and a sequential runner.
+  - [x] Enforce promotion invariants: the origin was previously `irrelevant`,
         the trigger occurs later, the target topic exists, membership changes
         at most once, and no message belongs to more than one topic.
-  - [ ] Prove deterministic mode requires no network or unrelated application
+  - [x] Prove deterministic mode requires no network or unrelated application
         secrets.
-  - [ ] Keep `eval/run-classifier-eval.ts` as a thin CLI/orchestrator and remove
+  - [x] Keep `eval/run-classifier-eval.ts` as a thin CLI/orchestrator and remove
         its legacy `classifyMessage()` dependency.
 
-- [ ] **Task 3: Implement scoring and summary assertions** (AC: 3, 4)
-  - [ ] Implement confusion-matrix signal scoring and explicitly tagged
+- [x] **Task 3: Implement scoring and summary assertions** (AC: 3, 4)
+  - [x] Implement confusion-matrix signal scoring and explicitly tagged
         keywordless metrics.
-  - [ ] Implement documented pairwise over-merge/over-split scoring.
-  - [ ] Implement deterministic expected/predicted topic alignment using
+  - [x] Implement documented pairwise over-merge/over-split scoring.
+  - [x] Implement deterministic expected/predicted topic alignment using
         the specified greedy positive-overlap ordering and explicit
         unmatched-topic denominators.
-  - [ ] Implement exact-set category, unsupported-category, attribution,
+  - [x] Implement exact-set category, unsupported-category, attribution,
         anchor, Hokim, promotion, schema/reliability, and summary-property
         measures.
-  - [ ] Compute Hokim state from fixture-local active keywords after
+  - [x] Compute Hokim state from fixture-local active keywords after
         supported-service qualification; reject AI-selected Hokim state.
-  - [ ] Implement the documented deterministic summary assertion operators and
+  - [x] Implement the documented deterministic summary assertion operators and
         honest `manual_review`/`not_available` outcomes.
-  - [ ] Unit-test denominators, empty sets, repeated senders, split/merge
+  - [x] Unit-test denominators, empty sets, repeated senders, split/merge
         boundaries, promotions, and `not_available` values.
 
-- [ ] **Task 4: Implement privacy-safe reporting and telemetry** (AC: 3, 5, 8)
-  - [ ] Produce a machine-readable report and a concise human summary containing
+- [x] **Task 4: Implement privacy-safe reporting and telemetry** (AC: 3, 5, 8)
+  - [x] Produce a machine-readable report and a concise human summary containing
         IDs/aggregates only.
-  - [ ] Record run mode, fixture/schema/prompt versions, measurement source,
+  - [x] Record run mode, fixture/schema/prompt versions, measurement source,
         availability, latency distribution, throughput, context/token counts,
         failure categories, CPU, and memory.
-  - [ ] Separate cold/warm data when Ollama load timing is available.
-  - [ ] Ignore generated local result files by default; commit only intentional
+  - [x] Separate cold/warm data when Ollama load timing is available.
+  - [x] Ignore generated local result files by default; commit only intentional
         synthetic fixtures.
 
-- [ ] **Task 5: Add the provisional Ollama adapter** (AC: 5, 6, 7)
-  - [ ] Parse a harness-specific minimal Ollama configuration so the evaluator
+- [x] **Task 5: Add the provisional Ollama adapter** (AC: 5, 6, 7)
+  - [x] Parse a harness-specific minimal Ollama configuration so the evaluator
         does not require database, Telegram, session, cron, or server config.
-  - [ ] Enforce local Ollama plus `gemma4:12b`; reject external-provider
+  - [x] Enforce local Ollama plus `gemma4:12b`; reject external-provider
         configuration.
-  - [ ] Accept only `http:` loopback URLs with no credentials and host
+  - [x] Accept only `http:` loopback URLs with no credentials and host
         `localhost`, `127.0.0.1`, or `[::1]`; reject redirects and all other
         schemes/hosts.
-  - [ ] Use and document the non-target sequential-prefix prompt policy; do not
+  - [x] Use and document the non-target sequential-prefix prompt policy; do not
         build database retrieval or production candidate selection.
-  - [ ] Reuse the existing Ollama transport precedents for endpoint
+  - [x] Reuse the existing Ollama transport precedents for endpoint
         normalization, `AbortController`, structured output, `stream: false`,
         and content-free failures while retaining native timing/token fields.
-  - [ ] Record Ollama version, model digest/details, selected `seed`,
+  - [x] Record Ollama version, model digest/details, selected `seed`,
         `temperature`, `num_ctx`, `num_predict`, `think`, `keep_alive`,
         concurrency, and warm/cold policy.
-  - [ ] Label all output `provisional_pre_triage` and state what it cannot
+  - [x] Label all output `provisional_pre_triage` and state what it cannot
         measure authoritatively before Story 9.4.
-  - [ ] Require mocked adapter verification; treat an actual local model run as
+  - [x] Require mocked adapter verification; treat an actual local model run as
         optional and record that the adapter performs no production-style
         automatic retry.
 
-- [ ] **Task 6: Replace the legacy example with a regression corpus** (AC: 1, 8)
-  - [ ] Replace or clearly retire `eval/classifier-cases.example.jsonl`; do not
+- [x] **Task 6: Replace the legacy example with a regression corpus** (AC: 1, 8)
+  - [x] Replace or clearly retire `eval/classifier-cases.example.jsonl`; do not
         leave the old isolated `signal | ignore` schema looking supported.
-  - [ ] Add privacy-safe synthetic replay fixtures for every required case
+  - [x] Add privacy-safe synthetic replay fixtures for every required case
         family in `docs/classifier-evaluation.md`.
-  - [ ] Ensure invalid-fixture tests use synthetic secrets/canaries and prove
+  - [x] Ensure invalid-fixture tests use synthetic secrets/canaries and prove
         they never appear in logs, errors, or reports.
 
-- [ ] **Task 7: Integrate tooling and documentation** (AC: 7, 8)
-  - [ ] Preserve `pnpm eval:classifier` and add required `pnpm eval:topics`;
+- [x] **Task 7: Integrate tooling and documentation** (AC: 7, 8)
+  - [x] Preserve `pnpm eval:classifier` and add required `pnpm eval:topics`;
         both point to `tsx eval/run-classifier-eval.ts`.
-  - [ ] Add eval tests to the Vitest node project and eval TypeScript files to
+  - [x] Add eval tests to the Vitest node project and eval TypeScript files to
         the scoped ESLint configuration.
-  - [ ] Add root evaluator dependencies only where direct root imports require
+  - [x] Add root evaluator dependencies only where direct root imports require
         them; use existing compatible Zod tooling rather than handwritten
         runtime validation.
-  - [ ] Complete `docs/classifier-evaluation.md` without discarding its current
+  - [x] Complete `docs/classifier-evaluation.md` without discarding its current
         uncommitted course-correction content.
-  - [ ] Document the Story 9.4 adapter handoff and Story 9.10 owner-gated
+  - [x] Document the Story 9.4 adapter handoff and Story 9.10 owner-gated
         cutover use.
-  - [ ] Document the intentional exit-code breaking change and mode/config
+  - [x] Document the intentional exit-code breaking change and mode/config
         precedence.
 
-- [ ] **Task 8: Verify the completed story implementation** (AC: 1-8)
-  - [ ] Run focused unit and end-to-end deterministic tests.
-  - [ ] Run mocked Ollama success, timeout, HTTP error, malformed outer JSON,
+- [x] **Task 8: Verify the completed story implementation** (AC: 1-8)
+  - [x] Run focused unit and end-to-end deterministic tests.
+  - [x] Run mocked Ollama success, timeout, HTTP error, malformed outer JSON,
         empty content, malformed model JSON, schema-invalid output,
         domain-invalid output, and no-fallback tests.
-  - [ ] Run deterministic `pnpm eval:classifier` without application secrets or
+  - [x] Run deterministic `pnpm eval:classifier` without application secrets or
         network and inspect the report for privacy and authority labels.
-  - [ ] Verify case-local provisional operational failures are recorded while
+  - [x] Verify case-local provisional operational failures are recorded while
         safe remaining cases continue; write the privacy-safe report and exit
         non-zero after completion. Abort immediately only for unsafe global
         fixture/configuration or harness-invariant failures.
-  - [ ] Run a real local provisional experiment only when the local model is
+  - [x] Run a real local provisional experiment only when the local model is
         intentionally available; report it as limited/provisional, never as a
         Story 9.4 baseline.
-  - [ ] Run `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `git diff --check`.
+  - [x] Run `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `git diff --check`.
+
+### Review Findings
+
+- [x] [Review][Patch] Abort broken harness invariants instead of downgrading every exception to a case-local operational failure [eval/run-classifier-eval.ts:28]
+- [x] [Review][Patch] Preserve attempts, latency, and terminal-failure telemetry for provisional calls that throw [eval/run-classifier-eval.ts:34]
+- [x] [Review][Patch] Reject topic snapshots that include messages not yet replayed [eval/topic-replay/runner.ts:107]
+- [x] [Review][Patch] Require a promotion event whenever a prior irrelevant message gains topic membership [eval/topic-replay/runner.ts:147]
+- [x] [Review][Patch] Enforce promotion uniqueness, target-trigger membership, and chronological event order in validation and scoring [eval/topic-replay/runner.ts:155]
+- [x] [Review][Patch] Associate each generated summary with one explicit topic instead of copying it to every topic [eval/topic-replay/runner.ts:76]
+- [x] [Review][Patch] Persist summary assertion outcomes and unmatched/alignment evidence in the machine-readable report [eval/run-classifier-eval.ts:123]
+- [x] [Review][Patch] Exclude manual-review and unavailable summary checks from the speculative-violation denominator [eval/topic-replay/scorer.ts:98]
+- [x] [Review][Patch] Correct over-merge and over-split scoring when one or both messages lack topic membership [eval/topic-replay/scorer.ts:68]
+- [x] [Review][Patch] Count aligned multi-category overprediction against exact-set accuracy [eval/topic-replay/scorer.ts:129]
+- [x] [Review][Patch] Retain per-message native Ollama timings and classify cold/warm latency without summing mixed calls into one case sample [eval/topic-replay/reporter.ts:14]
+- [x] [Review][Patch] Include stable sender identity and scope in the provisional adapter's complete validated prefix [eval/topic-replay/adapters/provisional-ollama.ts:143]
+- [x] [Review][Patch] Fail closed when required Ollama version or exact model digest provenance is absent [eval/topic-replay/adapters/provisional-ollama.ts:106]
+- [x] [Review][Patch] Replace raw nested `/api/show` and `/api/ps` payload persistence with explicit relevant-field allowlists [eval/topic-replay/adapters/provisional-ollama.ts:113]
+- [x] [Review][Patch] Constrain reportable identifiers and error codes to privacy-safe canonical values [eval/topic-replay/schema.ts:60]
+- [x] [Review][Patch] Replace tag-only corpus coverage with executable cross-scope, invalid-candidate, invalid-schema, and provider-unavailable scenarios [eval/topic-replay/schema.test.ts:121]
+- [x] [Review][Patch] Validate adapter-step order and expected resident, Hokim, promotion, and eligibility truth during fixture loading [eval/topic-replay/fixture-loader.ts:49]
+- [x] [Review][Patch] Add event-level metric eligibility tags required by the fixture contract [eval/topic-replay/schema.ts:25]
+- [x] [Review][Patch] Keep run-level metadata failures out of fixture case counts, failure rates, and throughput [eval/topic-replay/reporter.ts:126]
+- [x] [Review][Patch] Reject impossible attempt/retry/terminal telemetry and prevent terminal failures from exiting successfully [eval/topic-replay/schema.ts:69]
+- [x] [Review][Patch] Make the documented JSONL example valid under the implemented runtime schema [docs/classifier-evaluation.md:23]
+- [x] [Review][Patch] Reject missing CLI path-flag values instead of treating another option or the default as a path [eval/run-classifier-eval.ts:156]
+- [x] [Review][Patch] Prevent same-millisecond report runs from silently overwriting one another [eval/topic-replay/reporter.ts:161]
+- [x] [Review][Patch] Match the complete expected resident count rather than accepting a decimal prefix [eval/topic-replay/summary-assertions.ts:24]
+- [x] [Review][Patch] Validate property/operator compatibility and bound or reject unsafe summary regex patterns [eval/topic-replay/fixture-loader.ts:168]
 
 ## Dev Notes
 
@@ -547,6 +575,21 @@ GPT-5 Codex
 
 ### Debug Log References
 
+- Red-green-refactor loops completed for fixture validation, runner invariants,
+  scoring/assertions, reporting/privacy, Ollama transport, and CLI integration.
+- Current Ollama structured-output and chat telemetry contracts were verified
+  against official documentation on 18 July 2026.
+
+### Implementation Plan
+
+- Establish a runtime-validated replay contract with privacy-safe diagnostics.
+- Keep execution provider-agnostic through a per-message adapter boundary and
+  runner-owned accumulated state.
+- Build deterministic scoring, assertions, reporting, and a synthetic corpus
+  before adding the isolated loopback-only provisional Ollama adapter.
+- Integrate both CLI aliases and repository checks, then validate the complete
+  story through focused and full regression suites.
+
 ### Completion Notes List
 
 - Ultimate context engine analysis completed - comprehensive developer guide
@@ -555,5 +598,66 @@ GPT-5 Codex
   corrections.
 - Story validation completed on 18 July 2026; owner decisions and adversarial
   corrections are integrated into the canonical story. Ready for implementation.
+- Implemented the `topic-replay-v1` fixture schema, privacy-safe JSONL loader,
+  deterministic fixture adapter, sequential runner, topic/promotion invariants,
+  greedy alignment, complete metric set, Hokim computation, and deterministic
+  summary-property assertions.
+- Added privacy-safe JSON/stdout reporting with sourced host/adapter/Ollama
+  telemetry, cold/warm separation, operational failure classification, and
+  `deterministic_fixture`/`provisional_pre_triage` authority labels.
+- Added a harness-only loopback Ollama adapter for `gemma4:12b`, strict
+  `EVAL_*` configuration, structured outputs, sequential prefix/state prompts,
+  native provenance/telemetry, timeout handling, redirects disabled, and no
+  external fallback.
+- Replaced the legacy isolated fixture with a seven-case synthetic Cyrillic
+  corpus covering all required case families and added both evaluator commands,
+  Vitest/ESLint integration, direct root dependencies, ignored result output,
+  and updated handoff/exit-code documentation.
+- Verification passed after code review: 59 focused eval tests, 820 repository tests,
+  `pnpm lint`, `pnpm typecheck`, both deterministic evaluator aliases,
+  `git diff --check`, and privacy inspection of the generated report.
+- Code review resolved 25 findings across replay invariants, promotion auditing,
+  scoring, summary reporting, native telemetry, provisional provenance/privacy,
+  executable regression coverage, documentation, and collision-safe reporting.
+- A real local model invocation was intentionally not run; the story defines it
+  as optional and the mocked adapter contract is fully verified.
 
 ### File List
+
+- `.gitignore`
+- `_bmad-output/implementation-artifacts/9-1-conversational-evaluation-harness.md`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`
+- `docs/classifier-evaluation.md`
+- `eslint.config.js`
+- `eval/classifier-cases.example.jsonl` (deleted)
+- `eval/fixtures/topic-replay.example.jsonl`
+- `eval/run-classifier-eval.ts`
+- `eval/run-classifier-eval.test.ts`
+- `eval/topic-replay/schema.ts`
+- `eval/topic-replay/schema.test.ts`
+- `eval/topic-replay/fixture-loader.ts`
+- `eval/topic-replay/runner.ts`
+- `eval/topic-replay/runner.test.ts`
+- `eval/topic-replay/scorer.ts`
+- `eval/topic-replay/scorer.test.ts`
+- `eval/topic-replay/summary-assertions.ts`
+- `eval/topic-replay/summary-assertions.test.ts`
+- `eval/topic-replay/reporter.ts`
+- `eval/topic-replay/reporter.test.ts`
+- `eval/topic-replay/harness-config.ts`
+- `eval/topic-replay/hokim.ts`
+- `eval/topic-replay/adapters/types.ts`
+- `eval/topic-replay/adapters/fixture-output.ts`
+- `eval/topic-replay/adapters/provisional-ollama.ts`
+- `eval/topic-replay/adapters/provisional-ollama.test.ts`
+- `package.json`
+- `pnpm-lock.yaml`
+- `vitest.config.ts`
+
+## Change Log
+
+- 2026-07-18: Implemented Story 9.1 conversational evaluation harness and moved
+  the story to `review`.
+- 2026-07-18: Resolved all 25 code-review findings, expanded focused coverage
+  from 32 to 59 tests, passed 820 repository tests and all required gates, and
+  moved the story to `done`.

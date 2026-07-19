@@ -10,4 +10,5 @@ apps/server/src/generated/
 .next/
 build/
 *.log
+eval/results/
 .grepai/

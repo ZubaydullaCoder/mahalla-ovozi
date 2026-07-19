@@ -16,6 +16,17 @@ export default defineConfig({
           environment: 'node',
         },
       },
+      // Offline contextual replay harness — isolated node environment
+      {
+        test: {
+          name: 'eval-tests',
+          include: [
+            'eval/**/*.test.ts',
+            'eval/**/*.spec.ts',
+          ],
+          environment: 'node',
+        },
+      },
       // Web React component tests — jsdom environment with React plugin
       {
         plugins: [react()],

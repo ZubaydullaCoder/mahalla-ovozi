@@ -8,6 +8,7 @@ export default tseslint.config(
     files: [
       'apps/**/*.ts',
       'apps/**/*.tsx',
+      'eval/**/*.ts',
       'scripts/**/*.ts',
       'prisma/**/*.ts',
       '*.config.ts',
