@@ -28,7 +28,7 @@
 * **External Operations:** Retry transient failures only when the operation is safe to retry or protected against duplicate effects. Preserve the final error and relevant context when retries are exhausted.
 * **Dependencies:** Manage dependencies through project configuration, not global installation. Verify package identity, maintenance, compatibility, and API behavior before adoption.
 * **Security:** Apply validation, sanitization, authorization, secret management, and data-protection controls proportionate to the affected trust boundary.
-* **Testing:** Test behavior according to risk, complexity, and impact. Add focused tests directly related to approved work when useful; obtain approval before introducing a broad testing strategy or substantial new test infrastructure.
+* **Testing:** Test behavior according to risk, complexity, and impact. Add focused tests directly related to approved work when useful; obtain approval before introducing a broad testing strategy or substantial new test infrastructure. Prefer red-green-refactor approach when possible.
 * **Verification:** Verify changes using checks appropriate to the affected behavior. Report unavailable checks and unrelated existing failures rather than claiming complete verification.
 * **UI Verification:** For frontend/UI implementation, run relevant non-interactive checks within scope, then ask the user to manually verify the UI with concise verification steps. Do not manipulate the browser for visual/manual UI verification by default; use browser automation only when the user explicitly requests it or when it is part of an approved plan.
 ## Workspace & Change Management
