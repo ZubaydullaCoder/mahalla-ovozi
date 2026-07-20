@@ -1,12 +1,38 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../apps/server/src/generated/prisma"
+  provider        = "prisma-client"
+  output          = "../apps/server/src/generated/prisma"
+  previewFeatures = ["partialIndexes"]
 }
 
 datasource db {
   provider = "postgresql"
   // url NOT declared here in Prisma 7 — configured in prisma.config.ts
 }
+
+// ─── Enums (Story 9.2) ───────────────────────────────────────────────────────
+
+enum ProcessingState {
+  queued
+  processing
+  retry
+  dead_letter
+  complete
+}
+
+enum FinalDisposition {
+  new_topic
+  attached
+  irrelevant
+}
+
+enum TopicCategoryValue {
+  water
+  electricity
+  gas
+  waste
+}
+
+// ─── Existing Models ─────────────────────────────────────────────────────────
 
 model District {
   id         Int      @id @default(autoincrement())
@@ -31,9 +57,11 @@ model Mahalla {
   bot_last_seen_at DateTime?
   created_at       DateTime  @default(now())
 
-  district       District       @relation(fields: [district_id], references: [id])
-  rawMessages    RawMessage[]
-  signalMessages SignalMessage[]
+  district          District          @relation(fields: [district_id], references: [id])
+  rawMessages       RawMessage[]
+  signalMessages    SignalMessage[]
+  topics            Topic[]
+  capturedMessages  CapturedMessage[]
 
   @@unique([id, district_id])
   @@index([district_id])
@@ -182,4 +210,133 @@ model PipelineEvent {
 
   @@index([district_id, created_at])
   @@map("pipeline_events")
+}
+
+// ─── Story 9.2 New Models ────────────────────────────────────────────────────
+
+/// Represents a grounded Uzbek Cyrillic topic grouping messages from one mahalla.
+model Topic {
+  id                        Int       @id @default(autoincrement())
+  district_id               Int
+  mahalla_id                Int
+  summary                   String    // Uzbek Cyrillic grounded summary
+  summary_model             String    @db.VarChar(100)
+  summary_version           String    @db.VarChar(50)
+  first_activity_at         DateTime
+  latest_activity_at        DateTime
+  anchor_captured_message_id Int?     // nullable FK — see relation below
+  version                   Int       @default(0) // optimistic concurrency
+  created_at                DateTime  @default(now())
+  updated_at                DateTime  @updatedAt
+
+  // Direct compound Mahalla relation — rejects invalid district/mahalla pairs
+  mahalla Mahalla @relation(fields: [mahalla_id, district_id], references: [id, district_id], onDelete: Restrict)
+
+  // Anchor relation: maps [anchor_captured_message_id, id, district_id, mahalla_id]
+  // → CapturedMessage.[id, topic_id, district_id, mahalla_id]
+  // This guarantees at the DB level that the anchor message is a member of this topic.
+  anchorMessage CapturedMessage? @relation("TopicAnchor", fields: [anchor_captured_message_id, id, district_id, mahalla_id], references: [id, topic_id, district_id, mahalla_id], onDelete: Restrict, onUpdate: Restrict)
+
+  categories       TopicCategory[]
+  capturedMessages CapturedMessage[] @relation("TopicMembers")
+
+  // Cross-scope protection: child models can relate using compound keys verifying scope
+  @@unique([id, district_id, mahalla_id])
+
+  // Indexes
+  @@index([district_id, mahalla_id, latest_activity_at])
+  @@index([district_id, latest_activity_at])
+
+  @@map("topics")
+}
+
+/// Join model for topic categories — equal set, no ordering or primary marker.
+model TopicCategory {
+  id       Int                @id @default(autoincrement())
+  topic_id Int
+  category TopicCategoryValue
+
+  topic Topic @relation(fields: [topic_id], references: [id], onDelete: Cascade)
+
+  @@unique([topic_id, category])
+
+  // Per-lane topic listing and evidence-purge regeneration
+  @@index([category, topic_id])
+
+  @@map("topic_categories")
+}
+
+/// Stores a captured Telegram message through its full processing lifecycle.
+model CapturedMessage {
+  id                          Int              @id @default(autoincrement())
+  telegram_update_id          BigInt           @unique
+  telegram_chat_id            BigInt
+  telegram_message_id         Int?
+  reply_to_chat_id            BigInt?
+  reply_to_message_id         Int?
+  district_id                 Int
+  mahalla_id                  Int
+  sender_stable_id            BigInt?          // Telegram user_id
+  sender_display_name         String?          @db.VarChar(300)
+  sender_username             String?          @db.VarChar(100)
+  text                        String?          // nullable: set to null on text-purge
+  text_source                 String           @db.VarChar(10) // "text" | "caption"
+  telegram_timestamp          DateTime
+  processing_state            ProcessingState  @default(queued)
+  final_disposition           FinalDisposition?
+  final_disposition_at        DateTime?
+  topic_id                    Int?             // nullable FK — part of compound key
+  attempt_count               Int              @default(0)
+  next_retry_at               DateTime?
+  last_error                  String?          @db.Text
+  dead_lettered_at            DateTime?
+  text_expires_at             DateTime?        // irrelevant → final_disposition_at + 24h
+  disposition_expires_at      DateTime?        // irrelevant → final_disposition_at + 14d
+  promoted_from_irrelevant_at DateTime?        // audit: when promoted from irrelevant
+  promotion_triggered_by_id   Int?             // nullable FK to self
+  replay_attempt_at           DateTime?
+  replay_audit_note           String?          @db.Text
+  created_at                  DateTime         @default(now())
+  updated_at                  DateTime         @updatedAt
+
+  // Direct compound Mahalla relation — rejects invalid district/mahalla pairs
+  // (enforced even when topic_id is null)
+  mahalla Mahalla @relation(fields: [mahalla_id, district_id], references: [id, district_id], onDelete: Restrict)
+
+  // Topic membership relation: compound key enforces same mahalla/district as topic
+  // onDelete: Restrict prevents composite SetNull on required fields
+  topic Topic? @relation("TopicMembers", fields: [topic_id, district_id, mahalla_id], references: [id, district_id, mahalla_id], onDelete: Restrict)
+
+  // Self-referential promotion trigger: must match same district/mahalla scope
+  promotionTriggeredBy      CapturedMessage?   @relation("PromotionTrigger", fields: [promotion_triggered_by_id, district_id, mahalla_id], references: [id, district_id, mahalla_id], onDelete: Restrict, onUpdate: Restrict)
+  promotionTriggerOf        CapturedMessage[]  @relation("PromotionTrigger")
+
+  // Back-relation for TopicAnchor: [id, topic_id, district_id, mahalla_id] referenced by Topic
+  anchoredTopics Topic[] @relation("TopicAnchor")
+
+  // Compound unique keys for cross-scope compound relations
+  @@unique([id, district_id, mahalla_id])
+  @@unique([id, topic_id, district_id, mahalla_id])
+
+  // Defensive message uniqueness: edited_message events are discarded (MVP policy)
+  // PostgreSQL enforces this only when telegram_message_id is non-null (nullable unique)
+  @@unique([telegram_chat_id, telegram_message_id])
+
+  // ── Indexes ──────────────────────────────────────────────────────────────
+  // Chronological oldest-first queue reads per mahalla
+  @@index([district_id, mahalla_id, processing_state, telegram_timestamp, id])
+  // Evidence listing for a topic
+  @@index([topic_id, telegram_timestamp, id])
+  // Retry queue reads
+  @@index([district_id, processing_state, next_retry_at])
+  // Retention window queries
+  @@index([district_id, telegram_timestamp])
+  // Partial index: text expiry purge for irrelevant messages
+  @@index([text_expires_at], where: raw("\"final_disposition\" = 'irrelevant'"))
+  // Partial index: metadata expiry purge for irrelevant messages
+  @@index([disposition_expires_at], where: raw("\"final_disposition\" = 'irrelevant'"))
+  // Partial index: dead-letter purge
+  @@index([dead_lettered_at], where: raw("\"processing_state\" = 'dead_letter'"))
+
+  @@map("captured_messages")
 }

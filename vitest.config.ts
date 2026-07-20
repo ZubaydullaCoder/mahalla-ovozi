@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
@@ -9,9 +9,16 @@ export default defineConfig({
         test: {
           name: 'node-tests',
           include: [
-            'scripts/**/*.ts',
+            'scripts/check-uz-strings.ts',
+            'scripts/**/*.test.ts',
+            'scripts/**/*.spec.ts',
             'apps/**/*.test.ts',
             'apps/**/*.spec.ts',
+          ],
+          exclude: [
+            ...configDefaults.exclude,
+            // Excluded: real-DB schema integration test — run via `pnpm test:schema` (guarded wrapper)
+            'apps/server/src/topics/schema.integration.test.ts',
           ],
           environment: 'node',
         },
