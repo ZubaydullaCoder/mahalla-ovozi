@@ -137,7 +137,7 @@ development_status:
   epic-9: in-progress
   9-1-conversational-evaluation-harness: done
   9-2-topic-and-captured-message-schema: done
-  9-3-contextual-intake-and-chronological-drain: backlog
+  9-3-contextual-intake-and-chronological-drain: ready-for-dev
   9-4-bounded-retrieval-and-gemma-topic-triage: backlog
   9-5-atomic-topic-persistence-and-developer-replay: backlog
   9-6-topic-apis-telegram-links-and-retention: backlog
