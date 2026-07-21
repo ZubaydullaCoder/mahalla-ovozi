@@ -136,7 +136,7 @@ Architecture §4 assigns `bot/` responsibility for Telegram source mapping and c
 | Module | This story's files |
 |--------|-------------------|
 | `bot/` | MODIFY: `filters/pipeline.ts` (add persist call + drain trigger); NEW: `bot/capturedMessage.ts` (Telegram Update → CapturedMessage mapping + persist) |
-| `topics/intake/` | NEW: `drain.ts` (queue selection, advisory lock, state transitions, loop, recovery sweep) |
+| `topics/intake/` | NEW: `drain.ts` (queue selection, advisory lock, state transitions, loop, inline abandoned-processing recovery) |
 | `web/` | MODIFY: `scheduler.ts` (extend `registerScheduler` and `triggerStartupDrain`) |
 
 Do NOT create `topics/capturedMessageService.ts` as a generic root-level service — the Telegram mapping belongs in `bot/`.
@@ -206,7 +206,7 @@ The ONLY changes to this file are:
 1. **Remove `textSnippet: rawText.slice(0, 160)` from `baseDetail`** — this is a governing content-free NFR fix. All other `baseDetail` fields remain.
 2. **Remove `text: rawText.slice(0, 50)` from the F3 discard `logger.info` call** — this field leaks resident text into operational logs, violating AC12. Replace the call's field object with `{ updateId, chatId: update.message!.chat.id.toString(), filter: 'F3' }`. The log message string (`'Pre-filter discard: trivial content'`) is preserved; only the raw-text field is removed.
 3. **Add `persistCapturedMessage(update, mahalla)` call** between mahalla lookup and the keyword gate (unconditional — no keyword check).
-4. **Add `void triggerTopicDrain('webhook').catch(...)` fire-and-forget** after persist, guarded by `env.TOPIC_DRAIN_ENABLED`.
+4. **Add `void triggerTopicDrain('webhook').catch(...)` fire-and-forget** after persist, guarded by `env.TOPIC_DRAIN_ENABLED`. Import `toSafeErrorMetadata` from `topics/intake/drain.ts` and use it in the catch block (e.g. `logger.error({ ...toSafeErrorMetadata(err) }, 'Webhook topic drain trigger failed')`) to comply with AC12.
 
 Everything else — keyword gate, `upsertRawMessage`, `createPipelineEvent`, `triggerClassifierDrain` — is **untouched**.
 
@@ -297,7 +297,7 @@ type SafeLogMeta = {
   errorCategory: string
 }
 
-function toSafeErrorMetadata(err: unknown): SafeLogMeta {
+export function toSafeErrorMetadata(err: unknown): SafeLogMeta {
   // Extract only known-safe structural fields. Never copy err.message unless
   // it comes from a known operational allowlist (e.g. 'ECONNREFUSED').
   const code =
@@ -424,7 +424,7 @@ Never serialize a raw `Error` object, stack trace, or any string that might cont
 
 ```ts
 // web/scheduler.ts — EXTEND, do not replace
-import { drainTopicQueue } from '../topics/intake/drain.js'
+import { drainTopicQueue, toSafeErrorMetadata } from '../topics/intake/drain.js'
 // No recoverAbandonedProcessing — startup recovery uses the same inline lock-safe path
 
 export function registerScheduler(): void {
@@ -513,7 +513,7 @@ Test drain business logic:
 11. Dead-letter promotion: error + resulting `attempt_count = 3` → state `dead_letter`, `dead_lettered_at` set
 12. Mahalla isolation: error in mahalla A's `processOneMahalla` does not affect mahalla B's result
 13. Stub complete: successful drain → state `complete`, content-free pipeline event written, no text/caption in event; `markComplete` and `writeDrainEvent` executed atomically
-14. Atomic terminal state: `writeDrainEvent` failure after `markComplete` does NOT call `handleDrainError` — the short `$transaction` rolls back both operations atomically, leaving the message in `processing` state for the error handler
+14. Atomic terminal state: when writeDrainEvent failure occurs, the entire terminal transaction rolls back atomically (leaving the message in processing state in the database), and then handleDrainError is called, transitioning the message to retry or dead-letter state according to the normal invariant
 15. Safe error logging: a mocked drain failure's `logger.error` call contains no raw `err` object, no `err.message`, no stack trace — only `errorCode`, `errorCategory`, and `mahallaId`
 16. `Promise.allSettled` rejection: a rejected inner promise is logged with `mahallaId` and safe error metadata, not silently dropped
 
@@ -529,7 +529,7 @@ Reuse the guarded disposable-database infrastructure from Story 9.2 (`scripts/ru
 21. Identical-timestamp tie-breaking — messages with the same `telegram_timestamp` are ordered by `id ASC`
 22. Retry blocking — a `retry` message with `next_retry_at` in the future blocks all later messages in its mahalla
 23. Inline `processing` recovery (under lock) — when `getOldestEligibleMessage` finds a `processing` row while `processOneMahalla` holds the advisory lock, it calls `inlineRecoverProcessing` and returns `null`; the recovered record is processed on the next drain cycle
-24. Processing-only-mahalla discovery — a mahalla whose only message is in `processing` state is discovered by `getEligibleMahallas()` and fully processed by a single `drainTopicQueue()` call end-to-end: discovery → lock acquisition → inline recovery → next cycle pick-up
+24. Processing-only-mahalla discovery — a mahalla whose only message is in `processing` state is discovered by `getEligibleMahallas()`, the per-mahalla lock is acquired, and the message is recovered inline to `retry` (or `dead_letter` if attempts >= 3). The invocation then skips that mahalla (since the message is now a future-retry blocker). The message is only processed when the retry becomes due on a subsequent invocation.
 
 ### Previous Story Learnings (from Story 9.2)
 
@@ -582,7 +582,7 @@ Reuse the guarded disposable-database infrastructure from Story 9.2 (`scripts/ru
   - [ ] Remove `textSnippet: rawText.slice(0, 160)` from `baseDetail` (content-free NFR fix)
   - [ ] Remove `text: rawText.slice(0, 50)` from the F3 discard `logger.info` call — replace with `{ updateId, chatId: update.message!.chat.id.toString(), filter: 'F3' }` (AC12: no raw resident text in any log entry for this processing)
   - [ ] After mahalla lookup, call `await persistCapturedMessage(update, mahalla)` unconditionally
-  - [ ] Fire-and-forget `void triggerTopicDrain('webhook').catch(...)` after persist, gated by `env.TOPIC_DRAIN_ENABLED`
+  - [ ] Fire-and-forget `void triggerTopicDrain('webhook').catch(...)` after persist, gated by `env.TOPIC_DRAIN_ENABLED`; import `toSafeErrorMetadata` and use it inside the catch block to log failures safely
   - [ ] Preserve ALL other existing code unchanged
 
 - [ ] **Task 4: Extend `web/scheduler.ts`** (AC: 4, 6)
@@ -634,4 +634,5 @@ _To be filled by dev agent_
 - 2026-07-20: Story 9.3 created following Story 9.2 completion.
 - 2026-07-20: Story 9.3 patched to resolve all 6 blockers from adversarial review: crash/restart recovery sweep (AC6), session-scoped advisory lock on dedicated pg.Client (AC7), exact retry invariant with newCount >= 3 = dead_letter (AC10), all 5 trigger sources mapped with DRY scheduler extension (AC4), real-DB integration tests required (AC13), textSnippet privacy conflict resolved (AC3/Task 3). High-priority design findings also resolved: module boundary corrected (capturedMessage.ts in bot/), drain loop with cap (AC8), stub lifecycle documented (AC9), scheduler uses node-cron cronExpressionDefault pattern, dual-write transitional boundary made explicit, last_error allowlist defined. Minor findings resolved: F0 made explicit decision (AC1), lock key namespaced (TOPIC_DRAIN_LOCK_NAMESPACE=420_000_000), Promise.allSettled results inspected (AC11).
 - 2026-07-21: Story 9.3 targeted second-pass patch for 3 remaining blockers and 2 non-blocker corrections (see prior entry).
-- 2026-07-21: Story 9.3 third-pass patch resolving 3 final blockers: (BLOCKER 1) `recoverAbandonedProcessing()` and `TOPIC_DRAIN_PROCESSING_TIMEOUT_MS` removed entirely — the startup sweep was redundant (same inline lock path covers all triggers) and unsafe (session-level advisory lock lifetime is not tied to wall-clock time, so a timeout heuristic can corrupt live in-progress work); AC6 rewritten as lock-safe inline recovery; scheduler import and startup chain simplified; 3 env vars (not 4); (BLOCKER 2) `toSafeErrorMetadata(err)` helper added to drain.ts; all `logger.error` calls at drain boundaries replaced with safe structured metadata — no raw `err` object, no `err.message`; `Promise.allSettled` log updated; tests 14–15 replaced with atomic-state and safe-logging tests; (BLOCKER 3) `markComplete` + `writeDrainEvent` made atomic via short `prisma.$transaction([])` — a `writeDrainEvent` failure can no longer demote an already-completed message; AC9 and processOneMahalla code updated; Task 2 updated with atomic subtask; integration test 24 added for processing-only-mahalla end-to-end discovery.
+- 2026-07-21: Story 9.3 third-pass patch resolving 3 final blockers (see prior entry).
+- 2026-07-21: Story 9.3 fourth-pass patch resolving remaining contradictions and wiring issues: (BLOCKER 1) AC5, AC6, and Integration Test 24 expectations corrected to clarify that single drain invocations discover and inline-recover abandoned processing rows, leaving them as future-retry blockers (processed only on subsequent drain cycles when due); (BLOCKER 2) Unit Test 14 corrected to assert that handleDrainError IS called after transaction failure/rollback; (wiring) `toSafeErrorMetadata()` exported from drain.ts and imported in web/scheduler.ts, and webhook catch block in Task 3/pipeline.ts updated to use it; (stale wording) module boundaries table updated to replace "recovery sweep" with "inline abandoned-processing recovery" description.
