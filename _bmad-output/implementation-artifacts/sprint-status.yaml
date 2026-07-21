@@ -1,5 +1,5 @@
 # generated: 2026-06-03
-# last_updated: 2026-07-20
+# last_updated: 2026-07-21
 # project: mahalla-ovozi
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context recommended)
 
 generated: 2026-06-03
-last_updated: 2026-07-20
+last_updated: 2026-07-21
 project: mahalla-ovozi
 project_key: NOKEY
 tracking_system: file-system
@@ -137,7 +137,7 @@ development_status:
   epic-9: in-progress
   9-1-conversational-evaluation-harness: done
   9-2-topic-and-captured-message-schema: done
-  9-3-contextual-intake-and-chronological-drain: ready-for-dev
+  9-3-contextual-intake-and-chronological-drain: in-progress
   9-4-bounded-retrieval-and-gemma-topic-triage: backlog
   9-5-atomic-topic-persistence-and-developer-replay: backlog
   9-6-topic-apis-telegram-links-and-retention: backlog

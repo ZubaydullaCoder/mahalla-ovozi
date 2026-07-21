@@ -14,7 +14,10 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     name: 'schema-integration',
-    include: ['apps/server/src/topics/schema.integration.test.ts'],
+    include: [
+      'apps/server/src/topics/schema.integration.test.ts',
+      'apps/server/src/topics/intake/drain.integration.test.ts',
+    ],
     environment: 'node',
     // Serial execution: single worker to prevent concurrent DB mutations
     maxWorkers: 1,

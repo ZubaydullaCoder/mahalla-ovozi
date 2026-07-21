@@ -5,6 +5,8 @@ import { env } from '../../shared/env.js'
 import { matchesAnyKeyword } from '../../keywords/matcher.js'
 import { getActiveKeywords } from '../../keywords/query.js'
 import { triggerClassifierDrain } from '../../classifier/index.js'
+import { persistCapturedMessage } from '../capturedMessage.js'
+import { drainTopicQueue, toSafeErrorMetadata } from '../../topics/intake/drain.js'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Exported filter predicates — individually testable pure functions
@@ -84,7 +86,8 @@ export async function pipeline(update: Update): Promise<void> {
   // F3 — trivial content (bot command, pure emoji, empty-after-trim)
   if (isTrivialContent(rawText)) {
     logger.info(
-      { updateId, chatId: update.message!.chat.id.toString(), filter: 'F3', text: rawText.slice(0, 50) },
+      // AC12: no raw resident text — only structural metadata
+      { updateId, chatId: update.message!.chat.id.toString(), filter: 'F3' },
       'Pre-filter discard: trivial content',
     )
     return
@@ -105,6 +108,21 @@ export async function pipeline(update: Update): Promise<void> {
       'Pre-filter discard: unmonitored group (no mahalla match)',
     )
     return
+  }
+
+  // AC2: Persist to CapturedMessage unconditionally (before keyword gate).
+  // Idempotent upsert on telegram_update_id — no keyword check, no text snippet logged.
+  await persistCapturedMessage(update, mahalla)
+
+  // AC4: Fire-and-forget topic drain trigger gated by TOPIC_DRAIN_ENABLED.
+  // Failure is logged with safe error metadata — never raw err object (AC12).
+  if (env.TOPIC_DRAIN_ENABLED) {
+    void drainTopicQueue('webhook').catch((err: unknown) => {
+      logger.error(
+        { ...toSafeErrorMetadata(err), updateId },
+        'Webhook topic drain trigger failed',
+      )
+    })
   }
 
   const senderDisplayName =
@@ -129,12 +147,13 @@ export async function pipeline(update: Update): Promise<void> {
   const filterMode = env.FILTER_MODE
 
   // Shared pipeline event detail fields (all three paths)
+  // AC3/AC12: textSnippet removed — contains resident text which violates the content-free NFR.
+  // All other fields (telegramUpdateId, mahalla info, filter mode, keyword metadata) preserved.
   const baseDetail = {
     telegramUpdateId:  update.update_id,
     telegramMessageId: update.message!.message_id,
     mahallaId:         mahalla.id,
     mahallaName:       mahalla.name,
-    textSnippet:       rawText.slice(0, 160),
     filterMode,
     keywordMatched:    matchResult.matched,
     matchedPhrase:     matchResult.phrase,

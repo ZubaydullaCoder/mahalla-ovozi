@@ -34,19 +34,21 @@ vi.mock('../../shared/env.js', () => ({ env: mockEnv }))
 // ─────────────────────────────────────────────────────────────────────────────
 // 2. Mock Prisma client — use vi.hoisted() so refs work inside the factory
 // ─────────────────────────────────────────────────────────────────────────────
-const { mockFindUnique, mockUpsert, mockFindMany, mockPipelineCreate } = vi.hoisted(() => ({
+const { mockFindUnique, mockUpsert, mockFindMany, mockPipelineCreate, mockCapturedUpsert } = vi.hoisted(() => ({
   mockFindUnique:     vi.fn(),
   mockUpsert:         vi.fn(),
   mockFindMany:       vi.fn(), // keyword.findMany — Story 1.4
   mockPipelineCreate: vi.fn(), // pipelineEvent.create — Story 1.4
+  mockCapturedUpsert: vi.fn().mockResolvedValue(undefined), // Story 9.3: capturedMessage.upsert
 }))
 
 vi.mock('../../shared/db.js', () => ({
   prisma: {
-    mahalla:       { findUnique: mockFindUnique },
-    rawMessage:    { upsert:     mockUpsert     },
-    keyword:       { findMany:   mockFindMany   }, // Story 1.4
-    pipelineEvent: { create:     mockPipelineCreate }, // Story 1.4
+    mahalla:         { findUnique: mockFindUnique },
+    rawMessage:      { upsert:     mockUpsert     },
+    keyword:         { findMany:   mockFindMany   }, // Story 1.4
+    pipelineEvent:   { create:     mockPipelineCreate }, // Story 1.4
+    capturedMessage: { upsert:     mockCapturedUpsert }, // Story 9.3
   },
 }))
 
@@ -62,6 +64,14 @@ const mockTriggerClassifierDrain = vi.hoisted(() => vi.fn().mockResolvedValue(un
 
 vi.mock('../../classifier/index.js', () => ({
   triggerClassifierDrain: mockTriggerClassifierDrain,
+}))
+
+// Story 9.3: Mock topic drain to prevent pg Pool creation in unit tests.
+// Pipeline tests are not testing drain behavior — only that drain is triggered.
+const mockDrainTopicQueue = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+vi.mock('../../topics/intake/drain.js', () => ({
+  drainTopicQueue:      mockDrainTopicQueue,
+  toSafeErrorMetadata:  (err: unknown) => ({ errorCategory: 'unknown', ...(typeof (err as Record<string, unknown>)?.code === 'string' ? { errorCode: (err as Record<string, unknown>).code } : {}) }),
 }))
 
 // ─────────────────────────────────────────────────────────────────────────────

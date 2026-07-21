@@ -21,6 +21,9 @@ const EnvSchema = z.object({
   CLASSIFIER_BATCH_SIZE:   z.coerce.number().int().positive().default(100),
   CLASSIFIER_AUTO_TRIGGER_ENABLED: booleanEnvDefault(true),
   CLASSIFIER_CRON:         cronExpressionDefault('* * * * *'),
+  TOPIC_DRAIN_ENABLED:         booleanEnvDefault(true),
+  TOPIC_DRAIN_CRON:            cronExpressionDefault('* * * * *'),
+  TOPIC_DRAIN_MAX_PER_MAHALLA: z.coerce.number().int().positive().default(50),
   OPS_ENABLED:             z.string().optional(),
   OPS_SECRET:              z.string().optional(),
 }).superRefine((env, ctx) => {
