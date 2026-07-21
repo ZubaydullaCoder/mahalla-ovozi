@@ -21,10 +21,11 @@
  *   23. Inline processing recovery under lock — abandoned processing row recovered
  *   24. Processing-only-mahalla discovery — getEligibleMahallas finds processing-state mahallas
  */
-import { describe, it, beforeAll, afterAll, afterEach, expect } from 'vitest'
+import { describe, it, beforeAll, afterAll, afterEach, expect, vi } from 'vitest'
 import { PrismaClient } from '../../generated/prisma/client.js'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { Pool } from 'pg'
+import { prisma as globalPrisma } from '../../shared/db.js'
 
 // ─── Real Prisma client for test setup/teardown ────────────────────────────────
 let prisma: PrismaClient
@@ -144,22 +145,49 @@ import {
 // Test 16: Concurrent processOneMahalla for SAME mahalla → only one processes
 // ─────────────────────────────────────────────────────────────────────────────
 describe('advisory lock exclusion', () => {
-  it('test 16: two concurrent processOneMahalla calls for same mahalla — only one processes', async () => {
+  it('test 16: two concurrent processOneMahalla calls for same mahalla — only one processes (advisory-lock exclusion with overlap proof)', async () => {
     // Create one queued message
     const msg = await createMsg(mahallaAId)
 
-    // Run both concurrently
-    await Promise.all([
-      processOneMahalla(mahallaAId),
-      processOneMahalla(mahallaAId),
-    ])
+    // Create a deferred promise to block the first call
+    let resolveBarrier!: () => void
+    const barrierPromise = new Promise<void>((resolve) => {
+      resolveBarrier = resolve
+    })
 
-    // Exactly one should have won the lock and processed the message
+    const originalFindFirst = globalPrisma.capturedMessage.findFirst
+    let findCount = 0
+
+    // Spy on findFirst to block only the first call
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.spyOn(globalPrisma.capturedMessage, 'findFirst').mockImplementation((async (args: any) => {
+      findCount++
+      const result = await originalFindFirst.call(globalPrisma.capturedMessage, args)
+      if (findCount === 1) {
+        // Hold the first call at the barrier
+        await barrierPromise
+      }
+      return result
+    }) as any)
+
+    // Start first call (will block at barrier while holding advisory lock)
+    const firstCallPromise = processOneMahalla(mahallaAId)
+
+    // Wait a brief moment to ensure first call has connected, acquired the lock, and reached findFirst
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    // Start second call concurrently. It must fail to acquire the lock and exit immediately.
+    await processOneMahalla(mahallaAId)
+
+    // Release the first call from the barrier
+    resolveBarrier()
+    await firstCallPromise
+
+    // Restore findFirst spy
+    vi.restoreAllMocks()
+
+    // Verify: first call processed the message to complete
     const result = await prisma.capturedMessage.findUnique({ where: { id: msg.id } })
-    expect(result).not.toBeNull()
-    // Message should be in complete state (stub processes it)
-    // OR in retry/dead_letter if the processing threw. Either way — not 'queued'.
-    expect(result!.processing_state).not.toBe('queued')
     expect(result!.processing_state).toBe('complete')
   })
 
@@ -197,34 +225,36 @@ describe('advisory lock exclusion', () => {
   })
 
   // ─── Test 19: Lock released after thrown exception ─────────────────────────
-  it('test 19: lock released after exception — second call can acquire the lock', async () => {
-    // Create a message in `processing` state to simulate in-progress abandonment.
-    // getOldestEligibleMessage will call inlineRecoverProcessing and return null,
-    // causing the drain to exit after inline recovery — this exercises the lock release path.
-    const processingMsg = await createMsg(mahallaAId, { processing_state: 'processing', attempt_count: 0 })
+  it('test 19: lock released after exception — second call can acquire the lock (genuine exception test)', async () => {
+    // Create two queued messages
+    const msg1 = await createMsg(mahallaAId, { update_id_offset: 1 })
+    const msg2 = await createMsg(mahallaAId, { update_id_offset: 2 })
 
-    // First call: finds processing row, recovers inline (→ retry), releases lock.
+    const originalFindFirst = globalPrisma.capturedMessage.findFirst
+    let hasThrown = false
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.spyOn(globalPrisma.capturedMessage, 'findFirst').mockImplementation((async (args: any) => {
+      if (!hasThrown) {
+        hasThrown = true
+        throw new Error('Forced Database Exception')
+      }
+      return originalFindFirst.call(globalPrisma.capturedMessage, args)
+    }) as any)
+
+    // Run first call. It will acquire the lock, call findFirst, throw, and release the lock in finally.
+    await expect(processOneMahalla(mahallaAId)).rejects.toThrow('Forced Database Exception')
+
+    // Restore the spy
+    vi.restoreAllMocks()
+
+    // Run second call. If the lock was cleanly released, it will acquire the lock and process the queued messages.
     await processOneMahalla(mahallaAId)
 
-    // Verify: processing row was recovered to retry (not stuck in processing)
-    const recovered = await prisma.capturedMessage.findUnique({ where: { id: processingMsg.id } })
-    expect(recovered!.processing_state).toBe('retry')
-
-    // Second call: lock must be free (if not released, this call would silently skip).
-    // We verify lock release by running two concurrent calls and confirming BOTH complete
-    // without error (the "skip" path is also non-throwing, so we verify no exception).
-    // Real proof: two sequential calls complete with no deadlock.
-    await processOneMahalla(mahallaAId)   // second call — should acquire and release
-    await processOneMahalla(mahallaAId)   // third call — confirms lock freed after second
-
-    // The retry row (future-retry) blocks the mahalla — expected, not a bug.
-    // The test's goal is purely to confirm the lock was released after inline recovery.
-    // If the lock were stuck, the second call would silently exit (no lock acquired),
-    // and in a concurrent test with real advisory lock we would see the second call skip.
-    // Here we assert the recovered row is still retry (drain did not double-process it).
-    const afterMultipleCalls = await prisma.capturedMessage.findUnique({ where: { id: processingMsg.id } })
-    // retry state preserved — mahalla blocked by future-retry (by design, chronological ordering AC5)
-    expect(afterMultipleCalls!.processing_state).toBe('retry')
+    // Verify: the messages were successfully processed (not skipped), meaning the lock was freed
+    const after1 = await prisma.capturedMessage.findUnique({ where: { id: msg1.id } })
+    const after2 = await prisma.capturedMessage.findUnique({ where: { id: msg2.id } })
+    expect(after1!.processing_state).toBe('complete')
+    expect(after2!.processing_state).toBe('complete')
   })
 })
 
@@ -232,20 +262,58 @@ describe('advisory lock exclusion', () => {
 // Test 20: Oldest-first under concurrency
 // ─────────────────────────────────────────────────────────────────────────────
 describe('chronological ordering', () => {
-  it('test 20: oldest-first under concurrency — messages at T1 and T2, drain always picks T1 first', async () => {
+  it('test 20: oldest-first under concurrency — messages at T1 and T2, drain always picks T1 first under concurrency', async () => {
     const T1 = new Date('2024-01-01T09:00:00Z')
     const T2 = new Date('2024-01-01T10:00:00Z')
 
     const msgT2 = await createMsg(mahallaAId, { telegram_timestamp: T2, update_id_offset: 200 })
     const msgT1 = await createMsg(mahallaAId, { telegram_timestamp: T1, update_id_offset: 100 })
 
-    // getOldestEligibleMessage should return T1 first
-    const oldest = await getOldestEligibleMessage(mahallaAId)
-    expect(oldest).not.toBeNull()
-    expect(oldest!.id).toBe(msgT1.id)
+    // Create a deferred promise to block the first call
+    let resolveBarrier!: () => void
+    const barrierPromise = new Promise<void>((resolve) => {
+      resolveBarrier = resolve
+    })
 
-    // Suppress lint warning on unused variable
-    void msgT2
+    const originalFindFirst = globalPrisma.capturedMessage.findFirst
+    let findCount = 0
+    let pickedMessageId: number | null = null
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.spyOn(globalPrisma.capturedMessage, 'findFirst').mockImplementation((async (args: any) => {
+      findCount++
+      const result = await originalFindFirst.call(globalPrisma.capturedMessage, args)
+      if (findCount === 1) {
+        if (result) pickedMessageId = result.id
+        await barrierPromise
+      }
+      return result
+    }) as any)
+
+    // Start first call
+    const firstCallPromise = processOneMahalla(mahallaAId)
+
+    // Wait a brief moment to ensure first call has connected, acquired lock, and picked T1
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    // Start second call concurrently. It must skip immediately (lock exclusion) and not pick T2.
+    await processOneMahalla(mahallaAId)
+
+    // Release the first call
+    resolveBarrier()
+    await firstCallPromise
+
+    // Restore findFirst spy
+    vi.restoreAllMocks()
+
+    // Verify:
+    // 1. The first call indeed picked T1 as the oldest candidate
+    expect(pickedMessageId).toBe(msgT1.id)
+    // 2. Both T1 and T2 are now complete (processed by the first call's loop after resuming)
+    const resultT1 = await prisma.capturedMessage.findUnique({ where: { id: msgT1.id } })
+    const resultT2 = await prisma.capturedMessage.findUnique({ where: { id: msgT2.id } })
+    expect(resultT1!.processing_state).toBe('complete')
+    expect(resultT2!.processing_state).toBe('complete')
   })
 
   // ─── Test 21: Identical-timestamp tie-breaking by id ASC ──────────────────

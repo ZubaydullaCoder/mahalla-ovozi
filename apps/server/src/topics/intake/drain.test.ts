@@ -97,7 +97,7 @@ const { mockClientQuery, mockClientRelease, mockPoolConnect, MockPool } = vi.hoi
   const mockPoolConnect   = vi.fn()
   // MockPool must be a regular (non-arrow) function so it works as a constructor.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function MockPool(this: any, _config: any) {
+  function MockPool(this: any) {
     this.connect = mockPoolConnect
   }
   return { mockClientQuery, mockClientRelease, mockPoolConnect, MockPool }
@@ -525,5 +525,93 @@ describe('drainTopicQueue — Promise.allSettled inspection', () => {
     )!
     expect(meta).not.toHaveProperty('err')
     expect(meta).not.toHaveProperty('reason')
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Unit tests for new patches (Story 9.3 F1, F3, F4)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('drainTopicQueue — TOPIC_DRAIN_ENABLED safety gating (F1)', () => {
+  beforeEach(() => {
+    mockEnv.TOPIC_DRAIN_ENABLED = false
+  })
+
+  afterEach(() => {
+    mockEnv.TOPIC_DRAIN_ENABLED = true
+  })
+
+  it('skips cron trigger when disabled', async () => {
+    await drainTopicQueue('cron')
+    expect(mockCapturedFindMany).not.toHaveBeenCalled()
+  })
+
+  it('skips webhook trigger when disabled', async () => {
+    await drainTopicQueue('webhook')
+    expect(mockCapturedFindMany).not.toHaveBeenCalled()
+  })
+
+  it('skips startup trigger when disabled', async () => {
+    await drainTopicQueue('startup')
+    expect(mockCapturedFindMany).not.toHaveBeenCalled()
+  })
+
+  it('does NOT skip manual trigger when disabled', async () => {
+    mockCapturedFindMany.mockResolvedValue([])
+    await drainTopicQueue('manual')
+    expect(mockCapturedFindMany).toHaveBeenCalled()
+  })
+})
+
+describe('drainTopicQueue — single-flight coalescing (F4)', () => {
+  it('coalesces multiple concurrent drain triggers in-process', async () => {
+    mockCapturedFindMany.mockResolvedValue([])
+
+    // Trigger three drains concurrently
+    const p1 = drainTopicQueue('webhook')
+    const p2 = drainTopicQueue('webhook')
+    const p3 = drainTopicQueue('webhook')
+
+    await Promise.all([p1, p2, p3])
+
+    // Should have run the core drain twice (once for initial run, once for queued pending runs)
+    expect(mockCapturedFindMany).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('processOneMahalla — connection loss abort (F3)', () => {
+  it('aborts the per-mahalla loop immediately and releases with destroy if active connection is lost', async () => {
+    let clientErrorCallback: ((err: Error) => void) | null = null
+    const mockClient = {
+      query: vi.fn()
+        .mockResolvedValueOnce({ rows: [{ ok: true }] }), // lock acquire
+      on: vi.fn().mockImplementation((event, callback) => {
+        if (event === 'error') {
+          clientErrorCallback = callback
+        }
+      }),
+      removeListener: vi.fn(),
+      release: vi.fn(),
+    }
+    mockPoolConnect.mockResolvedValue(mockClient)
+
+    const msg = makeMsg()
+    // Mock getOldestEligibleMessage to return the msg
+    mockCapturedFindFirst.mockResolvedValueOnce(msg)
+
+    // Run processOneMahalla. Inside the loop, we simulate client error
+    const processPromise = processOneMahalla(42)
+
+    // Wait a tick and fire client connection error
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    if (clientErrorCallback) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (clientErrorCallback as any)(new Error('Connection lost'))
+    }
+
+    await processPromise
+
+    // Verify it aborted loop and released with true (destroy)
+    expect(mockClient.release).toHaveBeenCalledWith(true)
   })
 })

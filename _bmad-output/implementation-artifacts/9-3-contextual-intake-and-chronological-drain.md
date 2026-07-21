@@ -1,6 +1,6 @@
 # Story 9.3: Contextual Intake and Chronological Drain
 
-Status: in-progress
+Status: done
 
 ## Story
 
@@ -612,23 +612,37 @@ Reuse the guarded disposable-database infrastructure from Story 9.2 (`scripts/ru
 
 ### Agent Model Used
 
-_To be filled by dev agent_
+Antigravity (Gemini 2.5 Pro)
 
 ### Debug Log References
 
-_To be filled by dev agent_
+All unit and integration tests successfully verified locally using Vitest.
 
 ### Implementation Plan
 
-_To be filled by dev agent_
+Followed the approved implementation plan to execute safety gating, database pool connection hardening, in-process trigger single-flight coalescing, manual trigger forward compatibility, and full integration/unit test upgrades.
 
 ### Completion Notes List
 
-_To be filled by dev agent_
+- Added `TOPIC_DRAIN_ENABLED` check inside `drainTopicQueue` to prevent pre-activation stub records from leaking.
+- Implemented pool-level and client-level error handlers in node-postgres `Pool` to prevent uncaught exception crashes.
+- Implemented loop aborting and `client.release(true)` (destruction) if active client connection is lost.
+- Implemented in-process coalescing/single-flight for `drainTopicQueue` calls using `isDraining` and `pendingDrain` flags.
+- Extended `TopicDrainTrigger` type and scheduler route wrappers to support `'manual'` triggers.
+- Deduplicated retry and dead-letter database updates into `applyFailureTransition`.
+- Added high-fidelity unit tests for F0-F3 pipeline filter discards and captured message persistence in `pipeline.test.ts`.
+- Added scheduler tests for topic cron expression registration, Cron trigger, Startup trigger, and error handling in `scheduler.test.ts`.
+- Upgraded schema integration tests 16, 19, and 20 in `drain.integration.test.ts` to use real concurrency barriers and database exception spies.
 
 ### File List
 
-_To be filled by dev agent_
+- MODIFY: `apps/server/src/bot/filters/pipeline.ts`
+- MODIFY: `apps/server/src/bot/filters/pipeline.test.ts`
+- MODIFY: `apps/server/src/topics/intake/drain.ts`
+- MODIFY: `apps/server/src/topics/intake/drain.test.ts`
+- MODIFY: `apps/server/src/topics/intake/drain.integration.test.ts`
+- MODIFY: `apps/server/src/web/scheduler.ts`
+- MODIFY: `apps/server/src/web/scheduler.test.ts`
 
 ## Change Log
 
@@ -637,3 +651,4 @@ _To be filled by dev agent_
 - 2026-07-21: Story 9.3 targeted second-pass patch for 3 remaining blockers and 2 non-blocker corrections (see prior entry).
 - 2026-07-21: Story 9.3 third-pass patch resolving 3 final blockers (see prior entry).
 - 2026-07-21: Story 9.3 fourth-pass patch resolving remaining contradictions and wiring issues: (BLOCKER 1) AC5, AC6, and Integration Test 24 expectations corrected to clarify that single drain invocations discover and inline-recover abandoned processing rows, leaving them as future-retry blockers (processed only on subsequent drain cycles when due); (BLOCKER 2) Unit Test 14 corrected to assert that handleDrainError IS called after transaction failure/rollback; (wiring) `toSafeErrorMetadata()` exported from drain.ts and imported in web/scheduler.ts, and webhook catch block in Task 3/pipeline.ts updated to use it; (stale wording) module boundaries table updated to replace "recovery sweep" with "inline abandoned-processing recovery" description.
+- 2026-07-21: Addressed Code Review findings F1-F9. Implemented safety activation switch, PostgreSQL Pool/Client lifecycle and connection error listening/hardening, single-flight webhook call coalescing, manual trigger compatibility, retry logic deduplication, pipeline filter rejection and pre-keyword CapturedMessage persistence test, scheduler registration and mock integration tests, and upgraded high-fidelity real-DB integration tests 16, 19, and 20.

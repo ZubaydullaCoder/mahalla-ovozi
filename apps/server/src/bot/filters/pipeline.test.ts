@@ -426,6 +426,61 @@ describe('pipeline — caption capture (AC-2)', () => {
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Full pipeline integration — captured message persistence and filters (Story 9.3 F2.4)
+// ─────────────────────────────────────────────────────────────────────────────
+describe('pipeline — captured message persistence and filters (Story 9.3 F2.4)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockEnv.FILTER_MODE = 'keyword_gate'
+    mockFindUnique.mockResolvedValue({ id: 1, district_id: 10, name: 'Yunusobod-1' })
+    mockUpsert.mockResolvedValue({ id: 100 })
+    mockTriggerClassifierDrain.mockResolvedValue(undefined)
+    mockPipelineCreate.mockResolvedValue({})
+    mockCapturedUpsert.mockResolvedValue({})
+    mockFindMany.mockResolvedValue([SUV_KEYWORD])
+  })
+
+  it('F0 fail: does not persist to CapturedMessage when sender is missing', async () => {
+    const update = makeUpdate({ from: undefined })
+    await pipeline(update)
+    expect(mockCapturedUpsert).not.toHaveBeenCalled()
+  })
+
+  it('F1 fail: does not persist to CapturedMessage when sender is a bot', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const update = makeUpdate({ from: { id: 2, is_bot: true, first_name: 'Bot' } as any })
+    await pipeline(update)
+    expect(mockCapturedUpsert).not.toHaveBeenCalled()
+  })
+
+  it('F2 fail: does not persist to CapturedMessage when message has neither text nor caption', async () => {
+    const update = makeUpdate({ text: undefined, caption: undefined })
+    await pipeline(update)
+    expect(mockCapturedUpsert).not.toHaveBeenCalled()
+  })
+
+  it('F3 fail: does not persist to CapturedMessage when message content is trivial', async () => {
+    const update = makeUpdate({ text: '/start' })
+    await pipeline(update)
+    expect(mockCapturedUpsert).not.toHaveBeenCalled()
+  })
+
+  it('F0-F3 pass & keyword match: persists to CapturedMessage AND rawMessage', async () => {
+    const update = makeUpdate({ text: 'suv kelyapti' })
+    await pipeline(update)
+    expect(mockCapturedUpsert).toHaveBeenCalledOnce()
+    expect(mockUpsert).toHaveBeenCalledOnce()
+  })
+
+  it('F0-F3 pass & no keyword match: persists to CapturedMessage BUT NOT rawMessage', async () => {
+    const update = makeUpdate({ text: 'keyword non-matching but valid' })
+    await pipeline(update)
+    expect(mockCapturedUpsert).toHaveBeenCalledOnce()
+    expect(mockUpsert).not.toHaveBeenCalled()
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Story 1.4 — keyword-gate routing tests (AC #1, #6)
 // ─────────────────────────────────────────────────────────────────────────────
 

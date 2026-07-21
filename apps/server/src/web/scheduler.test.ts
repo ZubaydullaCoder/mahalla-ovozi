@@ -10,6 +10,8 @@ vi.mock('node-cron', () => ({
 
 const mockEnv = vi.hoisted(() => ({
   CLASSIFIER_CRON: '* * * * *',
+  TOPIC_DRAIN_CRON: '*/2 * * * *',
+  TOPIC_DRAIN_ENABLED: true,
 }))
 
 vi.mock('../shared/env.js', () => ({
@@ -18,6 +20,7 @@ vi.mock('../shared/env.js', () => ({
 
 const loggerMocks = vi.hoisted(() => ({
   error: vi.fn(),
+  info:  vi.fn(),
 }))
 
 vi.mock('../shared/logger.js', () => ({
@@ -31,18 +34,29 @@ const classifierMocks = vi.hoisted(() => ({
 
 vi.mock('../classifier/index.js', () => classifierMocks)
 
+const topicDrainMocks = vi.hoisted(() => ({
+  drainTopicQueue: vi.fn().mockResolvedValue(undefined),
+  toSafeErrorMetadata: vi.fn().mockImplementation(() => ({ errorCategory: 'unknown' })),
+}))
+
+vi.mock('../topics/intake/drain.js', () => topicDrainMocks)
+
 import { registerScheduler, triggerStartupDrain } from './scheduler.js'
 
 describe('scheduler', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockEnv.CLASSIFIER_CRON = '* * * * *'
+    mockEnv.TOPIC_DRAIN_CRON = '*/2 * * * *'
+    mockEnv.TOPIC_DRAIN_ENABLED = true
     classifierMocks.triggerClassifierDrain.mockResolvedValue(undefined)
     classifierMocks.purgeOldSignals.mockResolvedValue(undefined)
+    topicDrainMocks.drainTopicQueue.mockResolvedValue(undefined)
   })
 
-  it('registers env-backed classifier fallback cron and separate UTC retention cron', () => {
+  it('registers env-backed classifier, UTC retention cron, and topic drain cron', () => {
     mockEnv.CLASSIFIER_CRON = '*/5 * * * *'
+    mockEnv.TOPIC_DRAIN_CRON = '*/10 * * * *'
 
     registerScheduler()
 
@@ -50,6 +64,7 @@ describe('scheduler', () => {
     expect(mockSchedule).toHaveBeenNthCalledWith(2, '0 3 * * *', expect.any(Function), {
       timezone: 'UTC',
     })
+    expect(mockSchedule).toHaveBeenNthCalledWith(3, '*/10 * * * *', expect.any(Function))
   })
 
   it('classifier cron triggers a background drain', async () => {
@@ -73,10 +88,34 @@ describe('scheduler', () => {
     expect(classifierMocks.triggerClassifierDrain).not.toHaveBeenCalled()
   })
 
-  it('startup drain triggers once with startup source', async () => {
+  it('topic drain cron triggers a background topic drain', async () => {
+    registerScheduler()
+
+    const topicCron = mockSchedule.mock.calls[2][1] as () => void
+    topicCron()
+    await Promise.resolve()
+
+    expect(topicDrainMocks.drainTopicQueue).toHaveBeenCalledWith('cron')
+  })
+
+  it('startup drain triggers both classifier and topic drains with startup source', async () => {
     triggerStartupDrain()
     await Promise.resolve()
 
     expect(classifierMocks.triggerClassifierDrain).toHaveBeenCalledWith('startup')
+    expect(topicDrainMocks.drainTopicQueue).toHaveBeenCalledWith('startup')
+  })
+
+  it('topic startup drain handles errors safely', async () => {
+    const err = new Error('Startup DB crash')
+    topicDrainMocks.drainTopicQueue.mockRejectedValueOnce(err)
+
+    triggerStartupDrain()
+    await new Promise((resolve) => setTimeout(resolve, 10))
+
+    expect(loggerMocks.error).toHaveBeenCalledWith(
+      expect.any(Object),
+      'Topic startup drain failed',
+    )
   })
 })

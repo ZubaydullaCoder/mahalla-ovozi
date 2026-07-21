@@ -21,12 +21,34 @@ export const TOPIC_DRAIN_LOCK_NAMESPACE = 420_000_000
 // The pool is a module-level singleton once initialized.
 let _pool: Pool | null = null
 function getPool(): Pool {
-  if (!_pool) _pool = new Pool({ connectionString: env.DATABASE_URL })
+  if (!_pool) {
+    _pool = new Pool({ connectionString: env.DATABASE_URL })
+    // F3: Register idle connection pool error handler to prevent Node crash
+    if (_pool && typeof _pool.on === 'function') {
+      _pool.on('error', (err) => {
+        logger.error(
+          { ...toSafeErrorMetadata(err) },
+          'Unexpected error on idle client in dedicated topic drain pg Pool',
+        )
+      })
+    }
+  }
   return _pool
 }
 
+/** F3: Clean pool shutdown path for test cleanup and graceful server exit */
+export async function closeTopicDrainPool(): Promise<void> {
+  if (_pool) {
+    if (typeof _pool.end === 'function') {
+      await _pool.end()
+    }
+    _pool = null
+  }
+}
+
 // ─── Trigger types ───────────────────────────────────────────────────────────
-export type TopicDrainTrigger = 'cron' | 'startup' | 'webhook'
+// F5: Expose manual trigger type
+export type TopicDrainTrigger = 'cron' | 'startup' | 'webhook' | 'manual'
 
 // ─── Safe error types ─────────────────────────────────────────────────────────
 
@@ -87,6 +109,10 @@ function buildSafeErrorRecord(err: unknown): string {
   return JSON.stringify(record)
 }
 
+// ─── Single-flight Coalescing State (F4) ─────────────────────────────────────
+let isDraining = false
+let pendingDrain = false
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Public entry point (AC4)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -96,10 +122,40 @@ function buildSafeErrorRecord(err: unknown): string {
  * Exported as the single shared entry point for all trigger sources.
  * Also exported for the Story 9.7 manual Ops trigger.
  *
+ * F1: Gated by env.TOPIC_DRAIN_ENABLED (except 'manual' trigger).
+ * F4: In-process single-flight coalescing prevents concurrent global drain scans.
  * AC11: Promise.allSettled results are inspected — mahalla failures are logged,
  *       not silently discarded.
  */
 export async function drainTopicQueue(trigger: TopicDrainTrigger): Promise<void> {
+  // F1: Gated safety boundary
+  if (!env.TOPIC_DRAIN_ENABLED && trigger !== 'manual') {
+    logger.info({ trigger }, 'Topic drain is disabled via TOPIC_DRAIN_ENABLED — skipping')
+    return
+  }
+
+  // F4: Single-flight coalescing
+  if (isDraining) {
+    logger.info({ trigger }, 'Topic drain already in progress — queueing next run')
+    pendingDrain = true
+    return
+  }
+
+  isDraining = true
+  try {
+    await runDrainTopicQueue(trigger)
+  } finally {
+    isDraining = false
+    if (pendingDrain) {
+      pendingDrain = false
+      logger.info('Running queued pending topic drain')
+      void drainTopicQueue('webhook')
+    }
+  }
+}
+
+/** Core drain runner logic */
+async function runDrainTopicQueue(trigger: TopicDrainTrigger): Promise<void> {
   logger.info({ trigger }, 'Topic drain started')
 
   const eligibleMahallas = await getEligibleMahallas()
@@ -123,7 +179,8 @@ export async function drainTopicQueue(trigger: TopicDrainTrigger): Promise<void>
     }
   }
 
-  logger.info({ trigger, mahallasProcessed: eligibleMahallas.length }, 'Topic drain finished')
+  // F8: Fixed metric log wording from mahallasProcessed to mahallasEligible
+  logger.info({ trigger, mahallasEligible: eligibleMahallas.length }, 'Topic drain finished')
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -158,6 +215,9 @@ export async function getEligibleMahallas(): Promise<number[]> {
  * AC7: Uses a dedicated pg.Client (not prisma.$queryRaw) to guarantee
  * same-session semantics for pg_try_advisory_lock / pg_advisory_unlock.
  *
+ * F3: Registers connection-specific error handlers and aborts per-mahalla
+ * loop if the DB connection is lost.
+ *
  * AC8: Processes oldest-first in a loop until: queue empty, retry-blocked,
  * or TOPIC_DRAIN_MAX_PER_MAHALLA cap reached.
  *
@@ -166,8 +226,18 @@ export async function getEligibleMahallas(): Promise<number[]> {
  */
 export async function processOneMahalla(mahallaId: number): Promise<void> {
   const client = await getPool().connect()
-  // Track unlock success so we can destroy the connection if unlock is uncertain.
-  // client.release(true) destroys instead of returning to pool.
+  let isConnectionLost = false
+  const clientErrorHandler = (err: Error) => {
+    isConnectionLost = true
+    logger.error(
+      { ...toSafeErrorMetadata(err), mahallaId },
+      'Database connection error on active topic drain client',
+    )
+  }
+  if (client && typeof client.on === 'function') {
+    client.on('error', clientErrorHandler)
+  }
+
   let unlockSucceeded = false
 
   try {
@@ -186,6 +256,10 @@ export async function processOneMahalla(mahallaId: number): Promise<void> {
       // Loop: process oldest-first until empty, blocked, or cap reached
       let processed = 0
       while (processed < env.TOPIC_DRAIN_MAX_PER_MAHALLA) {
+        if (isConnectionLost) {
+          logger.warn({ mahallaId }, 'Connection lost on advisory lock client — aborting loop')
+          break
+        }
         const msg = await getOldestEligibleMessage(mahallaId)
         if (!msg) break // empty, retry-blocked, or inline-recovered (all block this iteration)
 
@@ -211,19 +285,24 @@ export async function processOneMahalla(mahallaId: number): Promise<void> {
       // Checked unlock: pg_advisory_unlock returns boolean.
       // If unlock fails or throws, destroy the connection (uncertain state).
       try {
-        const unlockRes = await client.query<{ ok: boolean }>(
-          'SELECT pg_advisory_unlock($1::bigint) AS ok',
-          [lockKey],
-        )
-        unlockSucceeded = unlockRes.rows[0]?.ok === true
+        if (!isConnectionLost) {
+          const unlockRes = await client.query<{ ok: boolean }>(
+            'SELECT pg_advisory_unlock($1::bigint) AS ok',
+            [lockKey],
+          )
+          unlockSucceeded = unlockRes.rows[0]?.ok === true
+        }
       } catch {
         // unlock threw — unlockSucceeded remains false → connection will be destroyed
       }
     }
   } finally {
-    // Pass !unlockSucceeded: true = destroy the connection (uncertain unlock state).
+    if (client && typeof client.removeListener === 'function') {
+      client.removeListener('error', clientErrorHandler)
+    }
+    // Pass !unlockSucceeded or isConnectionLost: true = destroy the connection (uncertain unlock state).
     // Pass false = return it to the pool normally (unlock confirmed or no lock held).
-    client.release(!unlockSucceeded)
+    client.release(!unlockSucceeded || isConnectionLost)
   }
 }
 
@@ -273,6 +352,47 @@ export async function getOldestEligibleMessage(mahallaId: number): Promise<Captu
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Failure transition policy logic (F6 - DRY)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Deduplicated failure transition policy helper (F6).
+ * Increments attempt count, applies backoff, and updates state in DB.
+ */
+async function applyFailureTransition(
+  msgId: number,
+  currentAttemptCount: number,
+  lastErrorJson: string,
+): Promise<{ processingState: 'dead_letter' | 'retry'; attemptCount: number; nextRetryAt: Date | null }> {
+  const newAttemptCount = currentAttemptCount + 1
+  let processingState: 'dead_letter' | 'retry'
+  let nextRetryAt: Date | null = null
+  let deadLetteredAt: Date | null = null
+
+  if (newAttemptCount >= 3) {
+    processingState = 'dead_letter'
+    deadLetteredAt = new Date()
+  } else {
+    processingState = 'retry'
+    const backoffMs = Math.pow(2, newAttemptCount) * 30_000
+    nextRetryAt = new Date(Date.now() + backoffMs)
+  }
+
+  await prisma.capturedMessage.update({
+    where: { id: msgId },
+    data: {
+      processing_state: processingState,
+      attempt_count:    newAttemptCount,
+      last_error:       lastErrorJson,
+      ...(nextRetryAt ? { next_retry_at: nextRetryAt } : {}),
+      ...(deadLetteredAt ? { dead_lettered_at: deadLetteredAt } : {}),
+    },
+  })
+
+  return { processingState, attemptCount: newAttemptCount, nextRetryAt }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Inline abandoned-processing recovery (AC5, AC6)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -285,39 +405,15 @@ export async function getOldestEligibleMessage(mahallaId: number): Promise<Captu
  * If recovered to dead_letter → not automatically reprocessed.
  */
 export async function inlineRecoverProcessing(msg: CapturedMessage): Promise<void> {
-  const newAttemptCount = msg.attempt_count + 1
+  const lastErrorJson = JSON.stringify({
+    errorCategory: 'abandoned_processing',
+    message: 'Inline recovery under advisory lock',
+  })
+  const { attemptCount } = await applyFailureTransition(msg.id, msg.attempt_count, lastErrorJson)
   logger.warn(
-    { capturedMessageId: msg.id, mahallaId: msg.mahalla_id, newAttemptCount },
+    { capturedMessageId: msg.id, mahallaId: msg.mahalla_id, newAttemptCount: attemptCount },
     'Inline recovery: abandoned processing record confirmed by advisory lock',
   )
-  if (newAttemptCount >= 3) {
-    await prisma.capturedMessage.update({
-      where: { id: msg.id },
-      data: {
-        processing_state: 'dead_letter',
-        dead_lettered_at: new Date(),
-        attempt_count:    newAttemptCount,
-        last_error: JSON.stringify({
-          errorCategory: 'abandoned_processing',
-          message: 'Inline recovery under advisory lock',
-        }),
-      },
-    })
-  } else {
-    const backoffMs = Math.pow(2, newAttemptCount) * 30_000
-    await prisma.capturedMessage.update({
-      where: { id: msg.id },
-      data: {
-        processing_state: 'retry',
-        attempt_count:    newAttemptCount,
-        next_retry_at:    new Date(Date.now() + backoffMs),
-        last_error: JSON.stringify({
-          errorCategory: 'abandoned_processing',
-          message: 'Inline recovery under advisory lock',
-        }),
-      },
-    })
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -409,38 +505,21 @@ async function triageStub(_msg: CapturedMessage): Promise<void> {
  * last_error uses the allowlist schema — never raw Error/stack/user content (AC10, AC12).
  */
 export async function handleDrainError(msg: CapturedMessage, err: unknown): Promise<void> {
-  const newAttemptCount = msg.attempt_count + 1
   const safeLastError = buildSafeErrorRecord(err)
-
   try {
-    if (newAttemptCount >= 3) {
-      await prisma.capturedMessage.update({
-        where: { id: msg.id },
-        data: {
-          processing_state: 'dead_letter',
-          dead_lettered_at: new Date(),
-          attempt_count:    newAttemptCount,
-          last_error:       safeLastError,
-        },
-      })
+    const { processingState, attemptCount, nextRetryAt } = await applyFailureTransition(
+      msg.id,
+      msg.attempt_count,
+      safeLastError,
+    )
+    if (processingState === 'dead_letter') {
       logger.warn(
-        { ...toSafeErrorMetadata(err), capturedMessageId: msg.id, mahallaId: msg.mahalla_id, newAttemptCount },
+        { ...toSafeErrorMetadata(err), capturedMessageId: msg.id, mahallaId: msg.mahalla_id, newAttemptCount: attemptCount },
         'Captured message dead-lettered after max attempts',
       )
     } else {
-      const backoffMs = Math.pow(2, newAttemptCount) * 30_000
-      const nextRetryAt = new Date(Date.now() + backoffMs)
-      await prisma.capturedMessage.update({
-        where: { id: msg.id },
-        data: {
-          processing_state: 'retry',
-          attempt_count:    newAttemptCount,
-          next_retry_at:    nextRetryAt,
-          last_error:       safeLastError,
-        },
-      })
       logger.warn(
-        { ...toSafeErrorMetadata(err), capturedMessageId: msg.id, mahallaId: msg.mahalla_id, newAttemptCount, nextRetryAt },
+        { ...toSafeErrorMetadata(err), capturedMessageId: msg.id, mahallaId: msg.mahalla_id, newAttemptCount: attemptCount, nextRetryAt },
         'Captured message scheduled for retry',
       )
     }

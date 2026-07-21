@@ -2,7 +2,7 @@ import cron from 'node-cron'
 import { env } from '../shared/env.js'
 import { logger } from '../shared/logger.js'
 import { purgeOldSignals, triggerClassifierDrain } from '../classifier/index.js'
-import { drainTopicQueue, toSafeErrorMetadata } from '../topics/intake/drain.js'
+import { drainTopicQueue, toSafeErrorMetadata, TopicDrainTrigger } from '../topics/intake/drain.js'
 
 // Re-export for Story 9.7 manual Ops trigger — wiring the Ops route is out of scope here.
 // This story's DoD requires only that the export exists with the correct signature.
@@ -54,6 +54,6 @@ export function triggerStartupDrain(): void {
  * future Story 9.7 Ops manual trigger to share the same drain function.
  * AC4: All three trigger sources call drainTopicQueue directly.
  */
-export function triggerTopicDrain(trigger: 'cron' | 'startup' | 'webhook'): Promise<void> {
+export function triggerTopicDrain(trigger: TopicDrainTrigger): Promise<void> {
   return drainTopicQueue(trigger)
 }
