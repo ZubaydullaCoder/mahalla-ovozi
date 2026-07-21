@@ -49,7 +49,7 @@ So that follow-up meaning is not lost and provider failures cannot silently reor
    - Then the queue-selection query considers `queued`, `retry`, **and `processing`** rows ordered by `telegram_timestamp ASC, id ASC` — `processing` rows are chronological blockers and must never be skipped over
    - And `queued` and due-`retry` (`next_retry_at <= now()`) messages are selected for processing
    - And a future-`retry` message (`next_retry_at > now()`) blocks the entire mahalla — the drain skips without jumping to a newer message
-   - And a `processing` row encountered while holding the advisory lock is **guaranteed abandoned** (the advisory lock proves no live worker currently owns this mahalla); the drain recovers it inline — promotes to `retry` or `dead_letter` using the same invariant as AC10 — then blocks that iteration so the recovered message is picked up on the next drain cycle
+   - And a `processing` row encountered while holding the advisory lock is **guaranteed abandoned** (the advisory lock proves no live worker currently owns this mahalla); the drain recovers it inline — promotes to `retry` or `dead_letter` using the same invariant as AC10 — then blocks that iteration. If recovered to `retry`, it remains the chronological blocker and is processed only by the first subsequent drain invocation at or after `next_retry_at`; if recovered to `dead_letter`, it is not automatically reprocessed
    - And all three trigger sources (startup, cron, webhook) use the **exact same inline lock-safe recovery path** — there is no separate startup sweep; there are no timeout-based heuristics
    - And failure in one mahalla does not affect processing of any other mahalla
 
@@ -59,7 +59,7 @@ So that follow-up meaning is not lost and provider failures cannot silently reor
    - Then `getEligibleMahallas()` discovers that mahalla because it has a `processing` record
    - And `processOneMahalla()` acquires the per-mahalla advisory lock, proving no live worker currently owns it
    - And `getOldestEligibleMessage()` finds the `processing` record and calls `inlineRecoverProcessing()` under lock ownership — promoting it to `retry` or `dead_letter` without any timeout heuristic
-   - And the recovered message is picked up and processed on the next drain cycle
+   - And if recovered to `retry`, the message remains the chronological blocker and is processed only by the first subsequent drain invocation at or after `next_retry_at`; if recovered to `dead_letter`, it is not automatically reprocessed
    - And this path is identical for all three trigger sources; there is **no separate `recoverAbandonedProcessing()` function, no `TOPIC_DRAIN_PROCESSING_TIMEOUT_MS` env var, and no unlocked batch mutation of processing records**
    - **Design rationale:** A session-level advisory lock is held until explicitly released or the database session ends — not tied to wall-clock time. A timeout-based sweep cannot distinguish a live slow worker from an abandoned one without the lock. The lock-based inline path is both safer and simpler.
 
@@ -91,29 +91,29 @@ So that follow-up meaning is not lost and provider failures cannot silently reor
    - **Stub lifecycle note:** `complete` + `null` `final_disposition` is intentionally invalid under the Story 9.2 invariant (complete implies non-null disposition). These stub `complete` records are **pre-activation throw-away records**. Story 9.4 will not requeue them — it will replace the stub with real triage logic before any activation. The stub state should be documented in code comments so it is not mistaken for valid production state.
 
 10. **Retry and dead-letter promotion — exact invariant**
-    - Given a drain attempt throws a transient error
-    - Then `attempt_count` is incremented first; the resulting new count determines the next state:
-      - Resulting `attempt_count < 3` → state `retry`, `next_retry_at = now + (2^attempt_count * 30_000 ms)`, `last_error` recorded
-      - Resulting `attempt_count >= 3` → state `dead_letter`, `dead_lettered_at` set, `last_error` recorded
-    - And `last_error` uses an **allowlist approach**: records only `{ errorCode, errorCategory, message: sanitizedMessage.slice(0, 500) }` — never a serialized Error object, stack trace, or any string that could contain resident text
-    - And dead-lettered messages remain visible in future Ops diagnostics (Story 9.7) and are NOT reprocessed automatically
+     - Given a drain attempt throws a transient error
+     - Then `attempt_count` is incremented first; the resulting new count determines the next state:
+       - Resulting `attempt_count < 3` → state `retry`, `next_retry_at = now + (2^attempt_count * 30_000 ms)`, `last_error` recorded
+       - Resulting `attempt_count >= 3` → state `dead_letter`, `dead_lettered_at` set, `last_error` recorded
+     - And `last_error` uses an **allowlist approach**: records only `{ errorCode, errorCategory, message: sanitizedMessage.slice(0, 500) }` — never a serialized Error object, stack trace, or any string that could contain resident text
+     - And dead-lettered messages remain visible in future Ops diagnostics (Story 9.7) and are NOT reprocessed automatically
 
 11. **`Promise.allSettled` results inspected — mahalla failures logged**
-    - Given the drain runs `Promise.allSettled` over all eligible mahallas
-    - When any per-mahalla promise rejects (error escaped the inner handler)
-    - Then the rejection is inspected after `allSettled` resolves and logged as a content-free error with `mahallaId` — it is not silently discarded
+     - Given the drain runs `Promise.allSettled` over all eligible mahallas
+     - When any per-mahalla promise rejects (error escaped the inner handler)
+     - Then the rejection is inspected after `allSettled` resolves and logged as a content-free error with `mahallaId` — it is not silently discarded
 
 12. **Content-free operational state — no `pending` disposition, no raw error serialization**
-    - Given any pipeline event, log entry, or `last_error` field is written for captured-message processing
-    - Then it contains no raw resident text, no prompt, and no provider response
-    - And `processing_state` values are only: `queued`, `processing`, `retry`, `dead_letter`, `complete`
-    - And no AI-selected `pending` disposition is introduced at any point
-    - And every `logger.error` call at a topic-drain boundary uses `toSafeErrorMetadata(err)` — never a raw `{ err }` object — because serialized errors may contain stack traces with SQL, file paths, or partial user content (e.g. from Prisma query errors)
+     - Given any pipeline event, log entry, or `last_error` field is written for captured-message processing
+     - Then it contains no raw resident text, no prompt, and no provider response
+     - And `processing_state` values are only: `queued`, `processing`, `retry`, `dead_letter`, `complete`
+     - And no AI-selected `pending` disposition is introduced at any point
+     - And every `logger.error` call at a topic-drain boundary uses `toSafeErrorMetadata(err)` — never a raw `{ err }` object — because serialized errors may contain stack traces with SQL, file paths, or partial user content (e.g. from Prisma query errors)
 
 13. **All focused tests pass**
-    - Unit tests (mocked Prisma): filter behavior, field mapping, idempotency, retry/dead-letter logic, mahalla isolation, content-free assertions
-    - Real-DB integration tests (guarded disposable database, reusing Story 9.2 infrastructure): concurrent advisory lock exclusion, oldest-first ordering under concurrency, lock release after success and exception, restart/abandoned-processing recovery, retry blocking of later messages, identical-timestamp id tie-breaking
-    - `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm test:schema` all pass
+     - Unit tests (mocked Prisma): filter behavior, field mapping, idempotency, retry/dead-letter logic, mahalla isolation, content-free assertions
+     - Real-DB integration tests (guarded disposable database, reusing Story 9.2 infrastructure): concurrent advisory lock exclusion, oldest-first ordering under concurrency, lock release after success and exception, restart/abandoned-processing recovery, retry blocking of later messages, identical-timestamp id tie-breaking
+     - `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm test:schema` all pass
 
 ---
 
@@ -352,7 +352,8 @@ async function getOldestEligibleMessage(mahallaId: number): Promise<CapturedMess
   }
 
   // Processing row: caller holds the lock → this record is abandoned; recover inline.
-  // Block this iteration — the recovered record is picked up on the next drain cycle.
+  // Block this iteration. If recovery produces retry, it remains blocked until next_retry_at;
+  // if recovery produces dead_letter, it is not automatically reprocessed.
   if (oldest.processing_state === 'processing') {
     await inlineRecoverProcessing(oldest)
     return null
@@ -528,7 +529,7 @@ Reuse the guarded disposable-database infrastructure from Story 9.2 (`scripts/ru
 20. Oldest-first under concurrency — with messages at T1 and T2, concurrent drain invocations always pick T1 first
 21. Identical-timestamp tie-breaking — messages with the same `telegram_timestamp` are ordered by `id ASC`
 22. Retry blocking — a `retry` message with `next_retry_at` in the future blocks all later messages in its mahalla
-23. Inline `processing` recovery (under lock) — when `getOldestEligibleMessage` finds a `processing` row while `processOneMahalla` holds the advisory lock, it calls `inlineRecoverProcessing` and returns `null`; the recovered record is processed on the next drain cycle
+23. Inline `processing` recovery (under lock) — when `getOldestEligibleMessage` finds a `processing` row while `processOneMahalla` holds the advisory lock, it calls `inlineRecoverProcessing` and returns `null`; if recovered to `retry`, the record is processed only by the first subsequent drain invocation at or after `next_retry_at`; if recovered to `dead_letter`, it is not automatically reprocessed
 24. Processing-only-mahalla discovery — a mahalla whose only message is in `processing` state is discovered by `getEligibleMahallas()`, the per-mahalla lock is acquired, and the message is recovered inline to `retry` (or `dead_letter` if attempts >= 3). The invocation then skips that mahalla (since the message is now a future-retry blocker). The message is only processed when the retry becomes due on a subsequent invocation.
 
 ### Previous Story Learnings (from Story 9.2)
