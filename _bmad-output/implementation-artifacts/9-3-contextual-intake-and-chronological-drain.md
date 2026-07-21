@@ -33,32 +33,34 @@ So that follow-up meaning is not lost and provider failures cannot silently reor
    - **Note:** The `textSnippet` field in legacy `pipelineEvent` detail objects contains resident text, which conflicts with the governing content-free NFR. Story 9.3 resolves this by removing `textSnippet` from `baseDetail` in `pipeline.ts`. All other existing pipeline event fields (event type, IDs, filter mode, keyword match metadata) are preserved. This is a governing NFR fix, not a functional behavior change.
    - **Transitional boundary:** This dual-write is a pre-activation-only development mechanism. It does NOT authorize deploying this transitional state to production. Production activation occurs in Story 9.10.
 
-4. **All five drain trigger sources use the same idempotent drain function**
+4. **Three active drain trigger sources share one idempotent drain function; shared entry point exported for Story 9.7 manual trigger**
    - Given a captured message is persisted
    - When any trigger fires
    - Then **webhook trigger**: fires-and-forgets `triggerTopicDrain('webhook')` after persist, gated by `env.TOPIC_DRAIN_ENABLED`
    - And **cron trigger**: `web/scheduler.ts` `registerScheduler()` registers a node-cron job using `env.TOPIC_DRAIN_CRON` expression (default `'* * * * *'`), calling `triggerTopicDrain('cron')`
    - And **startup trigger**: `web/scheduler.ts` `triggerStartupDrain()` is extended to also call `triggerTopicDrain('startup')` alongside the existing classifier startup drain
-   - And **manual trigger**: the shared `drainTopicQueue()` function is exported so a protected Ops endpoint can call it as a manual trigger (wiring the Ops route is out of scope for this story, but the function must be exported with the correct signature)
-   - And **retry wake-up**: is not a separate trigger type — due-retry messages are discovered by the normal cron/startup/webhook drain using the `next_retry_at <= now()` condition; no separate timer is needed
+   - And **due-retry wake-up**: is not a separate trigger type — due-retry messages are discovered by the normal cron/startup/webhook drain using the `next_retry_at <= now()` condition; no separate timer is needed
+   - And **manual trigger (Story 9.7 scope)**: `drainTopicQueue()` is exported so the protected Ops endpoint introduced in Story 9.7 can call it; wiring the Ops route is explicitly **out of scope** for this story. This story's Definition of Done requires only that the export exists with the correct signature — not that an Ops route invokes it.
    - And calling drain when there is nothing to process is a no-op
 
 5. **Chronological oldest-first per-mahalla ordering with failure isolation**
-   - Given multiple `queued` or `processing` captured messages exist for a mahalla
-   - When the drain runs
-   - Then it considers `queued`, eligible `retry` (where `next_retry_at <= now()`), and abandoned `processing` messages (older than the staleness threshold — see AC6) when selecting the oldest eligible message for each mahalla
-   - And it selects the message with the **oldest** `telegram_timestamp` (then smallest `id` as tiebreaker)
-   - And an earlier failed message (state `retry` with `next_retry_at > now()`) blocks later same-mahalla messages — the drain skips the entire mahalla rather than jumping to a newer message
-   - And an abandoned `processing` message (staleness threshold exceeded) also blocks later messages in its mahalla until it is recovered by the startup sweep (see AC6)
+   - Given captured messages exist for a mahalla in any active state
+   - When the drain runs and holds the per-mahalla advisory lock for that mahalla
+   - Then the queue-selection query considers `queued`, `retry`, **and `processing`** rows ordered by `telegram_timestamp ASC, id ASC` — `processing` rows are chronological blockers and must never be skipped over
+   - And `queued` and due-`retry` (`next_retry_at <= now()`) messages are selected for processing
+   - And a future-`retry` message (`next_retry_at > now()`) blocks the entire mahalla — the drain skips without jumping to a newer message
+   - And a `processing` row encountered while holding the advisory lock is **guaranteed abandoned** (the advisory lock proves no live worker currently owns this mahalla); the drain recovers it inline — promotes to `retry` or `dead_letter` using the same invariant as AC10 — then blocks that iteration so the recovered message is picked up on the next drain cycle
+   - And the startup sweep (AC6) provides belt-and-suspenders coverage for the multi-instance startup race; the primary runtime recovery path is inline under the advisory lock as described above
    - And failure in one mahalla does not affect processing of any other mahalla
 
-6. **Crash/restart recovery — abandoned `processing` records**
+6. **Crash/restart recovery — belt-and-suspenders startup sweep**
    - Given a message was transitioned to `processing` state and the server crashed before it could complete
    - Then on server startup, a recovery sweep runs **before** the startup drain
    - And the sweep finds all `CapturedMessage` rows with `processing_state = 'processing'` and `updated_at < now() - TOPIC_DRAIN_PROCESSING_TIMEOUT` (default 5 minutes)
    - And each such record is transitioned back to `retry` state, with `attempt_count` incremented and `next_retry_at` set using the exponential backoff formula
    - And if `attempt_count` after increment is `>= 3`, the record transitions directly to `dead_letter` instead
    - And the recovery sweep emits a content-free warning log per recovered record (no resident text)
+   - **Startup sweep safety note:** The startup sweep does NOT acquire per-mahalla advisory locks — it uses the staleness timeout (`TOPIC_DRAIN_PROCESSING_TIMEOUT`) as its safety gate (records updated within the timeout window are left untouched, assumed live). This sweep covers the multi-instance simultaneous-startup race condition. Runtime abandonment during normal operation is handled by inline recovery under the advisory lock (see AC5).
    - And a focused test verifies that a record stuck in `processing` beyond the timeout is recovered correctly on the next startup sweep
 
 7. **Per-mahalla ownership via session-scoped advisory lock on a dedicated connection**
@@ -199,8 +201,9 @@ export async function persistCapturedMessage(
 The ONLY changes to this file are:
 
 1. **Remove `textSnippet: rawText.slice(0, 160)` from `baseDetail`** — this is a governing content-free NFR fix. All other `baseDetail` fields remain.
-2. **Add `persistCapturedMessage(update, mahalla)` call** between mahalla lookup and the keyword gate (unconditional — no keyword check).
-3. **Add `void triggerTopicDrain('webhook').catch(...)` fire-and-forget** after persist, guarded by `env.TOPIC_DRAIN_ENABLED`.
+2. **Remove `text: rawText.slice(0, 50)` from the F3 discard `logger.info` call** — this field leaks resident text into operational logs, violating AC12. Replace the call's field object with `{ updateId, chatId: update.message!.chat.id.toString(), filter: 'F3' }`. The log message string (`'Pre-filter discard: trivial content'`) is preserved; only the raw-text field is removed.
+3. **Add `persistCapturedMessage(update, mahalla)` call** between mahalla lookup and the keyword gate (unconditional — no keyword check).
+4. **Add `void triggerTopicDrain('webhook').catch(...)` fire-and-forget** after persist, guarded by `env.TOPIC_DRAIN_ENABLED`.
 
 Everything else — keyword gate, `upsertRawMessage`, `createPipelineEvent`, `triggerClassifierDrain` — is **untouched**.
 
@@ -220,13 +223,19 @@ const TOPIC_DRAIN_LOCK_NAMESPACE = 420_000_000
 
 export async function processOneMahalla(mahallaId: number): Promise<void> {
   const client = await pool.connect()
+  // Track whether pg_advisory_unlock confirmed success so we can destroy the connection
+  // if unlock ownership is uncertain. client.release(true) destroys instead of pooling.
+  let unlockSucceeded = false
   try {
     const lockKey = TOPIC_DRAIN_LOCK_NAMESPACE + mahallaId
     const res = await client.query<{ ok: boolean }>(
       'SELECT pg_try_advisory_lock($1::bigint) AS ok',
       [lockKey],
     )
-    if (!res.rows[0]?.ok) return // another worker owns this mahalla — skip
+    if (!res.rows[0]?.ok) {
+      unlockSucceeded = true // no lock was acquired — safe to return connection normally
+      return
+    }
 
     try {
       // Loop: process oldest-first until empty, blocked, or cap reached
@@ -247,10 +256,20 @@ export async function processOneMahalla(mahallaId: number): Promise<void> {
         processed++
       }
     } finally {
-      await client.query('SELECT pg_advisory_unlock($1::bigint)', [lockKey])
+      // Checked unlock: pg_advisory_unlock returns boolean — false means lock was not ours.
+      // If unlock fails or throws, connection state is uncertain; destroy rather than repool.
+      try {
+        const unlockRes = await client.query<{ ok: boolean }>(
+          'SELECT pg_advisory_unlock($1::bigint) AS ok',
+          [lockKey],
+        )
+        unlockSucceeded = unlockRes.rows[0]?.ok === true
+      } catch { /* unlock threw — unlockSucceeded remains false → connection will be destroyed */ }
     }
   } finally {
-    client.release()
+    // Pass !unlockSucceeded: true = destroy the connection (uncertain unlock state).
+    // Pass false = return it to the pool normally (unlock confirmed or no lock held).
+    client.release(!unlockSucceeded)
   }
 }
 ```
@@ -310,27 +329,69 @@ export async function recoverAbandonedProcessing(): Promise<void> {
 
 `recoverAbandonedProcessing()` must be called from `triggerStartupDrain()` in `web/scheduler.ts` **before** `drainTopicQueue()`.
 
-### `getOldestEligibleMessage` — Full Blocking Rule
+### `getOldestEligibleMessage` — Full Blocking Rule (includes `processing` rows)
 
 ```ts
 async function getOldestEligibleMessage(mahallaId: number): Promise<CapturedMessage | null> {
-  // Find the globally oldest queued, retry, or processing (for logging) message
-  // Only queued and retry are processable; processing beyond timeout is handled by recovery sweep
+  // Include processing rows so they act as chronological blockers — never skip them.
+  // Caller (processOneMahalla) holds the advisory lock, so any processing row found
+  // here is guaranteed abandoned (no live worker can hold the same lock concurrently).
   const oldest = await prisma.capturedMessage.findFirst({
     where: {
       mahalla_id:       mahallaId,
-      processing_state: { in: ['queued', 'retry'] },
+      processing_state: { in: ['queued', 'retry', 'processing'] },
     },
     orderBy: [{ telegram_timestamp: 'asc' }, { id: 'asc' }],
   })
   if (!oldest) return null
-  // Blocking rule: if oldest is retry but not yet due, skip entire mahalla
+
+  // Future-retry: block the entire mahalla
   if (oldest.processing_state === 'retry' &&
       oldest.next_retry_at &&
       oldest.next_retry_at > new Date()) {
     return null
   }
+
+  // Processing row: caller holds the lock → this record is abandoned; recover inline.
+  // Block this iteration — the recovered record is picked up on the next drain cycle.
+  if (oldest.processing_state === 'processing') {
+    await inlineRecoverProcessing(oldest)
+    return null
+  }
+
   return oldest
+}
+
+// Inline recovery — same retry/dead-letter invariant as AC10, called under advisory lock
+// ownership (no timeout check needed — the lock itself proves abandonment).
+async function inlineRecoverProcessing(msg: CapturedMessage): Promise<void> {
+  const newAttemptCount = msg.attempt_count + 1
+  logger.warn(
+    { capturedMessageId: msg.id, mahallaId: msg.mahalla_id, newAttemptCount },
+    'Inline recovery: abandoned processing record confirmed by advisory lock',
+  )
+  if (newAttemptCount >= 3) {
+    await prisma.capturedMessage.update({
+      where: { id: msg.id },
+      data: {
+        processing_state: 'dead_letter',
+        dead_lettered_at: new Date(),
+        attempt_count:    newAttemptCount,
+        last_error:       JSON.stringify({ errorCategory: 'abandoned_processing', message: 'Inline recovery under advisory lock' }),
+      },
+    })
+  } else {
+    const backoffMs = Math.pow(2, newAttemptCount) * 30_000
+    await prisma.capturedMessage.update({
+      where: { id: msg.id },
+      data: {
+        processing_state: 'retry',
+        attempt_count:    newAttemptCount,
+        next_retry_at:    new Date(Date.now() + backoffMs),
+        last_error:       JSON.stringify({ errorCategory: 'abandoned_processing', message: 'Inline recovery under advisory lock' }),
+      },
+    })
+  }
 }
 ```
 
@@ -419,9 +480,14 @@ Document all four in `.env.example` alongside `CLASSIFIER_CRON`.
 const results = await Promise.allSettled(
   eligibleMahallas.map((id) => processOneMahalla(id))
 )
-for (const result of results) {
+// Preserve mahallaId in the rejection log by zipping results with the input array by index.
+for (let i = 0; i < results.length; i++) {
+  const result = results[i]!
   if (result.status === 'rejected') {
-    logger.error({ err: result.reason }, 'Unexpected error in per-mahalla drain — escaped inner handler')
+    logger.error(
+      { err: result.reason, mahallaId: eligibleMahallas[i] },
+      'Unexpected error in per-mahalla drain — escaped inner handler',
+    )
   }
 }
 ```
@@ -462,7 +528,8 @@ Reuse the guarded disposable-database infrastructure from Story 9.2 (`scripts/ru
 20. Oldest-first under concurrency — with messages at T1 and T2, concurrent drain invocations always pick T1 first
 21. Identical-timestamp tie-breaking — messages with the same `telegram_timestamp` are ordered by `id ASC`
 22. Retry blocking — a `retry` message with `next_retry_at` in the future blocks all later messages in its mahalla
-23. Abandoned `processing` recovery — a `processing` record older than the timeout is recovered to `retry` by `recoverAbandonedProcessing()`
+23. Abandoned `processing` recovery (startup sweep) — a `processing` record older than the timeout is recovered to `retry` by `recoverAbandonedProcessing()` (timeout is the safety gate since no advisory lock is held)
+24. Inline `processing` recovery (under lock) — when `getOldestEligibleMessage` finds a `processing` row while `processOneMahalla` holds the advisory lock, it calls `inlineRecoverProcessing` and returns `null`; the recovered record is processed on the next drain cycle
 
 ### Previous Story Learnings (from Story 9.2)
 
@@ -500,8 +567,9 @@ Reuse the guarded disposable-database infrastructure from Story 9.2 (`scripts/ru
   - [ ] Implement `TOPIC_DRAIN_LOCK_NAMESPACE = 420_000_000` constant
   - [ ] Implement dedicated-`pg.Client` advisory lock pattern (`processOneMahalla`)
   - [ ] Implement drain loop: oldest-first, break on empty/blocked/cap
-  - [ ] Implement `getOldestEligibleMessage(mahallaId)` with blocking rule
-  - [ ] Implement `getEligibleMahallas()` — mahalla IDs with `queued` or due-`retry` messages
+  - [ ] Implement `getOldestEligibleMessage(mahallaId)` — queries `queued | retry | processing`; handles future-retry block and inline recovery of abandoned `processing` rows under advisory lock
+  - [ ] Implement `inlineRecoverProcessing(msg)` — single-record recovery called by `getOldestEligibleMessage` under lock; same retry/dead-letter invariant as AC10; no timeout check (lock proves abandonment)
+  - [ ] Implement `getEligibleMahallas()` — mahalla IDs with `queued`, due-`retry`, or `processing` messages (all three states may need drain attention)
   - [ ] Implement `recoverAbandonedProcessing()` — startup recovery sweep using `TOPIC_DRAIN_PROCESSING_TIMEOUT_MS`
   - [ ] Implement retry/dead-letter error handler (exact invariant: `newCount >= 3 → dead_letter`)
   - [ ] Implement allowlist `last_error` sanitization (`SafeErrorRecord`)
@@ -509,8 +577,9 @@ Reuse the guarded disposable-database infrastructure from Story 9.2 (`scripts/ru
   - [ ] Inspect `Promise.allSettled` results and log any rejected per-mahalla promises
   - [ ] Write unit tests in `topics/intake/drain.test.ts` (9 cases — mocked Prisma)
 
-- [ ] **Task 3: Modify `bot/filters/pipeline.ts`** (AC: 1, 3)
+- [ ] **Task 3: Modify `bot/filters/pipeline.ts`** (AC: 1, 3, 12)
   - [ ] Remove `textSnippet: rawText.slice(0, 160)` from `baseDetail` (content-free NFR fix)
+  - [ ] Remove `text: rawText.slice(0, 50)` from the F3 discard `logger.info` call — replace with `{ updateId, chatId: update.message!.chat.id.toString(), filter: 'F3' }` (AC12: no raw resident text in any log entry for this processing)
   - [ ] After mahalla lookup, call `await persistCapturedMessage(update, mahalla)` unconditionally
   - [ ] Fire-and-forget `void triggerTopicDrain('webhook').catch(...)` after persist, gated by `env.TOPIC_DRAIN_ENABLED`
   - [ ] Preserve ALL other existing code unchanged
@@ -563,3 +632,4 @@ _To be filled by dev agent_
 
 - 2026-07-20: Story 9.3 created following Story 9.2 completion.
 - 2026-07-20: Story 9.3 patched to resolve all 6 blockers from adversarial review: crash/restart recovery sweep (AC6), session-scoped advisory lock on dedicated pg.Client (AC7), exact retry invariant with newCount >= 3 = dead_letter (AC10), all 5 trigger sources mapped with DRY scheduler extension (AC4), real-DB integration tests required (AC13), textSnippet privacy conflict resolved (AC3/Task 3). High-priority design findings also resolved: module boundary corrected (capturedMessage.ts in bot/), drain loop with cap (AC8), stub lifecycle documented (AC9), scheduler uses node-cron cronExpressionDefault pattern, dual-write transitional boundary made explicit, last_error allowlist defined. Minor findings resolved: F0 made explicit decision (AC1), lock key namespaced (TOPIC_DRAIN_LOCK_NAMESPACE=420_000_000), Promise.allSettled results inspected (AC11).
+- 2026-07-21: Story 9.3 targeted second-pass patch for 3 remaining blockers and 2 non-blocker corrections: (BLOCKER 1) `processing` rows now included in `getOldestEligibleMessage` query as true chronological blockers; `inlineRecoverProcessing()` added for runtime abandonment under advisory lock; AC5 and AC6 updated to distinguish inline recovery (primary runtime path, no timeout needed — lock proves abandonment) from startup sweep (belt-and-suspenders for multi-instance startup race, uses timeout as safety gate); integration test 24 added; (BLOCKER 2) F3 log `text: rawText.slice(0, 50)` removal added explicitly to pipeline.ts dev notes and Task 3 (AC12 now fully satisfied); (BLOCKER 3) AC4 title changed from "all five" to three active triggers + Story 9.7 exported entry point — DoD contradiction resolved; (non-blocker) `processOneMahalla` advisory unlock now uses checked `pg_advisory_unlock` with `client.release(!unlockSucceeded)` destroy semantics; (non-blocker) `Promise.allSettled` example fixed to preserve `mahallaId` in rejection log by index-zipping.
