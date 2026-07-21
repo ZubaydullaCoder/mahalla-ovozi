@@ -20,7 +20,7 @@ export const TOPIC_DRAIN_LOCK_NAMESPACE = 420_000_000
 // Created on first use — avoids module-load side effects in unit tests.
 // The pool is a module-level singleton once initialized.
 let _pool: Pool | null = null
-function getPool(): Pool {
+export function getPool(): Pool {
   if (!_pool) {
     _pool = new Pool({ connectionString: env.DATABASE_URL })
     // F3: Register idle connection pool error handler to prevent Node crash
@@ -111,7 +111,7 @@ function buildSafeErrorRecord(err: unknown): string {
 
 // ─── Single-flight Coalescing State (F4) ─────────────────────────────────────
 let isDraining = false
-let pendingDrain = false
+const pendingTriggers = new Set<TopicDrainTrigger>()
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public entry point (AC4)
@@ -128,16 +128,16 @@ let pendingDrain = false
  *       not silently discarded.
  */
 export async function drainTopicQueue(trigger: TopicDrainTrigger): Promise<void> {
-  // F1: Gated safety boundary
-  if (!env.TOPIC_DRAIN_ENABLED && trigger !== 'manual') {
-    logger.info({ trigger }, 'Topic drain is disabled via TOPIC_DRAIN_ENABLED — skipping')
+  // F4: Single-flight coalescing
+  if (isDraining) {
+    logger.info({ trigger }, 'Topic drain already in progress — queueing trigger for coalesced rerun')
+    pendingTriggers.add(trigger)
     return
   }
 
-  // F4: Single-flight coalescing
-  if (isDraining) {
-    logger.info({ trigger }, 'Topic drain already in progress — queueing next run')
-    pendingDrain = true
+  // F1: Gated safety boundary
+  if (!env.TOPIC_DRAIN_ENABLED && trigger !== 'manual') {
+    logger.info({ trigger }, 'Topic drain is disabled via TOPIC_DRAIN_ENABLED — skipping')
     return
   }
 
@@ -146,10 +146,20 @@ export async function drainTopicQueue(trigger: TopicDrainTrigger): Promise<void>
     await runDrainTopicQueue(trigger)
   } finally {
     isDraining = false
-    if (pendingDrain) {
-      pendingDrain = false
-      logger.info('Running queued pending topic drain')
-      void drainTopicQueue('webhook')
+    if (pendingTriggers.size > 0) {
+      const nextTriggers = Array.from(pendingTriggers)
+      pendingTriggers.clear()
+
+      // Determine next trigger: prioritize 'manual' if present, otherwise take first
+      const nextTrigger = nextTriggers.includes('manual') ? 'manual' : nextTriggers[0]!
+
+      logger.info({ nextTrigger, queuedTriggers: nextTriggers }, 'Running queued coalesced topic drain')
+      void drainTopicQueue(nextTrigger).catch((err: unknown) => {
+        logger.error(
+          { ...toSafeErrorMetadata(err) },
+          'Unhandled error in coalesced background topic drain rerun',
+        )
+      })
     }
   }
 }
@@ -263,10 +273,19 @@ export async function processOneMahalla(mahallaId: number): Promise<void> {
         const msg = await getOldestEligibleMessage(mahallaId)
         if (!msg) break // empty, retry-blocked, or inline-recovered (all block this iteration)
 
+        if (isConnectionLost) {
+          logger.warn({ mahallaId }, 'Connection lost on advisory lock client before marking processing — aborting loop')
+          break
+        }
+
         await markProcessing(msg.id)
         try {
           // Stub processing — no AI in Story 9.3. Story 9.4 replaces this.
           await triageStub(msg)
+
+          if (isConnectionLost) {
+            throw new Error('Connection lost on advisory lock client during processing')
+          }
 
           // Atomic terminal transition: markComplete + writeDrainEvent in a single
           // short Prisma $transaction. triageStub (future AI call in 9.4) stays OUTSIDE
@@ -276,6 +295,10 @@ export async function processOneMahalla(mahallaId: number): Promise<void> {
             writeDrainEventOperation(msg),   // PrismaPromise — does NOT execute yet
           ])
         } catch (err) {
+          if (isConnectionLost) {
+            logger.warn({ mahallaId }, 'Connection lost on advisory lock client — skipping retry/dead-letter database state updates')
+            break
+          }
           await handleDrainError(msg, err)
           break // stop this mahalla's loop on failure (chronological blocking rule)
         }

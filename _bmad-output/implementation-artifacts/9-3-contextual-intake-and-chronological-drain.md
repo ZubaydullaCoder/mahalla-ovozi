@@ -557,54 +557,54 @@ Reuse the guarded disposable-database infrastructure from Story 9.2 (`scripts/ru
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: Create `bot/capturedMessage.ts`** (AC: 1, 2)
-  - [ ] Implement `persistCapturedMessage(update, mahalla)` with upsert on `telegram_update_id`
-  - [ ] Map all required fields: source identity, sender snapshot, `sender_stable_id` as BigInt
-  - [ ] Enforce both-null or both-non-null for reply metadata pair before writing
-  - [ ] Truncate `sender_display_name` to 300 chars and `sender_username` to 100 chars
-  - [ ] Write unit tests in `bot/capturedMessage.test.ts` (6 cases — mocked Prisma)
+- [x] **Task 1: Create `bot/capturedMessage.ts`** (AC: 1, 2)
+  - [x] Implement `persistCapturedMessage(update, mahalla)` with upsert on `telegram_update_id`
+  - [x] Map all required fields: source identity, sender snapshot, `sender_stable_id` as BigInt
+  - [x] Enforce both-null or both-non-null for reply metadata pair before writing
+  - [x] Truncate `sender_display_name` to 300 chars and `sender_username` to 100 chars
+  - [x] Write unit tests in `bot/capturedMessage.test.ts` (6 cases — mocked Prisma)
 
-- [ ] **Task 2: Create `topics/intake/drain.ts`** (AC: 4–12)
-  - [ ] Implement `TOPIC_DRAIN_LOCK_NAMESPACE = 420_000_000` constant
-  - [ ] Implement `toSafeErrorMetadata(err)` helper — extracts only `errorCode` and `errorCategory`; never copies arbitrary `err.message`
-  - [ ] Implement dedicated-`pg.Client` advisory lock pattern (`processOneMahalla`)
-  - [ ] Implement drain loop: oldest-first, break on empty/blocked/cap
-  - [ ] Implement `getOldestEligibleMessage(mahallaId)` — queries `queued | retry | processing`; handles future-retry block and inline recovery of abandoned `processing` rows under advisory lock
-  - [ ] Implement `inlineRecoverProcessing(msg)` — single-record recovery under lock; same retry/dead-letter invariant as AC10; no timeout check
-  - [ ] Implement atomic terminal transition: `markCompleteOperation(id)` and `writeDrainEventOperation(msg)` return `PrismaPromise`s combined in a short `prisma.$transaction([])`
-  - [ ] Implement `getEligibleMahallas()` — mahalla IDs with `queued`, due-`retry`, or `processing` messages
-  - [ ] Implement retry/dead-letter error handler (exact invariant: `newCount >= 3 → dead_letter`)
-  - [ ] Implement allowlist `last_error` sanitization (`SafeErrorRecord`)
-  - [ ] Export `drainTopicQueue(trigger)` as the single shared entry point
-  - [ ] Inspect `Promise.allSettled` results using `toSafeErrorMetadata` — never pass raw rejection reason to logger
-  - [ ] Write unit tests in `topics/intake/drain.test.ts` (updated cases — see Testing Strategy)
+- [x] **Task 2: Create `topics/intake/drain.ts`** (AC: 4–12)
+  - [x] Implement `TOPIC_DRAIN_LOCK_NAMESPACE = 420_000_000` constant
+  - [x] Implement `toSafeErrorMetadata(err)` helper — extracts only `errorCode` and `errorCategory`; never copies arbitrary `err.message`
+  - [x] Implement dedicated-`pg.Client` advisory lock pattern (`processOneMahalla`)
+  - [x] Implement drain loop: oldest-first, break on empty/blocked/cap
+  - [x] Implement `getOldestEligibleMessage(mahallaId)` — queries `queued | retry | processing`; handles future-retry block and inline recovery of abandoned `processing` rows under advisory lock
+  - [x] Implement `inlineRecoverProcessing(msg)` — single-record recovery under lock; same retry/dead-letter invariant as AC10; no timeout check
+  - [x] Implement atomic terminal transition: `markCompleteOperation(id)` and `writeDrainEventOperation(msg)` return `PrismaPromise`s combined in a short `prisma.$transaction([])`
+  - [x] Implement `getEligibleMahallas()` — mahalla IDs with `queued`, due-`retry`, or `processing` messages
+  - [x] Implement retry/dead-letter error handler (exact invariant: `newCount >= 3 → dead_letter`)
+  - [x] Implement allowlist `last_error` sanitization (`SafeErrorRecord`)
+  - [x] Export `drainTopicQueue(trigger)` as the single shared entry point
+  - [x] Inspect `Promise.allSettled` results using `toSafeErrorMetadata` — never pass raw rejection reason to logger
+  - [x] Write unit tests in `topics/intake/drain.test.ts` (updated cases — see Testing Strategy)
 
-- [ ] **Task 3: Modify `bot/filters/pipeline.ts`** (AC: 1, 3, 12)
-  - [ ] Remove `textSnippet: rawText.slice(0, 160)` from `baseDetail` (content-free NFR fix)
-  - [ ] Remove `text: rawText.slice(0, 50)` from the F3 discard `logger.info` call — replace with `{ updateId, chatId: update.message!.chat.id.toString(), filter: 'F3' }` (AC12: no raw resident text in any log entry for this processing)
-  - [ ] After mahalla lookup, call `await persistCapturedMessage(update, mahalla)` unconditionally
-  - [ ] Fire-and-forget `void triggerTopicDrain('webhook').catch(...)` after persist, gated by `env.TOPIC_DRAIN_ENABLED`; import `toSafeErrorMetadata` and use it inside the catch block to log failures safely
-  - [ ] Preserve ALL other existing code unchanged
+- [x] **Task 3: Modify `bot/filters/pipeline.ts`** (AC: 1, 3, 12)
+  - [x] Remove `textSnippet: rawText.slice(0, 160)` from `baseDetail` (content-free NFR fix)
+  - [x] Remove `text: rawText.slice(0, 50)` from the F3 discard `logger.info` call — replace with `{ updateId, chatId: update.message!.chat.id.toString(), filter: 'F3' }` (AC12: no raw resident text in any log entry for this processing)
+  - [x] After mahalla lookup, call `await persistCapturedMessage(update, mahalla)` unconditionally
+  - [x] Fire-and-forget `void triggerTopicDrain('webhook').catch(...)` after persist, gated by `env.TOPIC_DRAIN_ENABLED`; import `toSafeErrorMetadata` and use it inside the catch block to log failures safely
+  - [x] Preserve ALL other existing code unchanged
 
-- [ ] **Task 4: Extend `web/scheduler.ts`** (AC: 4, 6)
-  - [ ] Add topic drain cron job using `env.TOPIC_DRAIN_CRON` inside `registerScheduler()`; use `toSafeErrorMetadata` in the error handler — never `{ err }`
-  - [ ] Extend `triggerStartupDrain()` to call `triggerTopicDrain('startup')` directly (no `recoverAbandonedProcessing()` — inline recovery handles it); use `toSafeErrorMetadata` in the catch handler
-  - [ ] Export `triggerTopicDrain()` for future Ops manual trigger use
+- [x] **Task 4: Extend `web/scheduler.ts`** (AC: 4, 6)
+  - [x] Add topic drain cron job using `env.TOPIC_DRAIN_CRON` inside `registerScheduler()`; use `toSafeErrorMetadata` in the error handler — never `{ err }`
+  - [x] Extend `triggerStartupDrain()` to call `triggerTopicDrain('startup')` directly (no `recoverAbandonedProcessing()` — inline recovery handles it); use `toSafeErrorMetadata` in the catch handler
+  - [x] Export `triggerTopicDrain()` for future Ops manual trigger use
 
-- [ ] **Task 5: Add env vars** (AC: 4, 8)
-  - [ ] Add `TOPIC_DRAIN_ENABLED`, `TOPIC_DRAIN_CRON`, `TOPIC_DRAIN_MAX_PER_MAHALLA` to `env.ts` (3 vars — **no** `TOPIC_DRAIN_PROCESSING_TIMEOUT_MS`)
-  - [ ] Document all three in `.env.example` alongside `CLASSIFIER_CRON`
+- [x] **Task 5: Add env vars** (AC: 4, 8)
+  - [x] Add `TOPIC_DRAIN_ENABLED`, `TOPIC_DRAIN_CRON`, `TOPIC_DRAIN_MAX_PER_MAHALLA` to `env.ts` (3 vars — **no** `TOPIC_DRAIN_PROCESSING_TIMEOUT_MS`)
+  - [x] Document all three in `.env.example` alongside `CLASSIFIER_CRON`
 
-- [ ] **Task 6: Write real-DB integration tests** (AC: 13)
-  - [ ] Create `apps/server/src/topics/intake/drain.integration.test.ts` — 9 cases (tests 16–24)
-  - [ ] Add the file to the `vitest.schema.config.ts` include pattern
-  - [ ] Ensure tests use the guarded `TEST_DATABASE_URL` via the existing `scripts/run-schema-integration-tests.ts` wrapper
+- [x] **Task 6: Write real-DB integration tests** (AC: 13)
+  - [x] Create `apps/server/src/topics/intake/drain.integration.test.ts` — 9 cases (tests 16–24)
+  - [x] Add the file to the `vitest.schema.config.ts` include pattern
+  - [x] Ensure tests use the guarded `TEST_DATABASE_URL` via the existing `scripts/run-schema-integration-tests.ts` wrapper
 
-- [ ] **Task 7: Run all verification checks** (AC: 13)
-  - [ ] `pnpm lint`
-  - [ ] `pnpm typecheck`
-  - [ ] `pnpm test`
-  - [ ] `pnpm test:schema`
+- [x] **Task 7: Run all verification checks** (AC: 13)
+  - [x] `pnpm lint`
+  - [x] `pnpm typecheck`
+  - [x] `pnpm test`
+  - [x] `pnpm test:schema`
 
 ---
 

@@ -139,6 +139,7 @@ import {
   getOldestEligibleMessage,
   getEligibleMahallas,
   inlineRecoverProcessing,
+  getPool,
 } from './drain.js'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -155,26 +156,33 @@ describe('advisory lock exclusion', () => {
       resolveBarrier = resolve
     })
 
+    // Create a promise to signal when the first call has reached the barrier
+    let resolveBarrierReached!: () => void
+    const barrierReachedPromise = new Promise<void>((resolve) => {
+      resolveBarrierReached = resolve
+    })
+
     const originalFindFirst = globalPrisma.capturedMessage.findFirst
     let findCount = 0
 
-    // Spy on findFirst to block only the first call
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.spyOn(globalPrisma.capturedMessage, 'findFirst').mockImplementation((async (args: any) => {
+    const mockFindFirstImpl: any = async (args: any) => {
       findCount++
       const result = await originalFindFirst.call(globalPrisma.capturedMessage, args)
       if (findCount === 1) {
+        resolveBarrierReached()
         // Hold the first call at the barrier
         await barrierPromise
       }
       return result
-    }) as any)
+    }
+    vi.spyOn(globalPrisma.capturedMessage, 'findFirst').mockImplementation(mockFindFirstImpl)
 
     // Start first call (will block at barrier while holding advisory lock)
     const firstCallPromise = processOneMahalla(mahallaAId)
 
-    // Wait a brief moment to ensure first call has connected, acquired the lock, and reached findFirst
-    await new Promise((resolve) => setTimeout(resolve, 50))
+    // Wait deterministically until the first call has reached the barrier
+    await barrierReachedPromise
 
     // Start second call concurrently. It must fail to acquire the lock and exit immediately.
     await processOneMahalla(mahallaAId)
@@ -233,13 +241,14 @@ describe('advisory lock exclusion', () => {
     const originalFindFirst = globalPrisma.capturedMessage.findFirst
     let hasThrown = false
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.spyOn(globalPrisma.capturedMessage, 'findFirst').mockImplementation((async (args: any) => {
+    const mockFindFirstImpl: any = async (args: any) => {
       if (!hasThrown) {
         hasThrown = true
         throw new Error('Forced Database Exception')
       }
       return originalFindFirst.call(globalPrisma.capturedMessage, args)
-    }) as any)
+    }
+    vi.spyOn(globalPrisma.capturedMessage, 'findFirst').mockImplementation(mockFindFirstImpl)
 
     // Run first call. It will acquire the lock, call findFirst, throw, and release the lock in finally.
     await expect(processOneMahalla(mahallaAId)).rejects.toThrow('Forced Database Exception')
@@ -275,26 +284,34 @@ describe('chronological ordering', () => {
       resolveBarrier = resolve
     })
 
+    // Create a promise to signal when the first call has reached the barrier
+    let resolveBarrierReached!: () => void
+    const barrierReachedPromise = new Promise<void>((resolve) => {
+      resolveBarrierReached = resolve
+    })
+
     const originalFindFirst = globalPrisma.capturedMessage.findFirst
     let findCount = 0
     let pickedMessageId: number | null = null
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.spyOn(globalPrisma.capturedMessage, 'findFirst').mockImplementation((async (args: any) => {
+    const mockFindFirstImpl: any = async (args: any) => {
       findCount++
       const result = await originalFindFirst.call(globalPrisma.capturedMessage, args)
       if (findCount === 1) {
         if (result) pickedMessageId = result.id
+        resolveBarrierReached()
         await barrierPromise
       }
       return result
-    }) as any)
+    }
+    vi.spyOn(globalPrisma.capturedMessage, 'findFirst').mockImplementation(mockFindFirstImpl)
 
     // Start first call
     const firstCallPromise = processOneMahalla(mahallaAId)
 
-    // Wait a brief moment to ensure first call has connected, acquired lock, and picked T1
-    await new Promise((resolve) => setTimeout(resolve, 50))
+    // Wait deterministically until the first call has reached the barrier
+    await barrierReachedPromise
 
     // Start second call concurrently. It must skip immediately (lock exclusion) and not pick T2.
     await processOneMahalla(mahallaAId)
@@ -443,5 +460,53 @@ describe('eligible mahalla discovery', () => {
     // Calling processOneMahalla again NOW should find it blocked (future retry).
     const oldest = await getOldestEligibleMessage(mahallaAId)
     expect(oldest).toBeNull() // future-retry → blocked
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 25: Connection-loss safety loop abort
+// ─────────────────────────────────────────────────────────────────────────────
+describe('connection loss safety checks', () => {
+  it('test 25: connection loss aborts loop and prevents commit to database (F3)', async () => {
+    // Create one queued message
+    const msg = await createMsg(mahallaAId, { update_id_offset: 700 })
+
+    // Spy on Pool.connect to capture the checked out client
+    const pool = getPool()
+    const originalConnect = pool.connect
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let activeClient: any = null
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mockConnectImpl: any = async function(this: any) {
+      activeClient = await (originalConnect as any).call(this)
+      return activeClient
+    }
+    vi.spyOn(pool, 'connect').mockImplementation(mockConnectImpl)
+
+    // Spy on findFirst. When getOldestEligibleMessage calls findFirst, we trigger the error on client
+    const originalFindFirst = globalPrisma.capturedMessage.findFirst
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mockFindFirstImpl: any = async (args: any) => {
+      const result = await originalFindFirst.call(globalPrisma.capturedMessage, args)
+      if (activeClient && typeof activeClient.emit === 'function') {
+        // Force the connection error event to simulate loss of ownership
+        (activeClient as any).emit('error', new Error('Simulated PG connection loss'))
+      }
+      return result
+    }
+    vi.spyOn(globalPrisma.capturedMessage, 'findFirst').mockImplementation(mockFindFirstImpl)
+
+    // Run the processor. It should connect, retrieve the message, discover isConnectionLost = true,
+    // and abort before markProcessing or transaction.
+    await processOneMahalla(mahallaAId)
+
+    // Clean up mocks
+    vi.restoreAllMocks()
+
+    // Assert: the message in the DB remains 'queued' (never committed to complete or retry/dead-letter)
+    const dbMsg = await prisma.capturedMessage.findUnique({ where: { id: msg.id } })
+    expect(dbMsg!.processing_state).toBe('queued')
+    expect(dbMsg!.attempt_count).toBe(0)
   })
 })
